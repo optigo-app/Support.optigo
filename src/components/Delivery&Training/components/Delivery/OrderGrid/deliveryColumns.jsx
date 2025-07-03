@@ -10,7 +10,7 @@ import PaymentAction from "./PaymentAction";
 import { FormatDateIST, isUpcoming } from "../../../utils/helpers";
 import DateTooltip from './DateTooltip';
 
-export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowDetails, showNotification, isClient, HandleEditMode,setShowDeleteModal ,SetOpenCompass) => {
+export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowDetails, showNotification, isClient, HandleEditMode, setShowDeleteModal, SetOpenCompass) => {
   return [
     {
       field: "index",
@@ -36,9 +36,9 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
       width: 150,
       renderHeader: () => <strong>Order No</strong>,
       renderCell: (params) => {
-        const isShowing = isUpcoming(params?.row?.Status, params?.row?.Date);
+        const isShowing = !isClient && isUpcoming(params?.row?.Status, params?.row?.Date);
         return (
-          <Box sx={{ position: "relative", display: "flex", alignItems: "center", flexDirection: "column" }}>
+          <Box sx={{ position: "relative", display: "flex", alignItems: "start", flexDirection: "column", maxWidth: '100px', minWidth: '100px' }}>
             {isShowing && (
               <Chip
                 label="Upcoming"
@@ -94,15 +94,15 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
     // Date
     {
       field: "Date",
-      headerName: "Date",
-      width: 165,
-      renderHeader: () => <strong>Date</strong>,
-      renderCell: (params) => <DateTooltip isClient={isClient} params={params}  />,
+      headerName: " Creation Date",
+      width: 120,
+      renderHeader: () => <strong> Creation Date</strong>,
+      renderCell: (params) => <DateTooltip isClient={isClient} params={params} />,
     },
     // Ticket Number
-   
+
     // Client Code
-   
+
     // {
     //   field: "TicketDate",
     //   headerName: "Ticket Date",
@@ -134,23 +134,24 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
       width: 200,
       renderHeader: () => <strong>Description</strong>,
       renderCell: (params) => <>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-      <span
-        style={{
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          maxWidth: '150px',
-        }}
-        title={params?.value}
-      >
-        {params?.value?.split(' ').slice(0, 5).join(' ') + (params?.value?.split(' ').length > 6 ? '...' : '')}
-      </span>
-      <DescriptionButton isClient={isClient} onEdit={HandleFormSave} params={params} />
-    </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          <span
+            style={{
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '150px',
+              minWidth: '100px'
+            }}
+            title={params?.value}
+          >
+            {params?.value?.split(' ').slice(0, 5).join(' ') + (params?.value?.split(' ').length > 6 ? '...' : '')}
+          </span>
+          <DescriptionButton isClient={isClient} onEdit={HandleFormSave} params={params} />
+        </div>
       </>,
     },
-    
+
     {
       field: "CommunicationWith",
       headerName: "Communication With",
@@ -169,12 +170,13 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
       headerName: "On Demand",
       width: 150,
       renderHeader: () => <strong>On Demand</strong>,
+      renderCell: (params) => <Typography textAlign={"center"} textTransform={'capitalize'} variant="body2">{params?.value}</Typography>,
     },
     {
       field: "NoPrints",
       headerName: "No of Prints",
       width: 110,
-      renderHeader: () => <strong>No of Prints</strong>,
+      renderHeader: () => <strong>{isClient ? "No of Topics" : "No of Prints"}</strong>,
     },
     {
       field: "Assignments",
@@ -192,7 +194,7 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
       renderCell: (params) => <SentMailActionButton SetOpenCompass={SetOpenCompass} showNotification={showNotification} params={params} />,
     },
 
-    
+
     // {
     //   field: "copyDescription",
     //   headerName: "Copy Description",
@@ -200,17 +202,17 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
     //   renderHeader: () => <strong>Copy Description</strong>,
     //   renderCell: (params) => <DescriptionButton isClient={isClient} onEdit={HandleFormSave} params={params} />,
     // },
-    
+
     // {
     //   field: "CodeUploadTime",
     //   headerName: "CodeUploadTime",
     //   width: 150,
     //   renderHeader: () => <strong>Code Upload Time</strong>,
     // },
-   
-   
-   
-   
+
+
+
+
     {
       field: "PaymentMethod",
       headerName: "Payment Method",
@@ -230,7 +232,7 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
       headerName: "Approval",
       width: 130,
       renderHeader: () => <strong>Approval</strong>,
-      renderCell: (params) => <ApprovalStatusChip rowData={params || ""} onSelect={HandleFormSave} status={params.value?.trim()} />,
+      renderCell: (params) => <ApprovalStatusChip isClient={isClient} rowData={params || ""} onSelect={HandleFormSave} status={params.value?.trim()} />,
     },
     {
       field: "Status",
@@ -306,7 +308,7 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
     //     renderHeader: () => <strong>Schedule Training</strong>,
     //     renderCell: (params) => <TrainingActionButton isClient={isClient} onSchedule={HandleFormSave} params={params} />,
     // },
- 
+
     {
       field: "actions",
       headerName: "Actions",

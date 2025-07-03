@@ -1,6 +1,6 @@
 class TrainingAPI {
-    static BASE_URL = 'http://newnextjs.web/api/report';
-    // static BASE_URL = process.env.NODE_ENV === "production" ? "https://livenx.optigoapps.com/api/report" : "http://newnextjs.web/api/report";
+    // static BASE_URL = 'http://newnextjs.web/api/report';
+    static BASE_URL = process.env.NODE_ENV === "production" ? "https://livenx.optigoapps.com/api/report" : "http://newnextjs.web/api/report";
 
     static VERSION_NO = null;
     static SV = null;

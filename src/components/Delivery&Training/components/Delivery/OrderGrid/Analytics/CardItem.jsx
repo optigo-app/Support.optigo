@@ -36,7 +36,7 @@ const CardItem = ({ card }) => {
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <Typography variant="caption" color="text.secondary">
-                            {card.subtitle}
+                            {card.secondarySubtitle}
                         </Typography>
                         {card.showProgress && (
                             <Box sx={{ position: "relative", display: "inline-flex" }}>

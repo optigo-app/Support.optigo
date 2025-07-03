@@ -1,17 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { Box, Typography, Button, Grid, Paper, TextField, InputAdornment, Select, MenuItem, IconButton, Stack } from "@mui/material";
+import { useEffect, useState } from "react";
+import {
+  Box, Typography, Button, Grid, Paper, TextField, InputAdornment, Select, MenuItem, IconButton, Stack,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
 import { Add, FilterList } from "@mui/icons-material";
 import CustomDualDatePicker from "../../../shared/ui/CustomDatePicker";
 import { FilterMenu } from "../FilterMenu";
 import AutocompleteComponent from "../../../shared/ui/Autocomplete";
 import { CompanyMaster } from "../../../../constants/constants";
 import { isAnyFilterActive } from "../../../../utils/deliveryUtils";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import DeliveryTabs from "../DeliveryTabs";
 import AnalyticsDashboardCards from "./AnalyticsBoard";
 import { Search } from "lucide-react";
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOffRounded';
+import ClearIcon from '@mui/icons-material/ClearRounded';
 
-const Dashboard = ({ dashboardData, onformToggle, greeting, LoggedUser, filters = null, setFilters = () => {}, isAdmin }) => {
+
+const Dashboard = ({ role, dashboardData, onformToggle, greeting, LoggedUser, filters = null, setFilters = () => { }, isAdmin }) => {
   return (
     <>
       <Box
@@ -51,7 +57,7 @@ const Dashboard = ({ dashboardData, onformToggle, greeting, LoggedUser, filters 
             </Typography>
 
             <Typography variant="body2" color="text.secondary">
-              Track and manage all deliveries and training schedules.
+              Track and manage all deliveries and Orders .
             </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -59,7 +65,7 @@ const Dashboard = ({ dashboardData, onformToggle, greeting, LoggedUser, filters 
           </Box>
         </Box>
         <AnalyticsDashboardCards isClient={!isAdmin} dashboardData={dashboardData} />
-        <FilterOptions isAdmin={isAdmin} onformToggle={onformToggle} filters={filters} setFilters={setFilters} />
+        <FilterOptions role={role} isAdmin={isAdmin} onformToggle={onformToggle} filters={filters} setFilters={setFilters} />
       </Box>
     </>
   );
@@ -67,9 +73,27 @@ const Dashboard = ({ dashboardData, onformToggle, greeting, LoggedUser, filters 
 
 export default Dashboard;
 
-function FilterOptions({ onformToggle, filters, setFilters, isAdmin }) {
+function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
+  console.log("🚀 ~ FilterOptions ~ role:", role)
   const [open, setOpen] = useState(false);
   const IsHasFilters = isAnyFilterActive(filters);
+  const [tempSearch, setTempSearch] = useState(filters.search);
+
+  useEffect(() => {
+    setTempSearch(filters.search);
+  }, [filters.search]);
+
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (tempSearch !== filters.search) {
+        handleFilterChange("search", tempSearch);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(handler);
+  }, [tempSearch]);
+
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -80,6 +104,7 @@ function FilterOptions({ onformToggle, filters, setFilters, isAdmin }) {
   const handleDateChange = (updatedFilters) => {
     handleFilterChange("date", updatedFilters);
   };
+
   const clearFilters = () => {
     setFilters({
       search: "",
@@ -97,6 +122,7 @@ function FilterOptions({ onformToggle, filters, setFilters, isAdmin }) {
         endDate: "",
         status: "",
       },
+      deliveryStatus: "",
     });
   };
 
@@ -106,7 +132,7 @@ function FilterOptions({ onformToggle, filters, setFilters, isAdmin }) {
         {/* Left side - Search and Filter */}
         <Grid item xs={12} md={6}>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} width="100%">
-            {isAdmin && (
+            {role === "employee" && (
               <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 2 }}>
                 <Button
                   onClick={onformToggle}
@@ -131,14 +157,23 @@ function FilterOptions({ onformToggle, filters, setFilters, isAdmin }) {
               placeholder="Search tickets..."
               size="small"
               sx={{ width: "50%" }}
-              value={filters.search}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
+              // value={filters.search}
+              // onChange={(e) => handleFilterChange("search", e.target.value)}
+              value={tempSearch}
+              onChange={(e) => setTempSearch(e.target.value)}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Search fontSize="small" />
                   </InputAdornment>
                 ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={(e) => handleFilterChange("search", "")}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
               }}
             />
           </Stack>
@@ -149,24 +184,46 @@ function FilterOptions({ onformToggle, filters, setFilters, isAdmin }) {
           <Box display="flex" justifyContent="flex-end" gap={2}>
             {IsHasFilters && (
               <IconButton sx={{ bgcolor: "primary.main", color: "#fff", "&:hover": { bgcolor: "primary.main", color: "white" } }} color="primary" size="medium" onClick={clearFilters}>
-                <TuneRoundedIcon />
+                <FilterAltOffIcon />
               </IconButton>
             )}
             {isAdmin && <AutocompleteComponent isWantLabel={true} options={CompanyMaster} size="small" fullWidth={false} label={"Company Code"} sx={{ minWidth: 250 }} labelId="Company-label" value={filters.projectCode} onChange={(value) => handleFilterChange("projectCode", value)} />}
             <CustomDualDatePicker value={filters.date} onChange={handleDateChange} />
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Select displayEmpty size="small" value={filters.approval} onChange={(e) => handleFilterChange("approval", e.target.value)} sx={{ minWidth: 168 }}>
-                <MenuItem value="" disabled>
-                  Approval Status
-                </MenuItem>
-                <MenuItem value="Pending">Pending</MenuItem>
-                <MenuItem value="Approved">Approved</MenuItem>
-                <MenuItem value="Rejected">Rejected</MenuItem>
-              </Select>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <FormControl size="small" sx={{ minWidth: 172 }}>
+                <InputLabel id="approval-label">Approval Status</InputLabel>
+                <Select
+                  labelId="approval-label"
+                  id="approval-select"
+                  value={filters.approval}
+                  onChange={(e) => handleFilterChange("approval", e.target.value)}
+                  label="Approval Status"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="Approved">Approved</MenuItem>
+                  <MenuItem value="Rejected">Rejected</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 168 }}>
+                <InputLabel id="delivery-status-label">Delivery Status</InputLabel>
+                <Select
+                  labelId="delivery-status-label"
+                  id="delivery-status-select"
+                  value={filters.deliveryStatus}
+                  onChange={(e) => handleFilterChange("deliveryStatus", e.target.value)}
+                  label="Delivery Status"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="Running">Running</MenuItem>
+                  <MenuItem value="Delivered">Delivered</MenuItem>
+                </Select>
+              </FormControl>
             </Box>
-            <IconButton onClick={() => setOpen(true)}>
+            {isAdmin && <IconButton onClick={() => setOpen(true)}>
               <FilterList />
-            </IconButton>
+            </IconButton>}
           </Box>
         </Grid>
       </Grid>

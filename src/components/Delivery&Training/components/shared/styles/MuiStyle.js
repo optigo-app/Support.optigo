@@ -6,7 +6,7 @@ export const FormContainer = styled(Box)(({ theme }) => ({
     padding: theme.spacing(3),
     maxWidth: "100%",
     overflowY: "auto",
-    maxHeight: "calc(100vh - 200px)",
+    maxHeight: "calc(100vh - 250px)",
 }));
 
 export const FormSection = styled(Box)(({ theme }) => ({

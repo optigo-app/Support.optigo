@@ -2,31 +2,34 @@ import { useEffect, useState } from "react";
 import { useDelivery } from "../context/DeliveryProvider";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider";
+import { useSnackbar } from "./useSnackBar";
+import { useNotification } from "../../../hoc/withNotificationDT";
 
+export const initialState = {
+  date: new Date().toISOString().split('T')[0],
+  clientCode: "",
+  createdBy: "",
+  ticketNo: "",
+  ticketDate: "",
+  requestDate: "",
+  topic: "",
+  topicType: "",
+  description: "",
+  assignments: [], // untouched
+  serviceType: "", // untouched
+  paymentStatus: "Unpaid",
+  OrderNo: "", // untouched
+  onDemand: "yes",
+  approvedStatus: "Pending",
+  paymentMethod: "",
+  sentMail: false,
+  codeUploadTime: "1",
+  communicationWith: "",
+  confirmationDate: "",
+  NoPrints: "",
+};
 export const useOrderForm = () => {
-  const initialState = {
-    date: new Date().toISOString().split('T')[0],
-    clientCode: "CLT-2034",
-    createdBy: "Rajan",
-    ticketNo: "Tkt-0001",
-    ticketDate: "2025-06-12",
-    requestDate: "2025-06-11",
-    topic: "Rate Change",
-    topicType: "Tag",
-    description: "Client has requested a change in the service rate for the upcoming billing cycle due to volume increase.",
-    assignments: [], // untouched
-    serviceType: "", // untouched
-    paymentStatus: "Paid",
-    OrderNo: "", // untouched
-    onDemand: "yes",
-    approvedStatus: "Pending",
-    paymentMethod: "UPI",
-    sentMail: false,
-    codeUploadTime: "12",
-    communicationWith: "Rajan",
-    confirmationDate: "2025-06-19",
-    NoPrints: "12",
-  };
+
 
 
   const [formData, setFormData] = useState(initialState);
@@ -34,6 +37,7 @@ export const useOrderForm = () => {
   const { addData } = useDelivery();
   const navigate = useNavigate();
   const { user, LoggedUser } = useAuth()
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     if (LoggedUser) {
@@ -54,6 +58,11 @@ export const useOrderForm = () => {
 
   const addAssignment = (assignment) => {
     setFormData((prev) => {
+      const isDuplicate = prev.assignments.some(a => a.user === assignment.user);
+      if (isDuplicate) {
+        showNotification("User already exists in assignment.", "error")
+        return prev;
+      }
       const updatedAssignments = [...prev?.assignments, assignment];
       const updatedEstimates = updateEstimateFields(updatedAssignments);
       return {
@@ -66,6 +75,13 @@ export const useOrderForm = () => {
 
   const updateAssignment = (index, updatedAssignment) => {
     setFormData((prev) => {
+      const isDuplicate = prev.assignments.some(
+        (a, i) => i !== index && a.user === updatedAssignment.user
+      );
+      if (isDuplicate) {
+        showNotification("User already exists in assignment.", "error")
+        return prev;
+      }
       const updatedAssignments = [...prev.assignments];
       updatedAssignments[index] = updatedAssignment;
       const updatedEstimates = updateEstimateFields(updatedAssignments);
@@ -111,6 +127,8 @@ export const useOrderForm = () => {
       paymentStatus,
       createdBy,
       assignments,
+      communicationWith,
+      confirmationDate
     } = formData;
 
     if (!clientCode) newErrors.clientCode = "Client Code is required.";
@@ -124,7 +142,8 @@ export const useOrderForm = () => {
     if (!serviceType) newErrors.serviceType = "Service Type is required.";
     if (!paymentStatus) newErrors.paymentStatus = "Payment Status is required.";
     if (!createdBy) newErrors.createdBy = "Created By is required.";
-
+    if (!communicationWith) newErrors.communicationWith = "Communication With is required.";
+    if (!confirmationDate) newErrors.confirmationDate = "Confirmation Date is required.";
     if (!assignments || assignments.length === 0) {
       newErrors.assignments = "At least one assignment is required.";
     } else {
@@ -137,12 +156,12 @@ export const useOrderForm = () => {
     }
 
     setErrors(newErrors);
-    console.log("🚀 ~ validateForm ~ newErrors:", newErrors)
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
     if (validateForm()) {
+      console.log("🚀 ~ handleSave ~ formData:", formData)
       const success = await addData(formData);
       if (success) {
         resetForm();
@@ -167,6 +186,7 @@ export const useOrderForm = () => {
     removeAssignment,
     resetForm,
     handleSave,
-    setFormData
+    setFormData,
+    validateForm
   };
 };

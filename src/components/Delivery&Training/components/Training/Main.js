@@ -97,14 +97,14 @@ export const theme = createTheme({
 
 registerAuthServiceWorker();
 
-const TrainingDashboard = ({ isAdmin = false }) => {
+const TrainingDashboard = () => {
   return (
     <>
       <SnackbarProvider>
         <AuthProvider>
           <TrainingProvider>
             <ThemeProvider theme={theme}>
-              <Main IsAdminLog={isAdmin} />
+              <Main  />
             </ThemeProvider>
           </TrainingProvider>
         </AuthProvider>

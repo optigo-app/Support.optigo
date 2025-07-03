@@ -1,7 +1,7 @@
 import { Box, Typography, Card, CardContent, Stack } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarTodayOutlined";
 import { styled } from "@mui/material/styles";
-import { FormatDateIST } from "../../../utils/helpers";
+import { formatDateFun as formatDate } from "../../../utils/helpers";
 
 // Styled components
 const DateCardContainer = styled(Card)(({ theme }) => ({
@@ -29,14 +29,6 @@ const DateItem = styled(Box)(({ theme }) => ({
 }));
 
 export default function DateCard({ ticketData, isClient = false }) {
-  const formatDate = (dateString) => {
-    if (!dateString || isNaN(new Date(dateString).getTime())) return "N/A";
-
-    const date = new Date(dateString);
-    return FormatDateIST(date);
-  };
-
-
   const dateFields = [
     { label: "Ticket Date", value: ticketData?.TicketDate },
     { label: "Request Date", value: ticketData?.RequestDate },
@@ -54,6 +46,7 @@ export default function DateCard({ ticketData, isClient = false }) {
     visibleDateFields
       .map(({ label, value }) => ({ label, formatted: formatDate(value) }))
       .filter(({ formatted }) => formatted);
+      
   return (
     <DateCardContainer>
       <CardContent>

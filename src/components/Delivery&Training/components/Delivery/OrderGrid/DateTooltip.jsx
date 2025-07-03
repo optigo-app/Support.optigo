@@ -38,7 +38,7 @@ const DateTooltip = ({ params, isClient = false }) => {
       title={<DateCard ticketData={params?.row} isClient={isClient} />}
     >
       <Box className="assignments-cell" sx={{ position: "relative" }}>
-        <AssignmentChip label={FormatDateIST(params?.value)} color="default" size="small" />
+        <AssignmentChip label={FormatDateIST(params?.value,"dd-mm-yyyy")} color="default" size="small" />
       </Box>
     </Tooltip>
   );

@@ -98,7 +98,7 @@ export const theme = createTheme({
 
 registerAuthServiceWorker();
 
-const DeliveryDashboard = ({isAdmin = false ,isAdminOptigo = false}) => {
+const DeliveryDashboard = () => {
     
     return (
         <>
@@ -106,7 +106,7 @@ const DeliveryDashboard = ({isAdmin = false ,isAdminOptigo = false}) => {
                 <AuthProvider>
                     <DeliveryProvider>
                         <ThemeProvider theme={theme}>
-                                <Main isAdminLog={isAdmin}  isAdminOptigo={isAdminOptigo} />
+                                <Main  />
                         </ThemeProvider>
                     </DeliveryProvider>
                 </AuthProvider>

@@ -160,91 +160,187 @@ class DynamicAnalytics {
   }
 
   // 5. TEAM ANALYTICS
+  // analyzeTeam() {
+  //   const departmentStats = {};
+  //   const userStats = {};
+  //   const createdByStats = {};
+  //   const updatedByStats = {};
+
+  //   this.data.forEach(ticket => {
+  //     // Process assignments
+  //     if (ticket.Assignments) {
+  //       let assignments = [];
+  //       try {
+  //         assignments = typeof ticket.Assignments === 'string'
+  //           ? JSON.parse(ticket.Assignments)
+  //           : ticket.Assignments;
+  //       } catch (e) {
+  //         assignments = [];
+  //       }
+
+  //       assignments.forEach(assignment => {
+  //         const dept = assignment.Department;
+  //         const user = assignment.user;
+  //         const hours = assignment.EstimatedHours || 0;
+
+  //         // Department stats
+  //         if (!departmentStats[dept]) {
+  //           departmentStats[dept] = {
+  //             ticketCount: 0,
+  //             totalHours: 0,
+  //             users: new Set()
+  //           };
+  //         }
+  //         departmentStats[dept].ticketCount++;
+  //         departmentStats[dept].totalHours += hours;
+  //         departmentStats[dept].users.add(user);
+
+  //         // User stats
+  //         if (!userStats[user]) {
+  //           userStats[user] = {
+  //             ticketCount: 0,
+  //             totalHours: 0,
+  //             department: dept
+  //           };
+  //         }
+  //         userStats[user].ticketCount++;
+  //         userStats[user].totalHours += hours;
+  //       });
+  //     }
+
+  //     // Created by stats
+  //     if (ticket.CreatedBy) {
+  //       createdByStats[ticket.CreatedBy] = (createdByStats[ticket.CreatedBy] || 0) + 1;
+  //     }
+
+  //     // Updated by stats
+  //     if (ticket.LastUpdatedBy) {
+  //       updatedByStats[ticket.LastUpdatedBy] = (updatedByStats[ticket.LastUpdatedBy] || 0) + 1;
+  //     }
+  //   });
+
+  //   // Convert department stats
+  //   const departmentAnalytics = Object.entries(departmentStats).map(([dept, stats]) => ({
+  //     department: dept,
+  //     ticketCount: stats.ticketCount,
+  //     totalHours: stats.totalHours,
+  //     avgHoursPerTicket: stats.ticketCount > 0 ? (stats.totalHours / stats.ticketCount).toFixed(2) : 0,
+  //     userCount: stats.users.size,
+  //     users: Array.from(stats.users)
+  //   }));
+
+  //   // Convert user stats
+  //   const userAnalytics = Object.entries(userStats).map(([user, stats]) => ({
+  //     user: user,
+  //     ticketCount: stats.ticketCount,
+  //     totalHours: stats.totalHours,
+  //     avgHoursPerTicket: stats.ticketCount > 0 ? (stats.totalHours / stats.ticketCount).toFixed(2) : 0,
+  //     department: stats.department
+  //   })).sort((a, b) => b.ticketCount - a.ticketCount);
+
+  //   return {
+  //     departmentWorkload: departmentAnalytics,
+  //     topPerformers: userAnalytics.slice(0, 10),
+  //     createdByStats: this.convertToPercentage(createdByStats),
+  //     updatedByStats: this.convertToPercentage(updatedByStats)
+  //   };
+  // }
+
   analyzeTeam() {
     const departmentStats = {};
     const userStats = {};
     const createdByStats = {};
     const updatedByStats = {};
 
+    // Step 1: Process each ticket
     this.data.forEach(ticket => {
-      // Process assignments
-      if (ticket.Assignments) {
-        let assignments = [];
-        try {
-          assignments = typeof ticket.Assignments === 'string'
-            ? JSON.parse(ticket.Assignments)
-            : ticket.Assignments;
-        } catch (e) {
-          assignments = [];
+        if (ticket.Assignments) {
+            let assignments = [];
+            try {
+                assignments = typeof ticket.Assignments === 'string'
+                    ? JSON.parse(ticket.Assignments)
+                    : ticket.Assignments;
+            } catch (e) {
+                assignments = [];
+            }
+
+            assignments.forEach(assignment => {
+                const dept = assignment.Department;
+                const user = assignment.user;
+                const hours = assignment.EstimatedHours || 0;
+
+                // Department stats
+                if (!departmentStats[dept]) {
+                    departmentStats[dept] = {
+                        ticketCount: 0,
+                        totalHours: 0,
+                        users: new Set(),
+                        deliveredTickets: 0, // New field to track delivered tickets
+                        paidTickets: 0      // New field to track paid tickets
+                    };
+                }
+                departmentStats[dept].ticketCount++;
+                departmentStats[dept].totalHours += hours;
+                departmentStats[dept].users.add(user);
+
+                // Check delivery and payment status
+                if (ticket.Status === 'Delivered') {
+                    departmentStats[dept].deliveredTickets++;
+                }
+                if (ticket.PaymentStatus === 'Paid') {
+                    departmentStats[dept].paidTickets++;
+                }
+            });
         }
 
-        assignments.forEach(assignment => {
-          const dept = assignment.Department;
-          const user = assignment.user;
-          const hours = assignment.EstimatedHours || 0;
+        // Created by stats
+        if (ticket.CreatedBy) {
+            createdByStats[ticket.CreatedBy] = (createdByStats[ticket.CreatedBy] || 0) + 1;
+        }
 
-          // Department stats
-          if (!departmentStats[dept]) {
-            departmentStats[dept] = {
-              ticketCount: 0,
-              totalHours: 0,
-              users: new Set()
-            };
-          }
-          departmentStats[dept].ticketCount++;
-          departmentStats[dept].totalHours += hours;
-          departmentStats[dept].users.add(user);
-
-          // User stats
-          if (!userStats[user]) {
-            userStats[user] = {
-              ticketCount: 0,
-              totalHours: 0,
-              department: dept
-            };
-          }
-          userStats[user].ticketCount++;
-          userStats[user].totalHours += hours;
-        });
-      }
-
-      // Created by stats
-      if (ticket.CreatedBy) {
-        createdByStats[ticket.CreatedBy] = (createdByStats[ticket.CreatedBy] || 0) + 1;
-      }
-
-      // Updated by stats
-      if (ticket.LastUpdatedBy) {
-        updatedByStats[ticket.LastUpdatedBy] = (updatedByStats[ticket.LastUpdatedBy] || 0) + 1;
-      }
+        // Updated by stats
+        if (ticket.LastUpdatedBy) {
+            updatedByStats[ticket.LastUpdatedBy] = (updatedByStats[ticket.LastUpdatedBy] || 0) + 1;
+        }
     });
 
-    // Convert department stats
-    const departmentAnalytics = Object.entries(departmentStats).map(([dept, stats]) => ({
-      department: dept,
-      ticketCount: stats.ticketCount,
-      totalHours: stats.totalHours,
-      avgHoursPerTicket: stats.ticketCount > 0 ? (stats.totalHours / stats.ticketCount).toFixed(2) : 0,
-      userCount: stats.users.size,
-      users: Array.from(stats.users)
+    // Step 2: Filter departments based on delivery and payment status
+    const filteredDepartmentStats = {};
+    Object.entries(departmentStats).forEach(([dept, stats]) => {
+        // Check if all tickets for this department are delivered and paid
+        if (stats.ticketCount > 0 && stats.deliveredTickets === stats.ticketCount && stats.paidTickets === stats.ticketCount) {
+            // Exclude this department
+            return;
+        }
+        filteredDepartmentStats[dept] = stats;
+    });
+
+    // Step 3: Convert department stats
+    const departmentAnalytics = Object.entries(filteredDepartmentStats).map(([dept, stats]) => ({
+        department: dept,
+        ticketCount: stats.ticketCount,
+        totalHours: stats.totalHours,
+        avgHoursPerTicket: stats.ticketCount > 0 ? (stats.totalHours / stats.ticketCount).toFixed(2) : 0,
+        userCount: stats.users.size,
+        users: Array.from(stats.users)
     }));
 
-    // Convert user stats
+    // Step 4: Convert user stats
     const userAnalytics = Object.entries(userStats).map(([user, stats]) => ({
-      user: user,
-      ticketCount: stats.ticketCount,
-      totalHours: stats.totalHours,
-      avgHoursPerTicket: stats.ticketCount > 0 ? (stats.totalHours / stats.ticketCount).toFixed(2) : 0,
-      department: stats.department
+        user: user,
+        ticketCount: stats.ticketCount,
+        totalHours: stats.totalHours,
+        avgHoursPerTicket: stats.ticketCount > 0 ? (stats.totalHours / stats.ticketCount).toFixed(2) : 0,
+        department: stats.department
     })).sort((a, b) => b.ticketCount - a.ticketCount);
 
     return {
-      departmentWorkload: departmentAnalytics,
-      topPerformers: userAnalytics.slice(0, 10),
-      createdByStats: this.convertToPercentage(createdByStats),
-      updatedByStats: this.convertToPercentage(updatedByStats)
+        departmentWorkload: departmentAnalytics,
+        topPerformers: userAnalytics.slice(0, 10),
+        createdByStats: this.convertToPercentage(createdByStats),
+        updatedByStats: this.convertToPercentage(updatedByStats)
     };
-  }
+}
 
   // 6. CLIENT ANALYTICS
   analyzeClients() {

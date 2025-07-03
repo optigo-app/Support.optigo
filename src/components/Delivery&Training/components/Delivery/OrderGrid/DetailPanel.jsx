@@ -1,35 +1,12 @@
 import React from "react";
-import {
-  Typography,
-  Box,
-  Chip,
-  Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-  Drawer,
-  IconButton,
-  Paper,
-} from "@mui/material";
+import { Typography, Box, Chip, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, Drawer, IconButton, Paper } from "@mui/material";
 import { X } from "lucide-react";
-import {
-  formatDate,
-  getApprovalStatus,
-  getPaymentStatus,
-  calculateTotalHours,
-  parseEstimate,
-  FormatDateIST,
-} from "../../../utils/helpers";
+import { formatDate, getApprovalStatus, getPaymentStatus, calculateTotalHours, parseEstimate, formatDateFun } from "../../../utils/helpers";
 import PaymentMethodModal from "./PaymentModal";
 import { useAuth } from "../../../context/AuthProvider";
 
-const DetailPanel = ({ open, setOpen }) => {
+const DetailPanel = ({ open, setOpen ,isClient }) => {
   const [openModal, setOpenModal] = React.useState(false);
-  const { isClient } = useAuth();
 
   const toggleDrawer = (newOpen) => () => {
     setOpen(newOpen);
@@ -51,19 +28,25 @@ const DetailPanel = ({ open, setOpen }) => {
         },
       }}
     >
-      <TicketDetailsContent ticketData={open} closeDrawer={toggleDrawer(null)}
-        onToggle={() => setOpenModal(true)}
-        IsClient={isClient}
-      />
+      <TicketDetailsContent isClient={isClient} ticketData={open} closeDrawer={toggleDrawer(null)} onToggle={() => setOpenModal(true)} IsClient={isClient} />
       <PaymentMethodModal onClose={() => setOpenModal(false)} open={openModal} ticketData={open} />
     </Drawer>
   );
 };
 
 // === Main Content Component ===
-const TicketDetailsContent = ({ closeDrawer, ticketData, onToggle = () => { }, IsClient }) => {
+const TicketDetailsContent = ({ closeDrawer, ticketData, onToggle = () => { }, IsClient = false }) => {
   const approvalStatus = getApprovalStatus(ticketData?.ApprovedStatus ?? false);
+  console.log("🚀 ~ TicketDetailsContent ~ ticketData:", ticketData)
   const paymentStatus = getPaymentStatus(ticketData?.PaymentStatus ?? "");
+
+  const dateFields = {
+    ticketDate: formatDateFun(ticketData?.TicketDate),
+    requestDate: formatDateFun(ticketData?.RequestDate),
+    confirmationDate: formatDateFun(ticketData?.ConfirmationDate),
+    lastUpdated: formatDateFun(ticketData?.UpdatedAt),
+    createdAt: formatDateFun(ticketData?.Date),
+  };
 
   return (
     <>
@@ -94,13 +77,13 @@ const TicketDetailsContent = ({ closeDrawer, ticketData, onToggle = () => { }, I
 
       {/* Scrollable Content */}
       <Box sx={{ height: "calc(100% - 64px)", overflowY: "auto", overflowX: "hidden" }}>
-        <HeaderBanner ticketData={ticketData} approvalStatus={approvalStatus} paymentStatus={paymentStatus} />
+        <HeaderBanner dateFields={dateFields} ticketData={ticketData} approvalStatus={approvalStatus} paymentStatus={paymentStatus} />
         <DescriptionSection ticketData={ticketData} />
-        {!IsClient && <CompletionProgress ticketData={ticketData} />}
-        {!IsClient && <TimeEstimateSection ticketData={ticketData} />}
-        {!IsClient && <AssignmentTable ticketData={ticketData} />}
+        {IsClient && <CompletionProgress ticketData={ticketData} />}
+        {IsClient && <TimeEstimateSection ticketData={ticketData} />}
+        {IsClient && <AssignmentTable ticketData={ticketData} />}
         {/* <TrainingSection ticketData={ticketData} /> */}
-        {!IsClient && <PaymentInfo ticketData={ticketData} onToggle={onToggle} />}
+        {IsClient && <PaymentInfo ticketData={ticketData} onToggle={onToggle} />}
       </Box>
     </>
   );
@@ -110,7 +93,7 @@ export default DetailPanel;
 
 // === Section Components ===
 
-const HeaderBanner = ({ ticketData, approvalStatus, paymentStatus }) => (
+const HeaderBanner = ({ dateFields, ticketData, approvalStatus, paymentStatus }) => (
   <Box
     sx={{
       color: "black",
@@ -128,27 +111,35 @@ const HeaderBanner = ({ ticketData, approvalStatus, paymentStatus }) => (
         </Typography>
       </div>
       <Box display="flex" gap={1} flexWrap="wrap">
-        <Chip label={approvalStatus?.label} size="small" sx={{
-          backgroundColor: approvalStatus.bgColor,
-          color: approvalStatus.textColor,
-        }} />
-        <Chip label={paymentStatus?.label} size="small" sx={{
-          backgroundColor: paymentStatus.bgColor,
-          color: paymentStatus.textColor,
-        }} />
+        <Chip
+          label={`Approval Status: ` + approvalStatus?.label}
+          size="small"
+          sx={{
+            backgroundColor: approvalStatus.bgColor,
+            color: approvalStatus.textColor,
+          }}
+        />
+        <Chip
+          label={`Payment Status: ` + paymentStatus?.label}
+          size="small"
+          sx={{
+            backgroundColor: paymentStatus.bgColor,
+            color: paymentStatus.textColor,
+          }}
+        />
       </Box>
     </Box>
 
     <Box mt={2} display="flex" justifyContent="space-between" flexWrap="wrap">
       <Box mb={1}>
-        <Typography variant="caption">Created: {FormatDateIST(ticketData?.TicketDate)}</Typography>
+        <Typography variant="caption">Created: {dateFields?.createdAt}</Typography>
         <br />
-        <Typography variant="caption">Requested: {FormatDateIST(ticketData?.RequestDate)}</Typography>
+        <Typography variant="caption">Requested: {dateFields?.requestDate}</Typography>
       </Box>
       <Box textAlign="right">
         <Typography variant="caption">Type: {ticketData?.TopicType || "—"}</Typography>
         <br />
-        <Typography variant="caption">Service: Type {ticketData?.ServiceType || "—"}</Typography>
+        <Typography variant="caption">Service Type {ticketData?.ServiceType || "—"}</Typography>
       </Box>
     </Box>
   </Box>
@@ -177,11 +168,7 @@ const DescriptionSection = ({ ticketData }) => (
 );
 
 const CompletionProgress = ({ ticketData }) => {
-  const totalHours =
-    calculateTotalHours(parseEstimate(ticketData?.documentEstimate)) +
-    calculateTotalHours(parseEstimate(ticketData?.developerEstimate)) +
-    calculateTotalHours(parseEstimate(ticketData?.uiEstimate)) +
-    calculateTotalHours(parseEstimate(ticketData?.testingEstimate));
+  const totalHours = calculateTotalHours(parseEstimate(ticketData?.documentEstimate)) + calculateTotalHours(parseEstimate(ticketData?.developerEstimate)) + calculateTotalHours(parseEstimate(ticketData?.uiEstimate)) + calculateTotalHours(parseEstimate(ticketData?.testingEstimate));
   return (
     <Box mt={3} px={2}>
       <Grid container spacing={2} mt={1}>
@@ -191,17 +178,20 @@ const CompletionProgress = ({ ticketData }) => {
           </Typography>
           <Typography fontWeight="bold">{totalHours > 0 ? totalHours.toFixed(1) : "0.0"}</Typography>
         </Grid>
-        <Grid item xs={12} sm={4} alignItems="center" justifyContent="center" display="flex" flexDirection="column">
-          <Typography variant="caption" color="text.secondary">
-            Code Upload
-          </Typography>
-          <Typography fontWeight="bold">{ticketData?.CodeUploadTime + ` Hrs` || "—"}</Typography>
-        </Grid>
+
         <Grid item xs={12} sm={4} alignItems="center" justifyContent="center" display="flex" flexDirection="column">
           <Typography variant="caption" color="text.secondary">
             On Demand
           </Typography>
-          <Typography fontWeight="bold" sx={{ textTransform: "capitalize" }} >{ticketData?.OnDemand || "—"}</Typography>
+          <Typography fontWeight="bold" sx={{ textTransform: "capitalize" }}>
+            {ticketData?.OnDemand || "—"}
+          </Typography>
+        </Grid>
+        <Grid item xs={12} sm={4} alignItems="center" justifyContent="center" display="flex" flexDirection="column">
+          <Typography variant="caption" color="text.secondary">
+            No Of Prints
+          </Typography>
+          <Typography fontWeight="bold">{ticketData?.NoPrints || "0"}</Typography>
         </Grid>
       </Grid>
     </Box>
@@ -219,6 +209,9 @@ const TimeEstimateSection = ({ ticketData }) => {
   const uiTotal = calculateTotalHours(uiEstimates);
   const testingTotal = calculateTotalHours(testingEstimates);
 
+  if (documentTotal === 0 && developerTotal === 0 && uiTotal === 0 && testingTotal === 0) {
+    return null;
+  }
   return (
     <Box mt={3} px={2}>
       <Typography variant="subtitle1" fontWeight="medium" mb={2}>
@@ -359,7 +352,7 @@ const AssignmentTable = ({ ticketData }) => {
       </TableContainer>
     </Box>
   );
-}
+};
 
 const TrainingSection = ({ ticketData }) => {
   if (!ticketData?.training || !Array.isArray(ticketData.training) || ticketData.training.length === 0) {
@@ -373,18 +366,7 @@ const TrainingSection = ({ ticketData }) => {
       </Typography>
       <Paper elevation={0} variant="outlined" sx={{ p: 2 }}>
         {ticketData.training.map((session, index) => {
-          const {
-            attendees,
-            trainingBy,
-            trainingType,
-            trainingMode,
-            projectCode,
-            ticketNo,
-            details,
-            startTime,
-            endTime,
-            schedule = {},
-          } = session;
+          const { attendees, trainingBy, trainingType, trainingMode, projectCode, ticketNo, details, startTime, endTime, schedule = {} } = session;
 
           return (
             <Box key={index} mb={2} borderBottom={index < ticketData.training.length - 1 ? "1px solid #e0e0e0" : 0} pb={2}>
@@ -472,22 +454,20 @@ const TrainingSection = ({ ticketData }) => {
   );
 };
 
-const PaymentInfo = ({ ticketData, onToggle }) => (
-
-  <Box mt={3} px={2} mb={3}>
+const PaymentInfo = ({ ticketData, onToggle }) => {
+  function isValidPaymentMethod(method) {
+    if (!method) return false;
+    const trimmed = method.trim();
+    return trimmed !== "" && trimmed !== "-";
+  }
+  return <Box mt={3} px={2} mb={3}>
     <Paper elevation={0} variant="outlined" sx={{ p: 2, bgcolor: "#f3f3f396" }}>
-      {ticketData?.PaymentMethod !== "-"  ?
+      {isValidPaymentMethod(ticketData?.PaymentMethod) ? (
         <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" gap={2}>
           <div>
             <Typography fontWeight="medium">Payment Information</Typography>
             <Typography variant="caption">
-              {ticketData?.PaymentMethod || "—"} • {" "}
-              {ticketData?.SentMail === 1
-                ? "Mail Sent"
-                : ticketData?.SentMail === 0
-                  ? "Mail Not Sent"
-                  : "—"}
-
+              {ticketData?.PaymentMethod || "No Payment Method Set"} • {ticketData?.SentMail === 1 ? "Mail Sent" : ticketData?.SentMail === 0 ? "Mail Not Sent" : "—"}
             </Typography>
           </div>
           <Button
@@ -501,7 +481,8 @@ const PaymentInfo = ({ ticketData, onToggle }) => (
           >
             View Payment Details
           </Button>
-        </Box> :
+        </Box>
+      ) : (
         <Box
           sx={{
             display: "flex",
@@ -531,8 +512,8 @@ const PaymentInfo = ({ ticketData, onToggle }) => (
           >
             Add Payment Method
           </Button>
-        </Box>}
+        </Box>
+      )}
     </Paper>
   </Box>
-);
-
+}

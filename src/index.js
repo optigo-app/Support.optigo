@@ -24,7 +24,7 @@ root.render(
   <>
     <Suspense fallback={<div></div>}>
       <BrowserRouter
-      // basename={process.env.NODE_ENV === "production" ? "/calllogweb/" : "/"}
+        // basename={process.env.NODE_ENV === "production" ? "/calllogweb/" : "/" }
       >
         <AuthProvider>
           <CallLogProvider>

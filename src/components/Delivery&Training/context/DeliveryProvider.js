@@ -59,6 +59,7 @@ export const DeliveryProvider = ({ children }) => {
             value: item.Id,
             ...item,
         })) || [];
+        
     const EMPLOYEE_LIST = masterData?.employees?.map((item) => ({
         label: item?.user,
         value: item?.userid,
@@ -104,7 +105,6 @@ export const DeliveryProvider = ({ children }) => {
 
     // Add Order to database
     const addData = async (data) => {
-        console.log("🚀 ~ addData ~ data:", data)
         try {
             const {
                 clientCode,
@@ -114,7 +114,7 @@ export const DeliveryProvider = ({ children }) => {
                 requestDate,
                 topic,
                 topicType,
-                noPrints,
+                NoPrints,
                 description,
                 serviceType,
                 paymentStatus,
@@ -143,12 +143,12 @@ export const DeliveryProvider = ({ children }) => {
                 RequestDate: requestDate || "",
                 Topic: topic || "",
                 TopicType: topicType || "",
-                NoPrints: noPrints || "",
+                NoPrints: NoPrints || "",
                 Description: description || "",
                 ServiceType: serviceType || "",
                 PaymentStatus: paymentStatus || "",
                 PaymentMethod: paymentMethod || "",
-                ApproveStatus: approvedStatus || "",
+                ApprovedStatus: approvedStatus || "Pending",
                 Status: "Pending",
                 CommunicationWith: communicationWith || "",
                 ConfirmationDate: confirmationDate || "",

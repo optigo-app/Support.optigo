@@ -26,11 +26,8 @@ const Entry = () => {
           <Route path="/" element={<CallLogDashBoard />} />
           <Route path="/Ticket" element={<TicketUi />} />
           <Route path="/Ticket/Client" element={<ClientTicketUi />} />
-          <Route path="/Delivery" element={<DeliveryDashboard isAdmin={true} />} />
-          <Route path="/Delivery/Optigo" element={<DeliveryDashboard isAdminOptigo={true} />} />
-          <Route path="/Delivery/Client" element={<DeliveryDashboard isAdmin={false} />} />
-          <Route path="/Training" element={<TrainingDashboard isAdmin={true} />} />
-          <Route path="/Training/Client" element={<TrainingDashboard isAdmin={false} />} />
+          <Route path="/Delivery" element={<DeliveryDashboard />} />
+          <Route path="/Training" element={<TrainingDashboard />} />
           {/* <Route path="/test" element={<SignUp />} /> */}
           {/* <Route path='/customer-info' element={<><CustomerInfo /></>} /> */}
           {/* <Route path='/add-new-customer' element={<><CustomerRegistrationForm/></>} /> */}

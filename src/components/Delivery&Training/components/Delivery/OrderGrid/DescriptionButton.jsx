@@ -32,6 +32,7 @@ const DescriptionButton = ({ params, onEdit, isClient }) => {
         initialDescription={params?.row?.Description}
         onClose={() => setShowDescModal(false)}
         open={ShowDescModal}
+        showNotification={showNotification}
         onSave={(newDescription) => {
           onEdit(params?.row?.SrNo, { "Description": newDescription })
           setShowDescModal(false);

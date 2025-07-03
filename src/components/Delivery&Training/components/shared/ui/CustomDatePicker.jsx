@@ -87,18 +87,21 @@ const CustomDualDatePicker = ({ value = {}, onChange = () => { } }) => {
                     label="Date Range"
                     value={displayValue}
                     onClick={handleOpen}
+                    fullWidth
                     size="small"
                     sx={{
                         "& .MuiInputBase-input": {
                             padding: "8.5px 12px",
+                            fontSize: "14px",
                         },
+                        width: '350px',
                     }}
                     readOnly
                     InputProps={{
                         startAdornment: (
                             <>
                                 <Chip
-                                    label={tempRange.status || "Select Status"}
+                                    label={tempRange.status || "Date Type"}
                                     size="small"
                                     onClick={(e) => {
                                         e.stopPropagation();

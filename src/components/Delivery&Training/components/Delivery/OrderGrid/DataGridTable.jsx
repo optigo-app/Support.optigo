@@ -8,7 +8,8 @@ const DataGridTable = ({ deliveryData, setPageSize, pageSize, columns, sortModel
       columns={columns}
       pageSize={pageSize}
       onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
-      rowsPerPageOptions={[15, 25, 50, 100]}
+      rowsPerPageOptions={[25, 50, 100]}
+      pagination={true}
       sortModel={sortModel}
       onSortModelChange={(model) => setSortModel(model)}
       disableSelectionOnClick
@@ -17,7 +18,12 @@ const DataGridTable = ({ deliveryData, setPageSize, pageSize, columns, sortModel
       rowHeight={55}
       loading={false}
       getRowId={getRowId}
-      
+      disableColumnMenu
+      initialState={{
+        pagination: {
+          paginationModel: { pageSize: 25 }
+        }
+      }}
       density="standard"
       sx={{
         "& .MuiDataGrid-row": {
@@ -79,10 +85,10 @@ const DataGridTable = ({ deliveryData, setPageSize, pageSize, columns, sortModel
             opacity: 0.3,
           },
         },
-     '& .MuiDataGrid-virtualScroller': {
-      overflowX: 'auto',
-    },
-  
+        '& .MuiDataGrid-virtualScroller': {
+          overflowX: 'auto',
+        },
+
       }}
     />
   );

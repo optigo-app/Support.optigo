@@ -11,6 +11,7 @@ import { filterTrainingData } from "./../../utils/TrainingUtils";
 import { useUrlSyncedFilters } from "../../hooks/useUrlSyncedFilters";
 import { useAuth } from "../../context/AuthProvider";
 import WithNotificationDT from "../../../../hoc/withNotificationDT";
+import { useRoleAccess } from "../../utils/useRoleAccess";
 
 const initialFilters = {
     search: "",
@@ -22,11 +23,12 @@ const initialFilters = {
     trainingMode: "All",
     status: "All",
 };
-const TrainingDashboard = ({ showNotification , IsAdminLog }) => {
+const TrainingDashboard = ({ showNotification }) => {
     const [TempEditMode, setTempEditMode] = useState(null);
     const { Traininglist } = useTraining();
     const { ShowTrainingForm, setShowTrainingForm, pageSize, setPageSize, DetailModal, setDetailModal, setSortModel, sortModel, handleClose } = useTrainingForm();
-    const { user } = useAuth()
+    const { user } = useAuth();
+    const { isAdminDashboard } = useRoleAccess(user)
     const HandleEditMode = (data) => {
         setTempEditMode(data)
         setShowTrainingForm(true);
@@ -37,7 +39,7 @@ const TrainingDashboard = ({ showNotification , IsAdminLog }) => {
         handleClose();
     }
 
-    const isAdmin = IsAdminLog || false ;
+    const isAdmin = isAdminDashboard || false;
     const columns = getDeliveryColumns(setDetailModal, HandleEditMode, showNotification, isAdmin);
 
     const { filters, setFilters } = useUrlSyncedFilters(initialFilters);
@@ -61,7 +63,7 @@ const TrainingDashboard = ({ showNotification , IsAdminLog }) => {
                 <Paper
                     elevation={3}
                     sx={{
-                        height: `calc(100vh - ${HEIGHT_CALCULATION})`,
+                        height: `calc(100vh - 340px)`,
                         width: "100%",
                         borderRadius: 2,
                     }}

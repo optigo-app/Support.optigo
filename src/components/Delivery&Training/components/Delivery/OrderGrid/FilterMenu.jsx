@@ -4,7 +4,7 @@ import RotatingIcon from "../../shared/ui/RotatingIcon";
 // Options
 const topicTypes = ["Print", "Tag", "Excel", "Report"];
 const serviceTypes = ["Free", "Complementary", "Chargebale"];
-const onDemandOptions = ["Client", "Service"];
+const onDemandOptions = ["yes", "No"];
 const paymentMethods = ["UPI", "Credit Card", "Debit Card", "Netbanking", "Wallet", "Cash", "EMI", "QR Code"];
 const paymentStatus = ["Unpaid", "Paid"];
 
@@ -171,7 +171,7 @@ export function FilterMenu({ open = false, setOpen, filters, setFilters, clearFi
             </Box>
 
             {/* Favorite */}
-            <Box sx={{ mb: 4 }}>
+            {/* <Box sx={{ mb: 4 }}>
               <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500 }}>
                 Favorites Only
               </Typography>
@@ -187,7 +187,7 @@ export function FilterMenu({ open = false, setOpen, filters, setFilters, clearFi
               >
                 {filters.isFavorite ? "Enabled" : "Disabled"}
               </Button>
-            </Box>
+            </Box> */}
           </Box>
 
           {/* Footer */}
@@ -239,7 +239,7 @@ function FilterChip({ label, selected, onClick }) {
         py: 0.5,
         px: 2,
         minWidth: "auto",
-        textTransform: "none",
+        textTransform: "capitalize",
         backgroundColor: selected ? "#1976d2" : "rgba(0,0,0,0.02)",
         color: selected ? "white" : "inherit",
         borderColor: selected ? "#1976d2" : "divider",

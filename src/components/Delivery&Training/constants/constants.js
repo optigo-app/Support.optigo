@@ -415,7 +415,7 @@ export const roleFieldsMap = {
     "Status",
     "CodeUploadTime"
   ],
-  optigoAdmin: [
+  employee: [
     "index",
     "SrNo",
     "OrderNo",
@@ -437,9 +437,9 @@ export const roleFieldsMap = {
     "totalHours",        // Not listed, kept as is
     "completion",        // Not listed, kept as is
     "ApprovedStatus",
-    "PaymentMethod",
+    // "PaymentMethod",
     "PaymentStatus",
-    "SentMail",
+    // "SentMail",
     "actions",           // Not listed, kept as is
     "Status",
     "CodeUploadTime"
@@ -447,6 +447,7 @@ export const roleFieldsMap = {
   client: [
     "index",
     "SrNo",
+       "OrderNo", 
     "Date",
     "Topic",
     "Description",
@@ -456,6 +457,8 @@ export const roleFieldsMap = {
     "trainingBy",        // Not listed, kept as is
     "scheduleTraining",  // Not listed, kept as is
     "PaymentMethod",
+    "ApprovedStatus",
+    "NoPrints",
     "PaymentStatus",
     "actions",           // Not listed, kept as is
     "Status",

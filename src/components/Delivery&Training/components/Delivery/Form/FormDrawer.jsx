@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Box, Typography, MenuItem, InputLabel, Select, Paper, Grid, SwipeableDrawer, Button, IconButton, Tooltip, FormHelperText, Divider,  FormControl } from "@mui/material";
+import { Box, Typography, MenuItem, InputLabel, Select, Paper, Grid, SwipeableDrawer, Button, IconButton, Tooltip, FormHelperText, Divider, FormControl } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import EventNoteIcon from "@mui/icons-material/EventNote";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -10,14 +10,14 @@ import { Autocomplete, Card, CardContent, Table, TableBody, TableCell, TableCont
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import { DrawerFooter, FormContainer, FormSection, SectionTitle, StyledFormControl, StyledTextField } from "../../shared/styles/MuiStyle";
-import {  mockTopicTypes, mockServiceTypes, mockPaymentStatuses } from "../../../constants/constants";
-import { useOrderForm } from "../../../hooks/useOrderForm";
+import { mockTopicTypes, mockServiceTypes, mockPaymentStatuses } from "../../../constants/constants";
+import { useOrderForm, initialState } from "../../../hooks/useOrderForm";
 import { useAuth } from "../../../context/AuthProvider";
 import { EditIcon } from "lucide-react";
 import { useDelivery } from "../../../context/DeliveryProvider";
 import { formatToDateInput, parseAssignments } from "../../../utils/deliveryUtils";
 
-const BottomDrawer = ({ isOpen, setIsOpen, ClearEdit, editValue }) => {
+const BottomDrawer = ({ isOpen, setIsOpen, ClearEdit, editValue = null, setTempEditMode = () => { } }) => {
   const isEditMode = Boolean(editValue) || !!editValue;
 
   const toggleDrawer = useCallback(
@@ -88,7 +88,7 @@ const BottomDrawer = ({ isOpen, setIsOpen, ClearEdit, editValue }) => {
           </IconButton>
         </Box>
 
-        <FormDrawerContent editValue={editValue} isEditMode={isEditMode} onClose={() => setIsOpen(false)} />
+        <FormDrawerContent setTempEditMode={setTempEditMode} editValue={editValue} isEditMode={isEditMode} onClose={() => setIsOpen(false)} />
       </Box>
     </SwipeableDrawer>
   );
@@ -96,8 +96,8 @@ const BottomDrawer = ({ isOpen, setIsOpen, ClearEdit, editValue }) => {
 
 export default BottomDrawer;
 
-const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
-  const { formData, setFormData, errors, updateField, addAssignment, removeAssignment, handleSave, updateAssignment } = useOrderForm();
+const FormDrawerContent = ({ onClose, editValue, isEditMode, setTempEditMode }) => {
+  const { formData, setFormData, errors, updateField, addAssignment, removeAssignment, handleSave, updateAssignment, validateForm } = useOrderForm();
   const { editData } = useDelivery();
   const { LoggedUser } = useAuth();
   const { COMPANY_MASTER_LIST: CompanyMaster, EMPLOYEE_GROUP_BY_DESIGNATION } = useDelivery();
@@ -130,6 +130,10 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
 
       });
     } else {
+        setFormData((prev) => ({
+      ...prev,
+      createdBy: LoggedUser,
+    }));
     }
   }, [isEditMode]);
 
@@ -141,22 +145,21 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
     updateField(field, newValue?.label || "");
   };
 
-  useEffect(() => {
-    if (LoggedUser) {
-      setFormData((prev) => ({ ...prev, createdBy: LoggedUser }));
-    }
-  }, [LoggedUser]);
 
   const handleFormSave = async () => {
     if (isEditMode) {
-      await editData(editValue?.SrNo, formData);
-      onClose();
-      console.log(formData, "formData edit");
-
+      if (validateForm()) {
+        await editData(editValue?.SrNo, formData);
+        onClose();
+        setFormData(initialState);
+        setTempEditMode(null)
+      }
     } else {
       const success = await handleSave();
       if (success) {
         onClose();
+        setFormData(initialState);
+        setTempEditMode(null)
       } else {
         console.warn("Form not saved, keeping dialog open.");
       }
@@ -181,12 +184,20 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Select the current date or the date of request creation" arrow placement="top-start">
-                    <StyledTextField disabled inputProps={{ readOnly: true }} fullWidth size="small" label="Date" type="date" value={formData.date} onChange={handleInputChange("date")} InputLabelProps={{ shrink: true }} required helperText="Request creation date" />
+                    <StyledTextField
+
+                      disabled inputProps={{ readOnly: true }} fullWidth size="small" label="Date" type="date" value={formData.date} onChange={handleInputChange("date")} InputLabelProps={{ shrink: true }} required helperText="Request creation date" />
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Enter the unique client identification code" arrow placement="top-start">
-                    <Autocomplete disablePortal value={CompanyMaster.find((option) => option.label === formData.clientCode) || null} onChange={handleAutocompleteChange("clientCode")} getOptionLabel={(option) => option?.label || ""} isOptionEqualToValue={(option, value) => option?.value === value?.value} size="small" options={CompanyMaster} renderInput={(params) => <StyledTextField {...params} fullWidth size="small" label="Client Code" placeholder="e.g., CL-12345" required helperText="Client's unique identifier" />} />
+                    <Autocomplete autoSelect
+                      disabled={isEditMode}
+                      blurOnSelect disablePortal value={CompanyMaster.find((option) => option.label === formData.clientCode) || null}
+                      onChange={handleAutocompleteChange("clientCode")} getOptionLabel={(option) => option?.label || ""}
+                      isOptionEqualToValue={(option, value) => option?.value === value?.value} size="small" options={CompanyMaster} renderInput={(params) => <StyledTextField {...params} fullWidth size="small" label="Client Code" placeholder="e.g., CL-12345" required
+                        error={!!errors.clientCode}
+                        helperText={errors.clientCode || "Client's unique identifier"} />} />
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -196,7 +207,11 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Who are you communicating with?" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" label="Communication With" value={formData?.communicationWith} onChange={handleInputChange("communicationWith")} placeholder="Name of the person" required helperText="Person you're coordinating with for this request" />
+                    <StyledTextField fullWidth size="small" label="Communication With" value={formData?.communicationWith}
+                      onChange={handleInputChange("communicationWith")} placeholder="Name of the person" required
+                      error={!!errors.communicationWith}
+                      helperText={errors.communicationWith || "Person you're coordinating with for this request"}
+                    />
                   </Tooltip>
                 </Grid>
               </Grid>
@@ -210,7 +225,8 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Tooltip title="Select the type of service required" arrow placement="top-start">
-                      <StyledFormControl fullWidth required size="small" error={!!errors.serviceType}>
+                      <StyledFormControl
+                        fullWidth required size="small" error={!!errors.serviceType}>
                         <InputLabel>Service Type</InputLabel>
                         <Select
                           value={formData.serviceType}
@@ -256,7 +272,7 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
                       </FormControl>
                     </Tooltip>
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  {/* <Grid item xs={12} md={6}>
                     <Tooltip title="Time when the code was uploaded" arrow placement="top-start">
                       <StyledTextField
                         fullWidth
@@ -269,7 +285,7 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
                         type="number"
                       />
                     </Tooltip>
-                  </Grid>
+                  </Grid> */}
                 </Grid>
               </FormSection>
             </FormSection>
@@ -285,34 +301,42 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
                   <Tooltip title="Enter the ticket reference number" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" label="Ticket Number" value={formData.ticketNo} onChange={handleInputChange("ticketNo")} placeholder="TKT-0000" helperText="Internal ticket reference" />
+                    <StyledTextField fullWidth size="small" label="Ticket Number" value={formData.ticketNo} onChange={handleInputChange("ticketNo")} placeholder="TKT-0000"
+                      error={!!errors.ticketNo} helperText={errors.ticketNo || "Internal ticket reference"} />
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Tooltip title="Date when the ticket was created in the system" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" label="Ticket Date" type="date" value={formData.ticketDate} onChange={handleInputChange("ticketDate")} InputLabelProps={{ shrink: true }} helperText="When ticket was created" />
+                    <StyledTextField fullWidth size="small" label="Ticket Date" type="date" value={formData.ticketDate} onChange={handleInputChange("ticketDate")} InputLabelProps={{ shrink: true }} error={!!errors.ticketDate} helperText={errors?.ticketDate || "When ticket was created"} />
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Tooltip title="Date when the client requested this service" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" label="Request Date" type="date" value={formData.requestDate} onChange={handleInputChange("requestDate")} InputLabelProps={{ shrink: true }} required helperText="When client made the request" />
+                    <StyledTextField
+                      fullWidth size="small" label="Request Date" type="date"
+                      value={formData.requestDate} onChange={handleInputChange("requestDate")}
+                      InputLabelProps={{ shrink: true }} required
+                      error={!!errors.requestDate} helperText={errors.requestDate || "When client made the request"}
+                    />
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Date when the request was confirmed" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" label="Confirmation Date" type="date" value={formData.confirmationDate} onChange={handleInputChange("confirmationDate")} InputLabelProps={{ shrink: true }} required helperText="When the request was confirmed" />
+                    <StyledTextField fullWidth size="small" label="Confirmation Date" type="date" value={formData.confirmationDate} onChange={handleInputChange("confirmationDate")} InputLabelProps={{ shrink: true }}
+                      error={!!errors.confirmationDate} helperText={errors.confirmationDate || "When the request was confirmed"}
+                      required />
                   </Tooltip>
                 </Grid>
 
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Enter the main topic for this request" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" required label="Topic" value={formData.topic} onChange={handleInputChange("topic")} placeholder="Enter topic name" helperText="Main request category" />
+                    <StyledTextField fullWidth size="small" required label="Topic" value={formData.topic} onChange={handleInputChange("topic")} placeholder="Enter topic name" error={!!errors.topic} helperText={errors.topic || "Main request category"} />
                   </Tooltip>
                 </Grid>
 
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Specify the type of topic for better categorization" arrow placement="top-start">
-                    <StyledFormControl fullWidth required size="small">
+                    <StyledFormControl error={!!errors.topicType} fullWidth required size="small">
                       <InputLabel>Topic Type</InputLabel>
                       <Select value={formData.topicType} onChange={handleInputChange("topicType")} label="Topic Type">
                         {mockTopicTypes.map((type) => (
@@ -321,13 +345,33 @@ const FormDrawerContent = ({ onClose, editValue, isEditMode }) => {
                           </MenuItem>
                         ))}
                       </Select>
-                      <FormHelperText>Specific request type</FormHelperText>
+                      <FormHelperText>
+                        {errors.topicType || "Specific request type"}
+                      </FormHelperText>
                     </StyledFormControl>
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Tooltip title="Enter the number of prints" arrow placement="top-start">
-                    <StyledTextField fullWidth size="small" required label="Prints" value={formData.NoPrints} type="number" onChange={handleInputChange("NoPrints")} placeholder="Enter No of Prints" helperText={`Provide Number ${formData?.topicType} of Prints`} />
+                    <StyledTextField onKeyDown={(e) => {
+                      if (["-", "+", "e", "E"].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                      onPaste={(e) => {
+                        const paste = e.clipboardData.getData("text");
+                        const isValid = /^\d+$/.test(paste); // Only digits allowed
+                        if (!isValid) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onBeforeInput={(e) => {
+                        const isValid = /^\d$/.test(e.data);
+                        if (!isValid) {
+                          e.preventDefault();
+                        }
+                      }}
+                      disabled={!formData.topicType} fullWidth size="small" required label="Prints" value={formData.NoPrints} type="number" onChange={handleInputChange("NoPrints")} placeholder="Enter No of Prints" />
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12}>
@@ -374,6 +418,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
     user: null,
     userId: null,
     estimate: { hours: "" },
+    description: "",
   });
   const [formErrors, setFormErrors] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
@@ -384,7 +429,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
     return employeeData[designation] || [];
   };
 
-  const DepartmentOptions = employeeData &&Object?.keys(employeeData)
+  const DepartmentOptions = employeeData && Object?.keys(employeeData)
 
   const handleChange = (field, value) => {
     if (field === "department") {
@@ -463,6 +508,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
         estimate: {
           hours: Number(newAssignment.estimate.hours),
         },
+        description: newAssignment.description,
       };
 
       if (isEditing && editingIndex !== null) {
@@ -477,7 +523,9 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
         user: null,
         userId: null,
         estimate: { hours: "" },
+        description: "",
       });
+
       setIsEditing(false);
       setEditingIndex(null);
       setFormErrors({});
@@ -497,6 +545,8 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
       estimate: {
         hours: assignmentToEdit.estimate?.hours?.toString() || "",
       },
+      description: assignmentToEdit.description || "",
+
     });
     setEditingIndex(index);
     setIsEditing(true);
@@ -508,6 +558,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
       user: null,
       estimate: { hours: "" },
       userId: null,
+      description: "",
     });
     setIsEditing(false);
     setEditingIndex(null);
@@ -525,7 +576,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
 
       <Grid container spacing={3}>
         {/* Left Column - Assignment Form */}
-        <Grid item xs={12} md={5}>
+        <Grid item xs={12} md={6}>
           <Box
             elevation={0}
             sx={{
@@ -545,27 +596,55 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <Tooltip title="Select the department for this assignment" arrow placement="top-start">
-                      <Autocomplete options={DepartmentOptions} value={newAssignment?.department} onChange={(e, val) => handleChange("department", val)} renderInput={(params) => <StyledTextField {...params} label="Department" fullWidth required size="small" error={!!formErrors?.department} helperText={formErrors?.department || "Select responsible department"} />} />
+                      <Autocomplete
+                        autoSelect
+                        blurOnSelect
+                        options={DepartmentOptions} value={newAssignment?.department} onChange={(e, val) => handleChange("department", val)} renderInput={(params) => <StyledTextField {...params} label="Department" fullWidth required size="small" error={!!formErrors?.department} helperText={formErrors?.department || "Select responsible department"} />} />
                     </Tooltip>
                   </Grid>
 
                   <Grid item xs={12} md={4}>
                     <Tooltip title="Choose the team member to assign" arrow placement="top-start">
-                      <Autocomplete disabled={!newAssignment.department} options={filteredUsers} value={newAssignment.user} onChange={(e, val) => handleChange("user", val)} renderInput={(params) => <StyledTextField {...params} label="Assigned To" fullWidth required size="small" error={!!formErrors.user} helperText={formErrors.user || "Select team member"} />} />
+                      <Autocomplete
+                        autoSelect
+                        blurOnSelect
+                        disabled={!newAssignment.department} options={filteredUsers} value={newAssignment.user} onChange={(e, val) => handleChange("user", val)} renderInput={(params) => <StyledTextField {...params} label="Assigned To" fullWidth required size="small" error={!!formErrors.user} helperText={formErrors.user || "Select team member"} />} />
                     </Tooltip>
                   </Grid>
 
                   <Grid item xs={12} md={4}>
                     <Tooltip title="Estimated time for completing the task" arrow placement="top-start">
-                      <StyledTextField label="Estimated Hours" value={newAssignment.estimate.hours} onChange={handleEstimateChange} fullWidth required size="small" type="number" inputProps={{ min: 1 }} error={!!formErrors.estimate} disabled={!newAssignment.department || !newAssignment.user} helperText={formErrors.estimate || "Hours required"} />
+                      <StyledTextField
+                        label="Estimated Hours" value={newAssignment.estimate.hours} onChange={handleEstimateChange} fullWidth required size="small" type="number" inputProps={{ min: 1 }} error={!!formErrors.estimate} disabled={!newAssignment.department || !newAssignment.user} helperText={formErrors.estimate || "Hours required"} />
                     </Tooltip>
                   </Grid>
+                  {/* <Grid item xs={12} md={12}>
+                    <Tooltip title="Add a detailed description of the task" arrow placement="top-start">
+                      <StyledTextField
+                        label="Description"
+                        multiline
+                        rows={4}
+                        value={newAssignment.description}
+                        onChange={(e) => handleChange("description", e.target.value)}
+                        fullWidth
+                        required
+                        size="small"
+                        error={!!formErrors.description}
+                        disabled={!newAssignment.department || !newAssignment.user}
+                        helperText={formErrors.description || "Brief description of the task"}
+                      />
+                    </Tooltip>
+                  </Grid> */}
+
+
+
                 </Grid>
               </Box>
 
               <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-start", gap: 1 }}>
                 <Tooltip title={isEditing ? "Update Assignment" : "Add Assignment"} arrow>
                   <Button
+                    disabled={!newAssignment.department || !newAssignment.user}
                     variant="contained"
                     color="primary"
                     onClick={handleAddAssignment}
@@ -609,7 +688,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
         </Grid>
 
         {/* Right Column - Assignments Table */}
-        <Grid item xs={12} md={7}>
+        <Grid item xs={10} md={6}>
           {error && (
             <Typography color="error" sx={{ mt: 1, mb: 2 }}>
               {error}
@@ -631,6 +710,7 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
                     <TableCell sx={{ fontWeight: 600, bgcolor: "grey.200" }}>Assigned To</TableCell>
                     <TableCell sx={{ fontWeight: 600, bgcolor: "grey.200" }}>Department</TableCell>
                     <TableCell sx={{ fontWeight: 600, bgcolor: "grey.200" }}>Estimated Time (hrs)</TableCell>
+                    {/* <TableCell sx={{ fontWeight: 600, bgcolor: "grey.200" }}>Description</TableCell> */}
                     <TableCell align="right" sx={{ fontWeight: 600, bgcolor: "grey.200" }}>
                       Actions
                     </TableCell>
@@ -649,6 +729,22 @@ function AssignmentForm({ employeeData, assignments = [], onAddAssignment, onUpd
                       <TableCell>{assignment.user?.name || assignment.user || "-"}</TableCell>
                       <TableCell>{assignment.department?.name || assignment.department || "-"}</TableCell>
                       <TableCell>{assignment.estimate?.hours || "-"}</TableCell>
+                      {/* <TableCell>
+                        <Tooltip title={assignment.description || "-"} arrow placement="top-start">
+                          <Typography
+                            noWrap
+                            sx={{
+                              maxWidth: 50,       // adjust as needed
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {assignment.description || "-"}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell> */}
+
                       <TableCell align="right">
                         <Tooltip title="Edit Assignment" arrow>
                           <IconButton onClick={() => handleEditAssignment(index)} color="primary" size="small" sx={{ mr: 1 }} disabled={isEditing && editingIndex !== index}>

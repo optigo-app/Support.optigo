@@ -136,13 +136,9 @@ const HeaderWrapper = ({ children, handleOpen }) => {
 
   const IsTicket = location.pathname === "/Ticket";
 
-  const allowedPaths = ["/test", "/Training", "/Delivery", "/delivery", "/training",
-     "Training/Client", "/Training/client", "/Training/", "/training/", 
-     "Training/Client/", "/Training/client/",
-     "/Delivery/Client", "/Delivery/client", "/Delivery/", "/delivery/",
-     "/Delivery/Optigo/", "/Delivery/optigo/", "/delivery/optigo",
-     "/delivery/Optigo"
-    ];
+  const allowedPaths = ["/test", "/Training", "/Delivery", "/delivery", 
+    "/training", "Training/Client", "/Training/client", "/Training/", "/training/", "Training/Client/",
+     "/Training/client/", "/Delivery/", "/delivery/", "/delivery/", "/delivery", "/Delivery", "/Delivery/"];
 
   if (allowedPaths.includes(location.pathname)) {
     return children;

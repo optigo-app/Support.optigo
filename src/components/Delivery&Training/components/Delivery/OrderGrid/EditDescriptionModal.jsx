@@ -3,10 +3,14 @@ import React, { useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, IconButton, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
-const EditDescriptionModal = ({ open, onClose, onSave, initialDescription }) => {
+const EditDescriptionModal = ({ open, onClose, onSave, initialDescription ,showNotification }) => {
   const [description, setDescription] = useState(initialDescription);
 
   const handleSave = () => {
+    if(!description) {
+      showNotification("Please enter a description.", 'warning');
+      return;
+    }
     onSave(description);
     onClose();
   };

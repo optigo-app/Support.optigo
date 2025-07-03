@@ -1,4 +1,5 @@
 import chance from 'chance';
+import { isUpcoming } from './helpers';
 const Chance = chance.Chance();
 
 function formatDate(date) {
@@ -196,7 +197,8 @@ export const filterDeliveryData = (tickets, filters = null) => {
     paymentStatus = [],
     isFavorite = false,
     date = {},
-    Tabs = -1
+    Tabs = -1,
+    deliveryStatus = ""
   } = filters;
 
   const hasActiveFilters = Boolean(
@@ -210,7 +212,8 @@ export const filterDeliveryData = (tickets, filters = null) => {
     (paymentStatus && paymentStatus.length > 0) ||
     isFavorite ||
     (date?.startDate || date?.endDate) ||
-    Tabs !== -1
+    Tabs !== -1 ||
+    deliveryStatus
   );
 
   if (!hasActiveFilters) return tickets;
@@ -361,15 +364,18 @@ export const filterDeliveryData = (tickets, filters = null) => {
     return companyCode?.toLowerCase() === projectCode?.toLowerCase();
   }
 
+  console.log(deliveryStatus, "approval")
   return tickets?.filter((ticket) => {
     try {
+
       const matchesSearchQuery = matchesSearch(ticket, search);
-      const matchesApproval = !approval || ticket?.ApprovedStatus === approval;
+      const matchesApproval = !approval || ticket?.ApprovedStatus?.toLocaleLowerCase() === approval?.toLocaleLowerCase();
+      const matchesDeliveryStatus = !deliveryStatus || ticket?.Status?.toLocaleLowerCase() === deliveryStatus?.toLocaleLowerCase();
       const matchesProjectCode = MatchedCompany(ticket, projectCode);
-      const matchesTopicTypeFilter = !topicType || ticket?.TopicType === topicType;
+      const matchesTopicTypeFilter = !topicType || ticket?.TopicType?.toLocaleLowerCase() === topicType?.toLocaleLowerCase();
       const matchesServiceTypeFilter = matchesMultiSelect(serviceType, ticket?.ServiceType);
-      const Demand = onDemandOption === "Client" ? "yes" : "No";
-      const matchesOnDemand = !onDemandOption || ticket?.OnDemand === Demand;
+      const Demand = onDemandOption;
+      const matchesOnDemand = !onDemandOption || ticket?.OnDemand?.toLocaleLowerCase() === Demand?.toLocaleLowerCase();
       const matchesPaymentMethodFilter = matchesMultiSelect(paymentMethod, ticket?.PaymentMethod);
       const matchesPaymentStatusFilter = matchesMultiSelect(paymentStatus, ticket?.PaymentStatus);
       const matchesFavorite = !isFavorite || ticket?.isFavorite === true;
@@ -426,18 +432,7 @@ export const filterDeliveryData = (tickets, filters = null) => {
         }
 
         if (Tabs === 1) {
-          const isNotDelivered = ticket.Status !== 'Delivered';
-
-          const ticketDateStr = ticket.TicketDate || ticket.Date;
-          if (!ticketDateStr) return false;
-
-          const ticketDate = new Date(ticketDateStr);
-          if (isNaN(ticketDate.getTime())) return false;
-
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          return isNotDelivered && ticketDate >= today;
+          return isUpcoming(ticket.Status, ticket.Date);
         }
 
         return true;
@@ -454,7 +449,8 @@ export const filterDeliveryData = (tickets, filters = null) => {
         matchesPaymentStatusFilter &&
         matchesFavorite &&
         matchesDateRange &&
-        matchesTab
+        matchesTab &&
+        matchesDeliveryStatus
       );
     } catch (error) {
       console.warn('Error filtering ticket:', error);
@@ -476,12 +472,14 @@ export const isAnyFilterActive = (filters) => {
     paymentStatus = [],
     isFavorite = false,
     date = {},
-    Tabs = -1
+    Tabs = -1,
+    deliveryStatus = ""
   } = filters;
 
   // Check each filter type
   const hasSearch = Boolean(search && search.trim());
   const hasApproval = Boolean(approval);
+  const hasDelivery = Boolean(deliveryStatus)
   const hasProjectCode = Boolean(projectCode);
   const hasTopicType = Boolean(topicType);
   const hasServiceType = Array.isArray(serviceType) && serviceType.length > 0;
@@ -503,7 +501,8 @@ export const isAnyFilterActive = (filters) => {
     hasPaymentStatus ||
     hasFavorite ||
     hasDateFilter ||
-    hasTabs
+    hasTabs ||
+    hasDelivery
   );
 };
 
@@ -522,6 +521,7 @@ export function parseAssignments(assignmentsJson) {
       user: assignment?.user,
       userId: assignment?.userid,
       estimate: { hours: assignment?.EstimatedHours },
+      description: assignment?.Description,
     }));
   } catch (error) {
     console.error("Failed to parse assignments JSON:", error);

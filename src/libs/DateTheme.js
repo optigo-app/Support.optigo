@@ -174,23 +174,49 @@ export const Maintheme = createTheme({
           },
         },
       },
+      // MuiCssBaseline: {
+      //   styleOverrides: `
+      //   *::-webkit-scrollbar {
+      //     width: 0.2em;
+      //     height: 0.2em;
+      //   }
+      //   *::-webkit-scrollbar-track {
+      //     background: transparent !important;
+      //   }
+      //   *::-webkit-scrollbar-thumb {
+      //     background-color: gray !important;
+      //     border-radius: 14px;
+      //   }
+      //   *::-webkit-scrollbar-thumb:hover {
+      //     background: 'transparent !important';,
+      //   }
+      // `,
+      // },
       MuiCssBaseline: {
-        styleOverrides: `
-        *::-webkit-scrollbar {
-          width: 0.2em;
-          height: 0.2em;
+  styleOverrides: `
+    /* Vertical scrollbar width stays default */
+
+    /* Horizontal scrollbar height only */
+    *::-webkit-scrollbar:horizontal {
+      height: 0.5em; /* sets horizontal scrollbar height */
+    }
+
+    *::-webkit-scrollbar-track:horizontal {
+      background: transparent !important;
+    }
+
+  
+
+    *::-webkit-scrollbar-thumb:horizontal {
+      background: rgba(36, 32, 32, 0.34) !important;
+      border-radius: 14px;
+      }
+      
+      *::-webkit-scrollbar-thumb:horizontal:hover {
         }
-        *::-webkit-scrollbar-track {
-          background: transparent !important;
-        }
-        *::-webkit-scrollbar-thumb {
-          background-color: gray !important;
-          border-radius: 14px;
-        }
-        *::-webkit-scrollbar-thumb:hover {
-          background: 'transparent !important';,
-        }
-      `,
+        `,
       },
+      
+      // background-color:rgba(87, 87, 87, 0.11) !important;
     },
   });

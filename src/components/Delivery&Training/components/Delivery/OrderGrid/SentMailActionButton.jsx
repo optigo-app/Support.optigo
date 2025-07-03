@@ -9,7 +9,8 @@ export default function SentMailActionButton({ params, showNotification = () => 
   const handleSendEmail = () => {
     if (!mailSent) {
       setMailSent(true);
-      showNotification("The invoice has been delivered to the customer via email.", "success");
+      // showNotification("The invoice has been delivered to the customer via email.", "success");
+      showNotification("Invoice delivery via email is not yet functional. This feature is still under development. Avoid using it for now.", "warning");
       SetOpenCompass(params?.row);
        setTimeout(() => {
         setMailSent(false);

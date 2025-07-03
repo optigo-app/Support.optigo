@@ -97,8 +97,8 @@ const GenericStatusChip = ({ value, onSelect, rowData, getDisplayData, options, 
   );
 };
 // Approval Status Chip
-export const ApprovalStatusChip = ({ status, onSelect, rowData }) => {
-  return <GenericStatusChip value={status} onSelect={onSelect} rowData={rowData} getDisplayData={getApprovalStatus} options={ApprovalStatus} />;
+export const ApprovalStatusChip = ({ status, onSelect, rowData ,isClient }) => {
+  return <GenericStatusChip value={status} isClient={isClient} onSelect={onSelect} rowData={rowData} getDisplayData={getApprovalStatus} options={ApprovalStatus} />;
 };
 
 // Payment Status Chip

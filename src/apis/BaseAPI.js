@@ -14,10 +14,12 @@ class ApiError extends Error {
 }
 
 class BaseAPI {
-    // static BASE_URL = process.env.NODE_ENV === "production"
-    //     ? "https://livenx.optigoapps.com/api/report"
-    //     : "http://nextjstest.web/api/report";
-    static BASE_URL = "http://nextjstest.web/api/report";
+    
+
+    static BASE_URL = process.env.NODE_ENV === "production"
+        ? "https://livenx.optigoapps.com/api/report"
+        : "http://nextjstest.web/api/report";
+    // static BASE_URL = "http://nextjstest.web/api/report";
     // Main config storage
     static config = {};
 

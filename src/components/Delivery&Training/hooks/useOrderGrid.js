@@ -2,7 +2,7 @@ import { useState } from "react";
 import DynamicAnalytics from "../utils/analytics";
 
 export const useOrderGrid = (deliveryData) => {
-    const [pageSize, setPageSize] = useState(15);
+    const [pageSize, setPageSize] = useState(25);
     const [ShowTrainingForm, setShowTrainingForm] = useState(false);
     const [ShowDetails, setShowDetails] = useState(false);
     const [IsFormOpen, setIsFormOpen] = useState(false);

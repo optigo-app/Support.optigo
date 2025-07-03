@@ -5,8 +5,6 @@ import DetailPanel from "./OrderGrid/DetailPanel";
 import BottomDrawer from "./Form/FormDrawer";
 import { useDelivery } from "../../context/DeliveryProvider";
 import { useOrderGrid } from "../../hooks/useOrderGrid";
-import { getDeliveryColumns } from "./OrderGrid/deliveryColumns";
-import { roleFieldsMap } from "../../constants/constants";
 import { useAuth } from "../../context/AuthProvider";
 import Dashboard from "./OrderGrid/Analytics/AnalyticsBar";
 import { useGreeting } from "./../../hooks/useGreeting";
@@ -15,11 +13,16 @@ import { filterDeliveryData } from "../../utils/deliveryUtils";
 import ReusableConfirmModal from "./../shared/ui/ReuseableModal";
 import WithNotificationDT from "../../../../hoc/withNotificationDT";
 import GmailCompose from "./OrderGrid/MailModal";
+import DynamicAnalytics from "../../utils/analytics";
+import { useFilteredColumns } from "../../utils/useFilteredColumns";
+import { useRoleAccess } from "../../utils/useRoleAccess";
+import NoAccess from "./OrderGrid/NoAccess";
+import { fakeClientUser } from "../../constants/TestUser";
 
-const DeliveryDashboard = ({ showNotification, isAdminLog, isAdminOptigo }) => {
+const DeliveryDashboard = ({ showNotification }) => {
   const { deliveryData, editData, deleteTraining } = useDelivery();
-  const { pageSize, setPageSize, ShowTrainingForm, setShowTrainingForm, ShowDetails, setShowDetails, IsFormOpen, setIsFormOpen, sortModel, setSortModel, dashboardData } = useOrderGrid(deliveryData);
-  const { LoggedUser } = useAuth();
+  const { pageSize, setPageSize, ShowTrainingForm, setShowTrainingForm, ShowDetails, setShowDetails, IsFormOpen, setIsFormOpen, sortModel, setSortModel } = useOrderGrid(deliveryData);
+  const { LoggedUser, user } = useAuth();
   const { greeting } = useGreeting();
   const [filters, setFilters] = useState({
     search: "",
@@ -37,11 +40,19 @@ const DeliveryDashboard = ({ showNotification, isAdminLog, isAdminOptigo }) => {
       status: "",
     },
     Tabs: -1,
+    deliveryStatus: "",
   });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [OpenCompass, SetOpenCompass] = useState(false);
   const [TempEditMode, setTempEditMode] = useState(null);
   const [isLoading, setisLoading] = useState(false);
+
+  const { role, isClient, isAdminDashboard } = useRoleAccess(user);
+
+  const FiltererdData = useMemo(() => {
+    return filterDeliveryData(deliveryData, filters);
+  }, [deliveryData, filters]);
+  const dashboardData = new DynamicAnalytics(FiltererdData)?.generateAnalytics();
 
   const handleDelete = async () => {
     setisLoading(true);
@@ -66,42 +77,22 @@ const DeliveryDashboard = ({ showNotification, isAdminLog, isAdminOptigo }) => {
     setIsFormOpen(false);
   };
 
-  const FiltererdData = useMemo(() => {
-    return filterDeliveryData(deliveryData, filters);
-  }, [deliveryData, filters]);
+  const columns = useFilteredColumns({
+    role,
+    isClient,
+    callbacks: [HandleFormSave, setShowTrainingForm, setShowDetails, showNotification, isClient, HandleEditMode, setShowDeleteModal, SetOpenCompass],
+  });
 
-  let role, isClient, isAdminDasboard;
-
-  if (isAdminOptigo === true) {
-    role = "optigoAdmin";
-    isClient = false;
-    isAdminDasboard = true;
-  } else if (isAdminLog === true) {
-    role = "admin";
-    isClient = false;
-    isAdminDasboard = true;
-  } else {
-    role = "client";
-    isClient = true;
-    isAdminDasboard = false;
+  if (role === "guest") {
+    return <NoAccess />;
   }
-
-  const allowedFields = roleFieldsMap[role] || roleFieldsMap?.client;
-
-  const allColumns = getDeliveryColumns(HandleFormSave, setShowTrainingForm, setShowDetails, showNotification, isClient, HandleEditMode, setShowDeleteModal ,SetOpenCompass);
-  const filteredColumns = allColumns
-    .filter((col) => allowedFields.includes(col.field))
-    .map((col, i) => ({
-      ...col,
-      ...(role === "client" ? { flex: 1 } : {}),
-    }));
 
   return (
     <Box sx={{ width: "100%", height: "100vh", bgcolor: "#fff !important", overflow: "hidden", position: "relative", py: 2, px: 4 }}>
-      <DetailPanel setOpen={setShowDetails} open={ShowDetails} />
-      <BottomDrawer key={IsFormOpen} ClearEdit={ClearEdit} editValue={TempEditMode} isOpen={IsFormOpen} setIsOpen={setIsFormOpen} />
-      <TrainingForm open={ShowTrainingForm} setOpen={setShowTrainingForm} onSave={HandleFormSave} />
-      <Dashboard isAdmin={isAdminDasboard} dashboardData={dashboardData} filters={filters} setFilters={setFilters} onformToggle={() => setIsFormOpen(!IsFormOpen)} greeting={greeting} LoggedUser={LoggedUser} />
+      <DetailPanel isClient={isAdminDashboard} setOpen={setShowDetails} open={ShowDetails} />
+      <BottomDrawer key={IsFormOpen} ClearEdit={ClearEdit} setTempEditMode={setTempEditMode} editValue={TempEditMode} isOpen={IsFormOpen} setIsOpen={setIsFormOpen} />
+      {/* <TrainingForm open={ShowTrainingForm} setOpen={setShowTrainingForm} onSave={HandleFormSave} /> */}
+      <Dashboard  role={role} isAdmin={isAdminDashboard} dashboardData={dashboardData} filters={filters} setFilters={setFilters} onformToggle={() => setIsFormOpen(!IsFormOpen)} greeting={greeting} LoggedUser={LoggedUser} />
       <ReusableConfirmModal
         deleteMsg={{
           title: "Delete Order",
@@ -113,17 +104,17 @@ const DeliveryDashboard = ({ showNotification, isAdminLog, isAdminOptigo }) => {
         type="delete"
         isLoading={isLoading}
       />
-      {OpenCompass && <GmailCompose orderdata={OpenCompass}  onClose={() => SetOpenCompass(null)} />}
+      {OpenCompass && <GmailCompose orderdata={OpenCompass} onClose={() => SetOpenCompass(null)} />}
       <Paper
         elevation={3}
         sx={{
-          height: `calc(100vh - ${isAdminDasboard ? 480 : 390}px)`,
+          height: `calc(100vh - ${isAdminDashboard ? 480 : 390}px)`,
           width: "100%",
           borderRadius: 2,
           transition: "all ease-in-out 50ms",
         }}
       >
-        <DataGridTable columns={filteredColumns} getRowId={(row) => row?.SrNo} deliveryData={FiltererdData} pageSize={pageSize} setPageSize={setPageSize} sortModel={sortModel} setSortModel={setSortModel} />
+        <DataGridTable key={`grid-table-945`} columns={columns} getRowId={(row) => row?.SrNo} deliveryData={FiltererdData} pageSize={pageSize} setPageSize={setPageSize} sortModel={sortModel} setSortModel={setSortModel} />
       </Paper>
     </Box>
   );

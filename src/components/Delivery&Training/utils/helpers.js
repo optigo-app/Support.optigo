@@ -248,7 +248,8 @@ export const isUpcoming = (status, date) => {
   ticketDate.setHours(0, 0, 0, 0);
   return status !== "Delivered" && ticketDate >= today;
 };
-export const FormatDateIST = (date) => {
+
+export const FormatDateIST = (date, formatOptions) => {
   if (!date) return "N/A";
 
   try {
@@ -257,19 +258,46 @@ export const FormatDateIST = (date) => {
     // Handle invalid dates
     if (isNaN(entryDate.getTime())) return "Invalid Date";
 
-    const formatted = entryDate.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: "UTC", // Ensure UTC display
-    });
+    if (!formatOptions) {
+      // Default formatting using UTC time
+      return entryDate.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "UTC",
+      });
+    }
 
-    return formatted;
+    // Format using custom format options like "dd-mm-yyyy" or "dd/mm/yyyy"
+    const dd = String(entryDate.getUTCDate()).padStart(2, "0");
+    const mm = String(entryDate.getUTCMonth() + 1).padStart(2, "0"); // Months are 0-based
+    const yyyy = entryDate.getUTCFullYear();
+
+    // Example formats:
+    if (formatOptions === "dd-mm-yyyy") {
+      return `${dd}-${mm}-${yyyy}`;
+    } else if (formatOptions === "dd/mm/yyyy") {
+      return `${dd}/${mm}/${yyyy}`;
+    } else if (formatOptions === "yyyy-mm-dd") {
+      return `${yyyy}-${mm}-${dd}`;
+    } else {
+      return `${dd}-${mm}-${yyyy}`; // Fallback
+    }
   } catch (error) {
     console.error("Error formatting date:", error);
     return "N/A";
   }
 };
+
+
+
+
+export const formatDateFun = (dateString) => {
+    if (!dateString || isNaN(new Date(dateString).getTime())) return "N/A";
+
+    const date = new Date(dateString);
+    return FormatDateIST(date);
+  };
