@@ -15,6 +15,11 @@ export const TicketProvider = ({ children }) => {
     const [lastUpdatedTicketNo, setLastUpdatedTicketNo] = useState(
         sessionStorage.getItem("LastUpdatedticket") || null
     );
+    const [refreshComment, setRefreshComment] = useState(false);
+
+    const handleRefresh = () => {
+        setRefreshComment(!refresh);
+    };
 
     const CalllogMaster = (() => { try { return JSON.parse(sessionStorage.getItem("masterData")) || null; } catch { return null; } })();
     const APPNAME_LIST = TicketMaster?.rd?.map((val) => ({ value: val?.AppId, label: val?.AppName })) || [];
@@ -85,17 +90,28 @@ export const TicketProvider = ({ children }) => {
     const addTicket = useCallback(async (ticketData) => {
         try {
             const res = await TicketApi.createTicket({
-                createdBy: user?.id ,
-                appId: ticketData?.appname ,
-                cateId: ticketData?.category ,
-                custId: ticketData?.userName,  
+                createdBy: user?.id,
+                appId: ticketData?.appname,
+                cateId: ticketData?.category,
+                custId: ticketData?.userName,
                 description: ticketData?.instruction,   //
                 projectId: ticketData?.projectCode,  // 
                 subject: ticketData?.subject, //
                 filePath: ticketData?.attachment !== null ? ticketData?.attachment : "",
                 callLogId: ticketData?.CallId || "",
             });
-            console.log(res, "Ticket added successfully!")
+            if (res?.rd1[0]?.stat == 1 && res?.rd1[0]?.stat_code == 1000) {
+                await TicketApi.addComment({
+                    createdBy: user?.id,
+                    comment: ticketData?.instruction ?? "",
+                    filePath: ticketData?.attachment !== null ? ticketData?.attachment : "",
+                    callLogId: "",
+                    isOfficeUseOnly: 0,
+                    ticketNo: res?.rd1[0]?.TicketNo, 
+                    Role: 1,
+                });
+            }
+
             setRefresh(!refresh);
         } catch (error) {
             console.log("Error adding ticket:", error)
@@ -185,7 +201,9 @@ export const TicketProvider = ({ children }) => {
                 USERNAME_LIST,
                 AddComment,
                 CloseTicket,
-                loading
+                loading,
+                refreshComment,
+                handleRefresh
             }}
         >
             {children}

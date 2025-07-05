@@ -37,6 +37,7 @@ const DetailSection = styled(Box)(({ theme }) => ({
 
 const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, inputValue, handleInputChange, HandleSave }) => {
   const id = open ? "simple-popover" : undefined;
+
   return (
     <DetailSection
       sx={{
@@ -182,25 +183,25 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
           )}
         </Grid>
       </Grid>
-      <Divider sx={{ my: 1.5 }} />
-    <Grid container spacing={2} alignItems="center">
-  <Grid item xs={12} sm={12}>
-    <Box sx={{ width: "100%", maxWidth: "100%" }}>
-      <Typography
-        variant="body2"
-        sx={{
-          color: "#5E6C84",
-          whiteSpace: "normal",
-          wordBreak: "break-word",
-          maxWidth: "100%",
-        }}
-      >
-        <strong  >Special Instruction:</strong>&nbsp;
-        {ticket?.instruction || "None"} 
-      </Typography>
-    </Box>
-  </Grid>
-</Grid>
+      {/* <Divider sx={{ my: 1.5 }} />
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} sm={12}>
+          <Box sx={{ width: "100%", maxWidth: "100%" }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "#5E6C84",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                maxWidth: "100%",
+              }}
+            >
+              <strong  >Special Instruction:</strong>&nbsp;
+              {ticket?.instruction || "None"}
+            </Typography>
+          </Box>
+        </Grid>
+      </Grid> */}
 
 
     </DetailSection>

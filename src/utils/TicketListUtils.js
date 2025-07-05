@@ -35,9 +35,7 @@ const getLatestCommentDate = (comments) => {
     if (!Array.isArray(commentList)) {
       return null;
     }
-    const commentDates = commentList
-      .map((c) => new Date(c.time))
-      .filter((d) => d.toString() !== "Invalid Date");
+    const commentDates = commentList.map((c) => new Date(c.time)).filter((d) => d.toString() !== "Invalid Date");
 
     if (commentDates.length === 0) return null;
     const latestDate = new Date(Math.max(...commentDates));
@@ -98,11 +96,11 @@ export const getFilteredTickets = (filterName, tickets, filterType = "created") 
       });
 
     case "new_ticket":
-      return tickets.filter((t) => t.Status === "New");
+      return tickets.filter((t) => !t?.UpdatedAt?.trim());
 
     case "open_ticket":
-      return tickets.filter((tic) => !excludedStatuses.includes(tic?.Status?.toLowerCase()));
-
+      return tickets.filter((t) => t?.UpdatedAt?.trim() && !excludedStatuses.includes(t?.Status?.toLowerCase() || ""));
+      
     case "closed_ticket":
       return tickets.filter((t) => t.Status?.toLowerCase() === "closed");
 
@@ -132,7 +130,6 @@ export const getFilteredTickets = (filterName, tickets, filterType = "created") 
   }
 };
 
-
 export const getFilteredTicketCount = (filterName, tickets, filterType = "created") => {
   if (!tickets || tickets.length === 0) return 0;
 
@@ -150,10 +147,10 @@ export const getFilteredTicketCount = (filterName, tickets, filterType = "create
       return tickets.length;
 
     case "new_ticket":
-      return tickets.filter((t) => t.Status === "New").length;
+      return tickets.filter((t) => !t?.UpdatedAt?.trim()).length;
 
     case "open_ticket":
-      return tickets.filter((tic) => !excludedStatuses.includes(tic?.Status?.toLowerCase())).length;
+      return tickets.filter((t) => t?.UpdatedAt?.trim() && !excludedStatuses.includes(t?.Status?.toLowerCase() || "")).length;
 
     case "closed_ticket":
       return tickets.filter((t) => t.Status?.toLowerCase() === "closed").length;

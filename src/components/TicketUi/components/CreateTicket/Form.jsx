@@ -15,6 +15,9 @@ const Form = ({ form, errors, handleChange, handleFileChange, previewURL, attach
             value={COMPANY_LIST.find(item => item.value === form.projectCode) || null}
             getOptionLabel={(option) => option.label || ""}
             onChange={(e, newVal) => handleChange("projectCode", newVal ? newVal.value : null)}
+            autoSelect
+            blurOnSelect
+            handleHomeEndKeys
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -33,6 +36,8 @@ const Form = ({ form, errors, handleChange, handleFileChange, previewURL, attach
             value={USERNAME_LIST.find(item => item.value === form.userName) || null}
             getOptionLabel={(option) => option.label || ""}
             onChange={(e, newVal) => handleChange("userName", newVal ? newVal.value : null)}
+               autoSelect
+            blurOnSelect
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -51,6 +56,8 @@ const Form = ({ form, errors, handleChange, handleFileChange, previewURL, attach
             value={CATEGORY_LIST.find(item => item.value === form.category) || null}
             getOptionLabel={(option) => option.label || ""}
             onChange={(e, newVal) => handleChange("category", newVal ? newVal.value : null)}
+               autoSelect
+            blurOnSelect
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -69,6 +76,8 @@ const Form = ({ form, errors, handleChange, handleFileChange, previewURL, attach
             value={APPNAME_LIST.find(item => item.value === form.appname) || null}
             getOptionLabel={(option) => option.label || ""}
             onChange={(e, newVal) => handleChange("appname", newVal ? newVal.value : null)}
+               autoSelect
+            blurOnSelect
             renderInput={(params) => (
               <TextField
                 {...params}

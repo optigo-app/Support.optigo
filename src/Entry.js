@@ -25,7 +25,7 @@ const Entry = () => {
         <Routes>
           <Route path="/" element={<CallLogDashBoard />} />
           <Route path="/Ticket" element={<TicketUi />} />
-          <Route path="/Ticket/Client" element={<ClientTicketUi />} />
+          {/* <Route path="/Ticket/Client" element={<ClientTicketUi />} /> */}
           <Route path="/Delivery" element={<DeliveryDashboard />} />
           <Route path="/Training" element={<TrainingDashboard />} />
           {/* <Route path="/test" element={<SignUp />} /> */}

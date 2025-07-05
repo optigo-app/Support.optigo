@@ -1,8 +1,7 @@
 import React from "react";
 import { Modal, Box, Typography, IconButton, Divider, Grid, Card, CardContent, Avatar, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { formatBytes, getFileIcon } from '../../../../libs/helper';
-
+import { formatBytes, getFileIcon } from "../../../../libs/helper";
 
 const modalStyle = {
   position: "absolute",
@@ -44,9 +43,7 @@ const headerBoxSx = {
   color: "#fff",
 };
 
-
 export const AttachmentPreview = ({ open, setOpen = () => { }, attachments = [], HandleRemoveAttachMent = () => { } }) => {
-  console.log(attachments, "attachments")
   const handleClose = () => setOpen(false);
 
   if (!attachments || !Array.isArray(attachments)) {
@@ -64,10 +61,7 @@ export const AttachmentPreview = ({ open, setOpen = () => { }, attachments = [],
         },
       }}
     >
-      <Box
-        sx={[containerSx, { outline: "none" }]}
-        onClick={handleClose} 
-      >
+      <Box sx={[containerSx, { outline: "none" }]} onClick={handleClose}>
         <Box sx={headerBoxSx}>
           <Typography variant="h6" fontWeight="bold">
             View Attachments
@@ -91,66 +85,61 @@ export const AttachmentPreview = ({ open, setOpen = () => { }, attachments = [],
               <Grid container spacing={2} justifyContent="center">
                 {attachments.map((file, index) => (
                   <Grid item xs={6} sm={4} md={3} lg={2} key={index}>
-                    <Tooltip title={file?.fileName} arrow placement="top">
-                      <Card
+                    <Card
+
+                      sx={{
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        textAlign: "center",
+                        p: 2,
+                        transition: "transform 0.2s ease-in-out",
+                        boxShadow: 2,
+                        borderRadius: 2,
+                        position: "relative",
+                      }}
+                    >
+                      <IconButton
                         onClick={(e) => {
-                          e.stopPropagation(); 
+                          e.stopPropagation();
                           HandleRemoveAttachMent(file?.id);
                         }}
+                        size="small" sx={{ position: "absolute", top: 1, right: 1 }} >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                      <Avatar
                         sx={{
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          textAlign: "center",
-                          p: 2,
-                          transition: "transform 0.2s ease-in-out",
-                          boxShadow: 2,
-                          borderRadius: 2,
-                          "&:hover": {
-                            transform: "scale(1.05)",
-                            boxShadow: 8,
-                            bgcolor: '#f50500',
-                            color: '#fff'
-                          },
+                          width: 64,
+                          height: 64,
+                          mb: 1,
+                          bgcolor: "transparent",
                         }}
                       >
-                        <Avatar
+                        {getFileIcon(file?.fileName)}
+                      </Avatar>
+                      <CardContent>
+                        <Typography
+                          variant="body2"
+                          noWrap
                           sx={{
-                            width: 64,
-                            height: 64,
-                            mb: 1,
-                            bgcolor: "transparent",
+                            maxWidth: 120,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                            breakWord: "break-all",
                           }}
                         >
-                          {getFileIcon(file.fileName)}
-                        </Avatar>
-                        <CardContent>
-                          <Typography
-                            variant="body2"
-                            noWrap
-                            sx={{
-                              maxWidth: 120,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              fontSize: "12px",
-                              fontWeight: "bold",
-                              breakWord: "break-all",
-                            }}
-                          >
-                            {file.fileName}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            color="textSecondary"
-                            sx={{ fontSize: "10px", fontWeight: "bold"   }}>
-                              {formatBytes(file?.size)}
-                            </Typography>
-                        </CardContent>
-                      </Card>
-                    </Tooltip>
+                          {file.fileName}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary" sx={{ fontSize: "10px", fontWeight: "bold" }}>
+                          {formatBytes(file?.size)}
+                        </Typography>
+                      </CardContent>
+                    </Card>
                   </Grid>
                 ))}
               </Grid>

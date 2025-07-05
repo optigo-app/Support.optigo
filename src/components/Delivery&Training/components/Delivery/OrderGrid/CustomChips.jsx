@@ -4,6 +4,7 @@ import { getServiceType, getApprovalStatus, getPaymentStatus, getDeliveryStatus 
 import { ApprovalStatus, mockServiceTypes, mockPaymentStatuses, mockDeliveryStatuses } from '../../../constants/constants'
 
 const GenericStatusChip = ({ value, onSelect, rowData, getDisplayData, options, isClient }) => {
+  console.log("🚀 ~ GenericStatusChip ~ value:", value)
   const currentOption = options?.find((opt) => opt?.value === value) || options[0];
   const { label: currentLabel, color, bgColor, textColor } = getDisplayData(currentOption?.value);
 
@@ -32,7 +33,7 @@ const GenericStatusChip = ({ value, onSelect, rowData, getDisplayData, options, 
       <Tooltip
         title={isClient ? "You Are Not Authorized" : ""}
       >
-        <Chip label={currentLabel} color={color} size="small" onClick={isClient ? undefined : handleClick}
+        <Chip label={value ? currentLabel : "-"} clickable={true} color={color} size="small" onClick={isClient ? undefined : handleClick}
           sx={{
             cursor: isClient ? "default" : "pointer",
             pointerEvents: isClient ? "auto" : "auto",
@@ -42,8 +43,8 @@ const GenericStatusChip = ({ value, onSelect, rowData, getDisplayData, options, 
               pointerEvents: "auto",
               cursor: "default",
             },
-            bgcolor: bgColor,
-            color: textColor,
+            bgcolor: value ? bgColor : "",
+            color: value ? textColor : "",
           }}
         />
       </Tooltip>
@@ -97,7 +98,7 @@ const GenericStatusChip = ({ value, onSelect, rowData, getDisplayData, options, 
   );
 };
 // Approval Status Chip
-export const ApprovalStatusChip = ({ status, onSelect, rowData ,isClient }) => {
+export const ApprovalStatusChip = ({ status, onSelect, rowData, isClient }) => {
   return <GenericStatusChip value={status} isClient={isClient} onSelect={onSelect} rowData={rowData} getDisplayData={getApprovalStatus} options={ApprovalStatus} />;
 };
 

@@ -36,11 +36,11 @@ const navButtons = [
     path: "/Ticket",
     icon: <InsertDriveFile />,
   },
-  {
-    label: "Client Ticket",
-    path: "/Ticket/Client",
-    icon: <InsertDriveFile />,
-  },
+  // {
+  //   label: "Client Ticket",
+  //   path: "/Ticket/Client",
+  //   icon: <InsertDriveFile />,
+  // },
   {
     label: "Training",
     path: "/Training",

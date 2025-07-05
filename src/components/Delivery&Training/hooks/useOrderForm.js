@@ -31,7 +31,6 @@ export const initialState = {
 export const useOrderForm = () => {
 
 
-
   const [formData, setFormData] = useState(initialState);
   const [errors, setErrors] = useState({});
   const { addData } = useDelivery();
@@ -39,9 +38,10 @@ export const useOrderForm = () => {
   const { user, LoggedUser } = useAuth()
   const { showNotification } = useNotification();
 
+
   useEffect(() => {
     if (LoggedUser) {
-      setFormData(prev => ({ ...prev, createdBy: LoggedUser }))
+      setFormData(prev => ({ ...prev  , createdBy: LoggedUser }))
     }
   }, [LoggedUser])
 
@@ -57,6 +57,7 @@ export const useOrderForm = () => {
   };
 
   const addAssignment = (assignment) => {
+    console.log("🚀 ~ addAssignment ~ assignment:", assignment)
     setFormData((prev) => {
       const isDuplicate = prev.assignments.some(a => a.user === assignment.user);
       if (isDuplicate) {
@@ -139,11 +140,11 @@ export const useOrderForm = () => {
     if (!requestDate) newErrors.requestDate = "Request Date is required.";
     if (!date) newErrors.date = "Date is required.";
     if (!ticketDate) newErrors.ticketDate = "Ticket Date is required.";
-    if (!serviceType) newErrors.serviceType = "Service Type is required.";
+    // if (!serviceType) newErrors.serviceType = "Service Type is required.";
     if (!paymentStatus) newErrors.paymentStatus = "Payment Status is required.";
     if (!createdBy) newErrors.createdBy = "Created By is required.";
     if (!communicationWith) newErrors.communicationWith = "Communication With is required.";
-    if (!confirmationDate) newErrors.confirmationDate = "Confirmation Date is required.";
+    // if (!confirmationDate) newErrors.confirmationDate = "Confirmation Date is required.";
     if (!assignments || assignments.length === 0) {
       newErrors.assignments = "At least one assignment is required.";
     } else {

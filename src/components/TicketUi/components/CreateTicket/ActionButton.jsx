@@ -21,7 +21,7 @@ const ActionButton = ({ handleSubmit }) => {
           boxShadow: `0`,
         }}
         onClick={() => {
-          handleSubmit();
+          handleSubmit({ saveAndAddNew: false });
         }}
       >
         Save & Go to List
@@ -37,7 +37,7 @@ const ActionButton = ({ handleSubmit }) => {
           fontWeight: 600,
         }}
         onClick={() => {
-          handleSubmit();
+          handleSubmit({ saveAndAddNew: true });
         }}
       >
         Save & Add New

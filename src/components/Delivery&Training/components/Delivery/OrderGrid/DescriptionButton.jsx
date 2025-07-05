@@ -59,7 +59,7 @@ const DescriptionButton = ({ params, onEdit, isClient }) => {
             <ContentCopyRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        {!isClient && <Tooltip title="Edit">
+        {!isClient && <Tooltip title="Edit Description">
           <IconButton onClick={() => setShowDescModal(true)} size="small" sx={{
             backgroundColor: "#d0f0c0",  // soft light green
             color: "#2e7d32",            // medium green icon color

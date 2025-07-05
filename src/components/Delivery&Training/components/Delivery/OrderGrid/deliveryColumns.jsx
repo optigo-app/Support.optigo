@@ -94,9 +94,9 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
     // Date
     {
       field: "Date",
-      headerName: " Creation Date",
+      headerName: " Request Date",
       width: 120,
-      renderHeader: () => <strong> Creation Date</strong>,
+      renderHeader: () => <strong>Request Date</strong>,
       renderCell: (params) => <DateTooltip isClient={isClient} params={params} />,
     },
     // Ticket Number
@@ -170,16 +170,17 @@ export const getDeliveryColumns = (HandleFormSave, setShowTrainingForm, setShowD
       headerName: "On Demand",
       width: 150,
       renderHeader: () => <strong>On Demand</strong>,
-      renderCell: (params) => <Typography textAlign={"center"} textTransform={'capitalize'} variant="body2">{params?.value}</Typography>,
+      renderCell: (params) => <Typography textAlign={"center"} textTransform={'capitalize'} variant="body2">{params?.value?.trim()}</Typography>,
     },
     {
       field: "NoPrints",
       headerName: "No of Prints",
       width: 110,
       renderHeader: () => <strong>{isClient ? "No of Topics" : "No of Prints"}</strong>,
+      renderCell: (params) => <Typography textAlign={"center"} variant="body2">{params?.value ? params?.value : "-"}</Typography>,
     },
     {
-      field: "Assignments",
+      field: "Assignments", 
       headerName: "Assigned To",
       width: 150,
       renderHeader: () => <strong>Estimate</strong>,

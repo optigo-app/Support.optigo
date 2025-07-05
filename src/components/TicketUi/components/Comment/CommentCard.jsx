@@ -6,6 +6,8 @@ import CardMedia from "@mui/material/CardMedia";
 import CardActionArea from "@mui/material/CardActionArea";
 import { Collapse, IconButton } from "@mui/material";
 import { MessageSquareLock } from "lucide-react";
+import { getFileMetaData } from "./../../../../libs/helper";
+import AttachmentCard from "./AttachmentCard";
 
 const CommentBox = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -27,8 +29,8 @@ const CommentCard = ({ index, comment, handleToggleCollapse, openAttachmentId, u
           backgroundColor: comment?.isOfficeUseOnly
             ? "#ffe0b26e" // light orange
             : comment?.Name?.toLowerCase() === user?.fullName?.toLowerCase()
-            ? "#E0F7FA" // light sky
-            : "#F8F9F9", // light gray
+              ? "#E0F7FA" // light sky
+              : "#F8F9F9", // light gray
           position: "relative",
           // borderLeft: comment?.isOfficeUseOnly ? "4px solid #686868" : "none",
           padding: "12px 16px",
@@ -39,15 +41,11 @@ const CommentCard = ({ index, comment, handleToggleCollapse, openAttachmentId, u
           {/* Left side: Avatar, Name, Time */}
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <Avatar
-            sx={{
-              mr: 2,
-              bgcolor: comment?.isOfficeUseOnly
-                ? "#FF8B00"
-                : comment?.Name?.toLowerCase() === user?.fullName?.toLowerCase()
-                ? "#4FC3F7"
-                : "#0052CC",
-              textTransform: "uppercase",
-            }}
+              sx={{
+                mr: 2,
+                bgcolor: comment?.isOfficeUseOnly ? "#FF8B00" : comment?.Name?.toLowerCase() === user?.fullName?.toLowerCase() ? "#4FC3F7" : "#0052CC",
+                textTransform: "uppercase",
+              }}
             >
               {comment?.Name && comment?.Name?.charAt(0)}
             </Avatar>
@@ -83,30 +81,32 @@ const CommentCard = ({ index, comment, handleToggleCollapse, openAttachmentId, u
           }}
           fontSize={13.5}
         >
-          {comment?.attachment && (
-            <Card onClick={() => handleToggleCollapse(comment?.time)} sx={{ maxWidth: 345, mb: 2 }}>
-              <Collapse in={openAttachmentId === comment?.time}>
-                <CardActionArea>
-                  <CardMedia
-                    sx={{ objectFit: "contain", width: "100%" }}
-                    component="img"
-                    height="200"
-                    image={comment?.attachment?.preview || "https://jeremyqho.com/static/3/bug-process.jpeg"}
-                    alt={comment?.attachment?.name || "Attachment"}
-                    onClick={() => window.open(comment?.attachment?.preview, "_blank")}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "https://jeremyqho.com/static/3/bug-process.jpeg";
-                    }}
-                  />
-                </CardActionArea>
-              </Collapse>
+          {/* {comment?.attachment && (
+            <>
+              <Card onClick={() => handleToggleCollapse(comment?.time)} sx={{ maxWidth: 345, mb: 2 }}>
+                <Collapse in={openAttachmentId === comment?.time}>
+                  <CardActionArea>
+                    <CardMedia sx={{ objectFit: "contain", width: "100%" }} component="img" height="200" image={comment?.attachment} alt={comment?.attachment?.name || "Attachment"} onClick={() => window.open(comment?.attachment?.preview, "_blank")} />
+                  </CardActionArea>
+                </Collapse>
 
-              <Typography gutterBottom variant="subtitle2" ml={1} mt={1} component="div">
-                {comment?.attachment?.name || "@Attachment"}
-              </Typography>
-            </Card>
-          )}
+                <Typography gutterBottom variant="subtitle2" ml={1} mt={1} component="div">
+                  {comment?.attachment?.name || "@Attachment"}
+                </Typography>
+              </Card>
+              <Avatar
+                sx={{
+                  width: 64,
+                  height: 64,
+                  mb: 1,
+                  bgcolor: "transparent",
+                }}
+              >
+                {getFileMetaData(comment?.attachment).icon}
+              </Avatar>
+            </>
+          )} */}
+          {comment?.attachment && <AttachmentCard comment={comment} openAttachmentId={openAttachmentId} handleToggleCollapse={handleToggleCollapse} />}
           {comment?.message}
         </Typography>
       </CommentBox>

@@ -1,8 +1,7 @@
 import { Box, IconButton, Tooltip } from "@mui/material";
-import { Description, Assignment } from "@mui/icons-material";
+import { Description } from "@mui/icons-material";
 import HighlightOffRoundedIcon from '@mui/icons-material/HighlightOffRounded';
-
-
+import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
 const ActionButton = ({ onOpen, isClient, onEdit, onDeleteToggle }) => {
   return (
     <>
@@ -28,7 +27,7 @@ const ActionButton = ({ onOpen, isClient, onEdit, onDeleteToggle }) => {
                 backgroundColor: "#f8bbd0",
               },
             }}>
-            <Assignment fontSize="small" />
+            <EditNoteRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>}
         {!isClient && <Tooltip title="Delete">

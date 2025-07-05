@@ -14,7 +14,7 @@ export const getApprovalStatus = (status) => {
     Approved: { label: "Approved", bgColor: "#d4edda", textColor: "#155724" }, // light green
     Rejected: { label: "Rejected", bgColor: "#f8d7da", textColor: "#721c24" }, // light red/pink
   };
-  return statusMap[status] || { label: "Pending", bgColor: "#f0f0f0", textColor: "#333" };
+  return statusMap[status] || { label: "Other", bgColor: "#f0f0f0", textColor: "#333" };
 };
 
 // Soft background colors for payment statuses
@@ -25,7 +25,7 @@ export const getPaymentStatus = (status) => {
     Free: { label: "Free", bgColor: "#e2f0cb", textColor: "#33691e" }, // soft lime
     Invoiced: { label: "Invoiced", bgColor: "#d6e0f5", textColor: "#1a237e" }, // soft indigo
   };
-  return statusMap[status] || { label: "Unknown", bgColor: "#f0f0f0", textColor: "#333" };
+  return statusMap[status] || { label: "Other" , bgColor: "#f0f0f0", textColor: "#333" };
 };
 
 export const getDeliveryStatus = (status) => {
@@ -49,7 +49,7 @@ export const getDeliveryStatus = (status) => {
 
   return (
     statusMap[status] || {
-      label: "Unknown",
+      label: "Other",
       bgColor: "#eeeeee", // neutral grey
       textColor: "#555555",
     }
@@ -64,7 +64,7 @@ export const getServiceType = (type) => {
     Chargebale: { label: "Chargebale", bgColor: "#e0f7fa", textColor: "#006064" }, // aqua blue
     Consultation: { label: "Consultation", bgColor: "#fff3cd", textColor: "#856404" }, // light yellow
   };
-  return typeMap[type] || { label: type || "Other", bgColor: "#eeeeee", textColor: "#333" };
+  return typeMap[type] || { label: "Other", bgColor: "#eeeeee", textColor: "#333" };
 };
 
 export const getPaymentMethodStyle = (method) => {
@@ -113,7 +113,7 @@ export const getPaymentMethodStyle = (method) => {
 
   return (
     methodMap[method] || {
-      label: method || "Other",
+      label: "Other",
       bgColor: "#f5f5f5", // neutral grey
       textColor: "#616161", // dark grey
     }

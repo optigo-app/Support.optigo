@@ -19,6 +19,8 @@ class DynamicAnalytics {
     };
   }
 
+  // dashboardData?.kpis?.totalEstimatedHours
+
   // 1. KEY PERFORMANCE INDICATORS
   calculateKPIs() {
     const total = this.data.length;

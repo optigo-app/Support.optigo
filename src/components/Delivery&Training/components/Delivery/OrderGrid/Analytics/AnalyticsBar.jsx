@@ -1,23 +1,18 @@
 import { useEffect, useState } from "react";
-import {
-  Box, Typography, Button, Grid, Paper, TextField, InputAdornment, Select, MenuItem, IconButton, Stack,
-  FormControl,
-  InputLabel,
-} from "@mui/material";
+import { Box, Typography, Button, Grid, Paper, TextField, InputAdornment, Select, MenuItem, IconButton, Stack, FormControl, InputLabel } from "@mui/material";
 import { Add, FilterList } from "@mui/icons-material";
 import CustomDualDatePicker from "../../../shared/ui/CustomDatePicker";
 import { FilterMenu } from "../FilterMenu";
 import AutocompleteComponent from "../../../shared/ui/Autocomplete";
-import { CompanyMaster } from "../../../../constants/constants";
 import { isAnyFilterActive } from "../../../../utils/deliveryUtils";
 import DeliveryTabs from "../DeliveryTabs";
 import AnalyticsDashboardCards from "./AnalyticsBoard";
 import { Search } from "lucide-react";
-import FilterAltOffIcon from '@mui/icons-material/FilterAltOffRounded';
-import ClearIcon from '@mui/icons-material/ClearRounded';
+import FilterAltOffIcon from "@mui/icons-material/FilterAltOffRounded";
+import ClearIcon from "@mui/icons-material/ClearRounded";
+import { useDelivery } from "../../../../context/DeliveryProvider";
 
-
-const Dashboard = ({ role, dashboardData, onformToggle, greeting, LoggedUser, filters = null, setFilters = () => { }, isAdmin }) => {
+const Dashboard = ({ role, dashboardData, onformToggle, greeting, LoggedUser, filters = null, setFilters = () => {}, isAdmin }) => {
   return (
     <>
       <Box
@@ -74,15 +69,14 @@ const Dashboard = ({ role, dashboardData, onformToggle, greeting, LoggedUser, fi
 export default Dashboard;
 
 function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
-  console.log("🚀 ~ FilterOptions ~ role:", role)
   const [open, setOpen] = useState(false);
   const IsHasFilters = isAnyFilterActive(filters);
   const [tempSearch, setTempSearch] = useState(filters.search);
+  const { COMPANY_MASTER_LIST } = useDelivery();
 
   useEffect(() => {
     setTempSearch(filters.search);
   }, [filters.search]);
-
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -132,29 +126,29 @@ function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
         {/* Left side - Search and Filter */}
         <Grid item xs={12} md={6}>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} width="100%">
-            {role === "employee" && (
-              <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 2 }}>
-                <Button
-                  onClick={onformToggle}
-                  variant="contained"
-                  size="medium"
-                  startIcon={<Add />}
-                  sx={{
-                    textTransform: "none",
+            {/* {role === "employee" && ( */}
+            <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 2 }}>
+              <Button
+                onClick={onformToggle}
+                variant="contained"
+                size="medium"
+                startIcon={<Add />}
+                sx={{
+                  textTransform: "none",
+                  backgroundColor: "#ffde77",
+                  color: "#856404",
+                  "&:hover": {
                     backgroundColor: "#ffde77",
                     color: "#856404",
-                    "&:hover": {
-                      backgroundColor: "#ffde77",
-                      color: "#856404",
-                    },
-                  }}
-                >
-                  New Order
-                </Button>
-              </Box>
-            )}
+                  },
+                }}
+              >
+                New Order
+              </Button>
+            </Box>
+            {/* // )} */}
             <TextField
-              placeholder="Search tickets..."
+              placeholder="Search Orders..."
               size="small"
               sx={{ width: "50%" }}
               // value={filters.search}
@@ -173,7 +167,7 @@ function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
                       <ClearIcon fontSize="small" />
                     </IconButton>
                   </InputAdornment>
-                )
+                ),
               }}
             />
           </Stack>
@@ -187,18 +181,12 @@ function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
                 <FilterAltOffIcon />
               </IconButton>
             )}
-            {isAdmin && <AutocompleteComponent isWantLabel={true} options={CompanyMaster} size="small" fullWidth={false} label={"Company Code"} sx={{ minWidth: 250 }} labelId="Company-label" value={filters.projectCode} onChange={(value) => handleFilterChange("projectCode", value)} />}
+            {isAdmin && <AutocompleteComponent isWantLabel={true} options={COMPANY_MASTER_LIST} size="small" fullWidth={false} label={"Company Code"} sx={{ minWidth: 250 }} labelId="Company-label" value={filters.projectCode} onChange={(value) => handleFilterChange("projectCode", value)} />}
             <CustomDualDatePicker value={filters.date} onChange={handleDateChange} />
             <Box sx={{ display: "flex", gap: 2 }}>
               <FormControl size="small" sx={{ minWidth: 172 }}>
                 <InputLabel id="approval-label">Approval Status</InputLabel>
-                <Select
-                  labelId="approval-label"
-                  id="approval-select"
-                  value={filters.approval}
-                  onChange={(e) => handleFilterChange("approval", e.target.value)}
-                  label="Approval Status"
-                >
+                <Select labelId="approval-label" id="approval-select" value={filters.approval} onChange={(e) => handleFilterChange("approval", e.target.value)} label="Approval Status">
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="Pending">Pending</MenuItem>
                   <MenuItem value="Approved">Approved</MenuItem>
@@ -207,13 +195,7 @@ function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 168 }}>
                 <InputLabel id="delivery-status-label">Delivery Status</InputLabel>
-                <Select
-                  labelId="delivery-status-label"
-                  id="delivery-status-select"
-                  value={filters.deliveryStatus}
-                  onChange={(e) => handleFilterChange("deliveryStatus", e.target.value)}
-                  label="Delivery Status"
-                >
+                <Select labelId="delivery-status-label" id="delivery-status-select" value={filters.deliveryStatus} onChange={(e) => handleFilterChange("deliveryStatus", e.target.value)} label="Delivery Status">
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="Pending">Pending</MenuItem>
                   <MenuItem value="Running">Running</MenuItem>
@@ -221,9 +203,11 @@ function FilterOptions({ role, onformToggle, filters, setFilters, isAdmin }) {
                 </Select>
               </FormControl>
             </Box>
-            {isAdmin && <IconButton onClick={() => setOpen(true)}>
-              <FilterList />
-            </IconButton>}
+            {isAdmin && (
+              <IconButton onClick={() => setOpen(true)}>
+                <FilterList />
+              </IconButton>
+            )}
           </Box>
         </Grid>
       </Grid>
