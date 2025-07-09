@@ -21,24 +21,22 @@ registerAuthServiceWorker();
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
-  <>
-    <Suspense fallback={<div></div>}>
-      <BrowserRouter
-        basename={process.env.NODE_ENV === "production" ? "/calllogweb/" : "/" }
-      >
-        <AuthProvider>
-          <CallLogProvider>
-            <TicketProvider>
-              <ThemeProvider theme={Maintheme}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <CssBaseline />
-                  <Entry />
-                </LocalizationProvider>
-              </ThemeProvider>
-            </TicketProvider>
-          </CallLogProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </Suspense>
-  </>
+	<>
+		<Suspense fallback={<div></div>}>
+			<BrowserRouter basename={process.env.NODE_ENV === "production" ? "/calllogweb/" : "/"}>
+				<AuthProvider>
+					<CallLogProvider>
+						<TicketProvider>
+							<ThemeProvider theme={Maintheme}>
+								<LocalizationProvider dateAdapter={AdapterDateFns}>
+									<CssBaseline />
+									<Entry />
+								</LocalizationProvider>
+							</ThemeProvider>
+						</TicketProvider>
+					</CallLogProvider>
+				</AuthProvider>
+			</BrowserRouter>
+		</Suspense>
+	</>,
 );

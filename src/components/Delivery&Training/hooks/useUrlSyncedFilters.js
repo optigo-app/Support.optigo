@@ -1,6 +1,6 @@
 // src/hooks/useUrlQueryFilters.js
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 // export const useUrlSyncedFilters = (initialFilters) => {
 //     const [searchParams, setSearchParams] = useSearchParams();
 //     const navigate = useNavigate();
@@ -41,8 +41,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 //         navigate({ search: new URLSearchParams(newParams).toString() }, { replace: true });
 //     }, [filters, navigate]);
 
-
-
 //     const resetFilters = () => {
 //         setFilters(initialFilters);
 //         navigate({}, { replace: true });
@@ -50,15 +48,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 //     return { filters, setFilters, resetFilters };
 // };
-
-
-
-
-
-
-
-
-
 
 // useEffect(() => {
 //     const newParams = {};
@@ -84,64 +73,66 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 //     navigate({ search: new URLSearchParams(newParams).toString() }, { replace: true });
 // }, [filters, navigate]);
 
-
 export const useUrlSyncedFilters = (initialFilters) => {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const navigate = useNavigate();
 
-    const filterKeys = ['search', 'startDate', 'endDate', 'trainingType', 'trainingMode', 'status'];
+	const filterKeys = ["search", "startDate", "endDate", "trainingType", "trainingMode", "status"];
 
-    const parseFiltersFromUrl = () => {
-        const filters = { ...initialFilters };
+	const parseFiltersFromUrl = () => {
+		const filters = { ...initialFilters };
 
-        for (const key of filterKeys) {
-            const value = searchParams.get(key);
-            if (value !== null) {
-                if (key === 'startDate' || key === 'endDate') {
-                    filters.dateRange[key] = value;
-                } else {
-                    filters[key] = value;
-                }
-            }
-        }
+		for (const key of filterKeys) {
+			const value = searchParams.get(key);
+			if (value !== null) {
+				if (key === "startDate" || key === "endDate") {
+					filters.dateRange[key] = value;
+				} else {
+					filters[key] = value;
+				}
+			}
+		}
 
-        return filters;
-    };
+		return filters;
+	};
 
-    const [filters, setFilters] = useState(parseFiltersFromUrl);
+	const [filters, setFilters] = useState(parseFiltersFromUrl);
 
-    useEffect(() => {
-        const newParams = {};
+	useEffect(() => {
+		const newParams = {};
 
-        if (filters.search) newParams.search = filters.search;
-        if (filters.dateRange.startDate) newParams.startDate = filters.dateRange.startDate;
-        if (filters.dateRange.endDate) newParams.endDate = filters.dateRange.endDate;
-        if (filters.trainingType && filters.trainingType !== "All") newParams.trainingType = filters.trainingType;
-        if (filters.trainingMode && filters.trainingMode !== "All") newParams.trainingMode = filters.trainingMode;
-        if (filters.status && filters.status !== "All") newParams.status = filters.status;
+		if (filters.search) newParams.search = filters.search;
+		if (filters.dateRange.startDate) newParams.startDate = filters.dateRange.startDate;
+		if (filters.dateRange.endDate) newParams.endDate = filters.dateRange.endDate;
+		if (filters.trainingType && filters.trainingType !== "All") newParams.trainingType = filters.trainingType;
+		if (filters.trainingMode && filters.trainingMode !== "All") newParams.trainingMode = filters.trainingMode;
+		if (filters.status && filters.status !== "All") newParams.status = filters.status;
 
-        // Preserve non-filter params like ?sp, ifid, pid
-        const preservedParams = {};
-        for (const [key, value] of searchParams.entries()) {
-            if (!filterKeys.includes(key)) {
-                preservedParams[key] = value;
-            }
-        }
+		// Preserve non-filter params like ?sp, ifid, pid
+		const preservedParams = {};
+		for (const [key, value] of searchParams.entries()) {
+			if (!filterKeys.includes(key)) {
+				preservedParams[key] = value;
+			}
+		}
 
-        const combinedParams = new URLSearchParams({ ...preservedParams, ...newParams });
-        navigate({ search: combinedParams.toString() }, { replace: true });
-    }, [filters, navigate]);
+		const combinedParams = new URLSearchParams({
+			...preservedParams,
+			...newParams,
+		});
+		navigate({ search: combinedParams.toString() }, { replace: true });
+	}, [filters, navigate]);
 
-    const resetFilters = () => {
-        setFilters(initialFilters);
-        const preservedParams = {};
-        for (const [key, value] of searchParams.entries()) {
-            if (!filterKeys.includes(key)) {
-                preservedParams[key] = value;
-            }
-        }
-        navigate({ search: new URLSearchParams(preservedParams).toString() }, { replace: true });
-    };
+	const resetFilters = () => {
+		setFilters(initialFilters);
+		const preservedParams = {};
+		for (const [key, value] of searchParams.entries()) {
+			if (!filterKeys.includes(key)) {
+				preservedParams[key] = value;
+			}
+		}
+		navigate({ search: new URLSearchParams(preservedParams).toString() }, { replace: true });
+	};
 
-    return { filters, setFilters, resetFilters };
+	return { filters, setFilters, resetFilters };
 };

@@ -7,11 +7,12 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": ["build", "node_modules","config","public","scripts","backup","dist","logs","tmp"]
+		"ignore": ["build", "node_modules", "config", "public", "scripts", "backup", "dist", "logs", "tmp"]
 	},
 	"formatter": {
 		"enabled": true,
-		"indentStyle": "tab"
+		"indentStyle": "tab",
+		"lineWidth": 320
 	},
 	"organizeImports": {
 		"enabled": true

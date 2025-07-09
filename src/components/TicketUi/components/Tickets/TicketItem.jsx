@@ -7,162 +7,192 @@ import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import { FormatTime } from "../../../../libs/formatTime";
 import { useTicket } from "../../../../context/useTicket";
-import { DataParser } from "../../../../utils/ticketUtils";
+import { DataParser, GetTicketStatusStyle } from "../../../../utils/ticketUtils";
 import { useAuth } from "../../../../context/UseAuth";
+import BusinessRoundedIcon from "@mui/icons-material/BusinessRounded";
+import { LiaComment } from "react-icons/lia";
 
 const PriorityChip = styled(Box)(({ color }) => ({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 22,
-  height: 22,
-  borderRadius: "50%",
-  backgroundColor: color,
+	display: "flex",
+	alignItems: "center",
+	justifyContent: "center",
+	width: 22,
+	height: 22,
+	borderRadius: "50%",
+	backgroundColor: color,
 }));
 
 const TicketItem = ({ selectedTicket, onTicketSelect, ticket }) => {
-  const [Star, setStar] = useState(ticket?.star === true || ticket?.star === "true");
-  const { updateTicket } = useTicket();
-  const { user } = useAuth();
+	const [Star, setStar] = useState(ticket?.star === true || ticket?.star === "true");
+	const { updateTicket } = useTicket();
+	const { user } = useAuth();
 
-  const handleStarChange = (data, id) => {
-    const isStarred = data === true || data === "true";
-    setStar(isStarred);
-    updateTicket(id, { Star: isStarred ? 1 : 0 });
-  };
+	const { bgColor, textColor } = GetTicketStatusStyle(ticket?.Status);
 
-  useEffect(() => {
-    setStar(ticket?.star === true || ticket?.star === "true");
-  }, [ticket]);
+	const handleStarChange = (data, id) => {
+		const isStarred = data === true || data === "true";
+		setStar(isStarred);
+		updateTicket(id, { Star: isStarred ? 1 : 0 });
+	};
 
-  const CommentCount = DataParser(ticket?.comments).length;
+	useEffect(() => {
+		setStar(ticket?.star === true || ticket?.star === "true");
+	}, [ticket]);
 
-  return (
-    <ListItem
-      disablePadding
-      sx={{
-        display: "block",
-        backgroundImage: selectedTicket?.TicketNo === ticket?.TicketNo ? "linear-gradient(135deg, rgba(178,6,155,0.1), rgba(57,9,194,0.1))" : "none",
-        borderLeft: selectedTicket?.TicketNo === ticket?.TicketNo ? "4px solid #7808AE" : "4px solid transparent",
-        "&:hover": {
-          backgroundImage: selectedTicket?.TicketNo === ticket?.TicketNo ? "linear-gradient(135deg, rgba(178,6,155,0.1), rgba(57,9,194,0.1))" : "linear-gradient(135deg, rgba(178,6,155,0.05), rgba(57,9,194,0.05))",
-        },
-        cursor: "pointer",
-      }}
-      onClick={() => onTicketSelect(ticket)}
-    >
-      <Box sx={{ p: 2 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: "medium",
-              color: "#172B4D",
-              flex: 1,
-              wordBreak: "break-word",
-              whiteSpace: "pre-wrap",
-            }}
-            fontSize={14}
-          >
-            {ticket?.subject}
-          </Typography>
+	const CommentCount = DataParser(ticket?.comments).length;
 
-          <Typography
-            variant="caption"
-            sx={{
-              color: "#6B778C",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            {FormatTime(ticket?.CreatedOn, "shortDate")}
-          </Typography>
-        </Box>
+	return (
+		<ListItem
+			disablePadding
+			sx={{
+				display: "block",
+				backgroundImage: selectedTicket?.TicketNo === ticket?.TicketNo ? "linear-gradient(135deg, rgba(178,6,155,0.1), rgba(57,9,194,0.1))" : "none",
+				borderLeft: selectedTicket?.TicketNo === ticket?.TicketNo ? "4px solid #7808AE" : "4px solid transparent",
+				"&:hover": {
+					backgroundImage: selectedTicket?.TicketNo === ticket?.TicketNo ? "linear-gradient(135deg, rgba(178,6,155,0.1), rgba(57,9,194,0.1))" : "linear-gradient(135deg, rgba(178,6,155,0.05), rgba(57,9,194,0.05))",
+				},
+				transition: "all .2s ease-in-out",
+				cursor: "pointer",
+			}}
+			onClick={() => onTicketSelect(ticket)}
+		>
+			<Box sx={{ p: 2 }}>
+				<Box
+					sx={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "flex-start",
+						gap: 2,
+					}}
+				>
+					<Typography
+						variant="subtitle1"
+						sx={{
+							fontWeight: "medium",
+							color: "#172B4D",
+							flex: 1,
+							wordBreak: "break-word",
+							whiteSpace: "pre-wrap",
+							display: "-webkit-box",
+							WebkitLineClamp: 1,
+							WebkitBoxOrient: "vertical",
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+						}}
+						fontSize={14}
+					>
+						{ticket?.subject}
+					</Typography>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Tooltip title={`Only Admin can Star Tickets`}>
-            <Checkbox onClick={(e) => e.stopPropagation()} disabled={user?.designation !== "Admin"} onChange={(e) => handleStarChange(e.target.checked, ticket?.TicketNo)} size="small" icon={<StarBorderRoundedIcon fontSize="medium" />} checkedIcon={<StarRoundedIcon fontSize="medium" />} sx={{ p: 0, mr: 1 }} checked={Star} />
-          </Tooltip>
-          <Typography fontSize={13} variant="body2" sx={{ color: "#6B778C", mr: 1 }}>
-            {ticket?.TicketNo}
-          </Typography>
+					<Typography
+						variant="caption"
+						sx={{
+							color: "#6B778C",
+							whiteSpace: "nowrap",
+							flexShrink: 0,
+						}}
+					>
+						{FormatTime(ticket?.CreatedOn, "shortDate")}
+					</Typography>
+				</Box>
 
-          <Typography fontSize={13} variant="body2" sx={{ color: "#6B778C", mr: 1 }}>
-            <Chip label={ticket?.companyname} variant="filled" color="default" sx={{ fontSize: "12px", height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center" }} />
-          </Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<Tooltip title={`Only Admin can Star Tickets`}>
+						<Checkbox
+							onClick={(e) => e.stopPropagation()}
+							// disabled={user?.designation !== "Admin"}
+							onChange={(e) => handleStarChange(e.target.checked, ticket?.TicketNo)}
+							size="small"
+							icon={<StarBorderRoundedIcon fontSize="medium" />}
+							checkedIcon={<StarRoundedIcon fontSize="medium" />}
+							sx={{ p: 0, mr: 1 }}
+							checked={Star}
+						/>
+					</Tooltip>
+					<Typography fontSize={13} variant="body2" sx={{ color: "#6B778C", mr: 1 }}>
+						{ticket?.TicketNo}
+					</Typography>
 
-          <Box sx={{ display: "flex", alignItems: "center", ml: "auto", gap: 1 }}>
-            {/* Priority Chips with Tooltips */}
-            {ticket?.Priority === "High" && (
-              <Tooltip title="High Priority" arrow>
-                <Box>
-                  <PriorityChip color="#FF5630">
-                    <PriorityHighIcon sx={{ color: "white", fontSize: 15 }} />
-                  </PriorityChip>
-                </Box>
-              </Tooltip>
-            )}
+					<Typography fontSize={13} variant="body2" sx={{ color: "#6B778C", mr: 1 }}>
+						<Chip
+							icon={<BusinessRoundedIcon fontSize="small" />}
+							label={ticket?.companyname}
+							variant="filled"
+							color="default"
+							sx={{
+								fontSize: "12px",
+								height: 24,
+								borderRadius: 5,
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								bgcolor: "#56565614",
+							}}
+						/>
+					</Typography>
 
-            {ticket?.Priority == "Medium" && (
-              <Tooltip title="Medium Priority" arrow>
-                <Box>
-                  <PriorityChip color="#FFAB00">
-                    <ErrorOutlineIcon sx={{ color: "white", fontSize: 15 }} />
-                  </PriorityChip>
-                </Box>
-              </Tooltip>
-            )}
+					<Box sx={{ display: "flex", alignItems: "center", ml: "auto", gap: 1 }}>
+						{/* Priority Chips with Tooltips */}
+						{ticket?.Priority === "High" && (
+							<Tooltip title="High Priority" arrow>
+								<Box>
+									<PriorityChip color="#FF5630">
+										<PriorityHighIcon sx={{ color: "white", fontSize: 15 }} />
+									</PriorityChip>
+								</Box>
+							</Tooltip>
+						)}
 
-            {/* Comment Count Chip with Tooltip */}
-            <Tooltip title={`${CommentCount} Comments`} arrow>
-              <Chip
-                avatar={
-                  <Box
-                    component="span"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      backgroundColor: "#FF5630",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "white !important",
-                      fontWeight: "bold",
-                      fontSize: "12px",
-                    }}
-                  >
-                    {CommentCount}
-                  </Box>
-                }
-                sx={{
-                  backgroundColor: "transparent",
-                  border: "none",
-                  "& .MuiChip-avatar": {
-                    marginLeft: 0,
-                    marginRight: 0,
-                    height: 22,
-                    width: 22,
-                  },
-                }}
-              />
-            </Tooltip>
-          </Box>
-        </Box>
-        <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.9, mt: 0.5 }}>
-          <Chip
-            label={`Status: ${ticket?.Status}`}
-            size="small"
-            sx={{
-              backgroundColor: ticket?.Status === "Approved" ? "rgb(16, 172, 132)" : ticket?.Status?.includes("Pending") ? "#FFAB00" : ticket?.Status?.includes("Review") ? "#6554C0" : "rgb(243, 104, 224)",
-              color: "#fff",
-              fontWeight: 500,
-              fontSize: "11px",
-              height: 20,
-            }}
-          />
+						{ticket?.Priority == "Medium" && (
+							<Tooltip title="Medium Priority" arrow>
+								<Box>
+									<PriorityChip color="#FFAB00">
+										<ErrorOutlineIcon sx={{ color: "white", fontSize: 15 }} />
+									</PriorityChip>
+								</Box>
+							</Tooltip>
+						)}
 
-          {ticket?.instruction &&
+						{/* Comment Count Chip with Tooltip */}
+						{CommentCount > 0 && (
+							<Tooltip title={`${CommentCount} Comments`} arrow>
+								<Chip
+									label={`${CommentCount}`}
+									color="primary"
+									icon={<LiaComment fontSize={"18px"} />}
+									sx={{
+										border: "none",
+										height: 23,
+									}}
+								/>
+							</Tooltip>
+						)}
+					</Box>
+				</Box>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						flexWrap: "wrap",
+						gap: 0.9,
+						mt: 0.5,
+					}}
+				>
+					{ticket?.Status && (
+						<Chip
+							label={`Status: ${ticket?.Status}`}
+							size="small"
+							sx={{
+								backgroundColor: bgColor,
+								color: textColor,
+								fontWeight: 500,
+								fontSize: "11px",
+								height: 22,
+							}}
+						/>
+					)}
+
+					{/* {ticket?.instruction &&
             ticket?.instruction?.split(/[/|,]+/)?.map((person, index) => (
               <Chip
                 key={index}
@@ -176,11 +206,35 @@ const TicketItem = ({ selectedTicket, onTicketSelect, ticket }) => {
                   height: 20,
                 }}
               />
-            ))}
-        </Box>
-      </Box>
-    </ListItem>
-  );
+            ))} */}
+				</Box>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						flexWrap: "wrap",
+						mt: 0.5,
+					}}
+				>
+					{ticket?.instruction && (
+						<Typography
+							variant="body2"
+							fontSize={13}
+							sx={{
+								display: "-webkit-box",
+								WebkitLineClamp: 3,
+								WebkitBoxOrient: "vertical",
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+							}}
+						>
+							{ticket.instruction}
+						</Typography>
+					)}
+				</Box>
+			</Box>
+		</ListItem>
+	);
 };
 
 export default TicketItem;

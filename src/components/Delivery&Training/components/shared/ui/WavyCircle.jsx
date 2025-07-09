@@ -1,9 +1,7 @@
-import React from 'react'
+import React from "react";
 
 const WavyCircle = () => {
-    return (
-        <div className='wavy-circle'></div>
-    )
-}
+	return <div className="wavy-circle"></div>;
+};
 
-export default WavyCircle
+export default WavyCircle;

@@ -8,64 +8,62 @@ import { Card, TextField, Button } from "@mui/material";
 import StarIcon from "@mui/icons-material/Star";
 
 const EllipsisCell = ({ value }) => (
-  <Tooltip title={value} placement="top">
-    <Typography
-      variant="body2"
-      sx={{
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        display: "block",
-        maxWidth: "100%",
-        color: "#091E42",
-        fontWeight: 500,
-      }}
-      title={value}
-    >
-      {value}
-    </Typography>
-  </Tooltip>
+	<Tooltip title={value} placement="top">
+		<Typography
+			variant="body2"
+			sx={{
+				whiteSpace: "nowrap",
+				overflow: "hidden",
+				textOverflow: "ellipsis",
+				display: "block",
+				maxWidth: "100%",
+				color: "#091E42",
+				fontWeight: 500,
+			}}
+			title={value}
+		>
+			{value}
+		</Typography>
+	</Tooltip>
 );
 
 const DetailSection = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(2),
-  borderBottom: "1px solid #DFE1E6",
+	padding: theme.spacing(2),
+	borderBottom: "1px solid #DFE1E6",
 }));
 
-
-
 const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, inputValue, handleInputChange, HandleSave }) => {
-  const id = open ? "simple-popover" : undefined;
-  return (
-    <DetailSection
-      sx={{
-        transition: ".3s ease-in-out",
-      }}
-    >
-      {/* Subject + Close Icon */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          mb: 1,
-        }}
-      >
-        <Box sx={{ pr: 2 }}>
-          <Typography
-            // onClick={handleClick}
-            sx={{
-              fontWeight: 700,
-              fontSize: 22,
-              color: "#172B4D",
-              whiteSpace: "pre-line",
-              wordBreak: "break-word",
-              lineHeight: 1.4,
-            }}
-          >
-            { ticket?.subject || "No Main Subject"}
-          </Typography>
-          {/* {ticket?.MainSubject && ticket?.subject && (
+	const id = open ? "simple-popover" : undefined;
+	return (
+		<DetailSection
+			sx={{
+				transition: ".3s ease-in-out",
+			}}
+		>
+			{/* Subject + Close Icon */}
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "flex-start",
+					mb: 1,
+				}}
+			>
+				<Box sx={{ pr: 2 }}>
+					<Typography
+						// onClick={handleClick}
+						sx={{
+							fontWeight: 700,
+							fontSize: 22,
+							color: "#172B4D",
+							whiteSpace: "pre-line",
+							wordBreak: "break-word",
+							lineHeight: 1.4,
+						}}
+					>
+						{ticket?.subject || "No Main Subject"}
+					</Typography>
+					{/* {ticket?.MainSubject && ticket?.subject && (
             <Typography
               // onClick={handleClick}
               sx={{
@@ -81,7 +79,7 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
               {ticket?.subject}
             </Typography>
           )} */}
-          {/* <Popover
+					{/* <Popover
             id={id}
             open={open}
             anchorEl={anchorEl}
@@ -107,58 +105,68 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
               </Box>
             </Card>
           </Popover> */}
-        </Box>
+				</Box>
 
-        <Tooltip title="Close">
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
+				<Tooltip title="Close">
+					<IconButton onClick={onClose} size="small">
+						<CloseIcon />
+					</IconButton>
+				</Tooltip>
+			</Box>
 
-      {/* Project Code with Icon */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          mb: 1,
-        }}
-      >
-        <ApartmentRoundedIcon fontSize="small" sx={{ color: "#A5ADBA" }} />
-        <Typography variant="body1" sx={{ fontWeight: 500, color: "#253858", lineHeight: "normal", display: "flex", alignItems: "center", gap: 0.6 }}>
-          {ticket?.companyname || "No Project Code"}
-          {ticket?.createdby === "Client" && (
-            <Chip
-              label="Client Ticket"
-              size="small"
-              color="primary"
-              sx={{
-                width: "fit-content",
-                fontSize: 12,
-                fontWeight: 500,
-                backgroundColor: "#E6F0FF",
-                color: "#0B69FF",
-              }}
-            />
-          )}
-        </Typography>
-      </Box>
+			{/* Project Code with Icon */}
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					gap: 1,
+					mb: 1,
+				}}
+			>
+				<ApartmentRoundedIcon fontSize="small" sx={{ color: "#A5ADBA" }} />
+				<Typography
+					variant="body1"
+					sx={{
+						fontWeight: 500,
+						color: "#253858",
+						lineHeight: "normal",
+						display: "flex",
+						alignItems: "center",
+						gap: 0.6,
+					}}
+				>
+					{ticket?.companyname || "No Project Code"}
+					{ticket?.createdby === "Client" && (
+						<Chip
+							label="Client Ticket"
+							size="small"
+							color="primary"
+							sx={{
+								width: "fit-content",
+								fontSize: 12,
+								fontWeight: 500,
+								backgroundColor: "#E6F0FF",
+								color: "#0B69FF",
+							}}
+						/>
+					)}
+				</Typography>
+			</Box>
 
-      {/* Divider for clarity */}
-      <Divider sx={{ my: 1.5 }} />
+			{/* Divider for clarity */}
+			<Divider sx={{ my: 1.5 }} />
 
-      {/* Ticket Info Block */}
-      <Grid container spacing={2} alignItems="center">
-        {/* Ticket Number */}
-        <Grid item xs={12} sm="auto">
-          <Typography sx={{ fontWeight: 600, color: "#091E42" }}>
-            Ticket No: <span style={{ fontWeight: 700 }}>{ticket?.TicketNo}</span>
-          </Typography>
-        </Grid>
+			{/* Ticket Info Block */}
+			<Grid container spacing={2} alignItems="center">
+				{/* Ticket Number */}
+				<Grid item xs={12} sm="auto">
+					<Typography sx={{ fontWeight: 600, color: "#091E42" }}>
+						Ticket No: <span style={{ fontWeight: 700 }}>{ticket?.TicketNo}</span>
+					</Typography>
+				</Grid>
 
-        {/* Created By */}
-        {/* <Grid item xs={12} sm>
+				{/* Created By */}
+				{/* <Grid item xs={12} sm>
           <Typography variant="body2" sx={{ color: "#5E6C84", display: "flex", alignItems: "center", gap: 0.6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             Created on <strong>{FormatTime(ticket?.CreatedOn, "shortDate")}</strong>
             {ticket?.CreatedBy && (
@@ -169,8 +177,8 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
           </Typography>
         </Grid> */}
 
-        {/* Last Updated */}
-        {/* <Grid item xs={12} sm="auto">
+				{/* Last Updated */}
+				{/* <Grid item xs={12} sm="auto">
           {ticket?.UpdatedAt && (
             <Typography variant="caption" sx={{ color: "#7A869A", display: "flex", alignItems: "center", gap: 0.6 }}>
               Last updated {FormatTime(ticket?.UpdatedAt, "relative")}
@@ -178,29 +186,28 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
             </Typography>
           )}
         </Grid> */}
-      </Grid>
-        <Divider sx={{ my: 1.5 }} />
-          <Grid container spacing={2} alignItems="center">
-        <Grid item xs={12} sm={12}>
-          <Box sx={{ width: "100%", maxWidth: "100%" }}>
-            <Typography
-              variant="body2"
-              sx={{
-                color: "#5E6C84",
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                maxWidth: "100%",
-              }}
-            >
-              <strong  >Special Instruction:</strong>&nbsp;
-              {ticket?.instruction || "None"} 
-            </Typography>
-          </Box>
-        </Grid>
-      </Grid>
-      
-    </DetailSection>
-  );
+			</Grid>
+			<Divider sx={{ my: 1.5 }} />
+			<Grid container spacing={2} alignItems="center">
+				<Grid item xs={12} sm={12}>
+					<Box sx={{ width: "100%", maxWidth: "100%" }}>
+						<Typography
+							variant="body2"
+							sx={{
+								color: "#5E6C84",
+								whiteSpace: "normal",
+								wordBreak: "break-word",
+								maxWidth: "100%",
+							}}
+						>
+							<strong>Special Instruction:</strong>&nbsp;
+							{ticket?.instruction || "None"}
+						</Typography>
+					</Box>
+				</Grid>
+			</Grid>
+		</DetailSection>
+	);
 };
 
 export default DetailBar;
