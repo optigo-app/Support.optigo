@@ -21,9 +21,11 @@ import BusinessRoundedIcon from "@mui/icons-material/BusinessRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
 import NotificationsOffRoundedIcon from "@mui/icons-material/NotificationsOffRounded";
+import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import Switch from "@mui/material/Switch";
 import { useAuth } from "../../../context/UseAuth";
 import { useNotificationManager } from "../../../context/NotificationManager";
+import { usePWA } from "../../../pwa";
 import { removeSkeyCookie } from "../../../utils/AuthUtils";
 
 const getInitials = (firstname = "", lastname = "") =>
@@ -46,6 +48,7 @@ const AccountPopover = ({ anchorEl, open, onClose }) => {
   const navigate = useNavigate();
   const { user, savedAccounts = [], switchAccount } = useAuth();
   const { notifPrefs, updatePref, requestPermission } = useNotificationManager();
+  const { isInstalled, isInstallable, promptInstall, openInstallDialog } = usePWA();
 
   const isNotificationsOn = Boolean(notifPrefs?.browserEnabled || notifPrefs?.inAppEnabled);
 
@@ -414,6 +417,29 @@ const AccountPopover = ({ anchorEl, open, onClose }) => {
 
       {/* ── Action Options ── */}
       <Box sx={{ p: 0.75 }}>
+        {!isInstalled && (
+          <ListItemButton
+            onClick={() => {
+              onClose();
+              if (isInstallable) promptInstall();
+              else openInstallDialog();
+            }}
+            sx={{
+              py: 0.75,
+              px: 1.25,
+              borderRadius: "8px",
+              gap: 1.25,
+              transition: "all 0.15s ease",
+              "&:hover": { bgcolor: "rgba(79, 70, 229, 0.08)", color: "#4F46E5" },
+            }}
+          >
+            <DownloadRoundedIcon sx={{ fontSize: 17, color: "#4F46E5" }} />
+            <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#4F46E5" }}>
+              Install Optigo App
+            </Typography>
+          </ListItemButton>
+        )}
+
         <ListItemButton
           onClick={handleAddAccount}
           sx={{

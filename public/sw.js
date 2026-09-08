@@ -1,35 +1,95 @@
-self.addEventListener('install', (event) => {
-  console.log("Service Worker Installed");
-  // Activate worker immediately
+const CACHE_NAME = "optigo-pwa-v1";
+const STATIC_ASSETS = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/optigo_logo.png",
+  "/Black_Optigo_R_Logo.png",
+  "/2.ico",
+];
+
+self.addEventListener("install", (event) => {
+  console.log("⚡ PWA Service Worker Installed");
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn("Pre-caching static assets failed (non-blocking):", err);
+      });
+    })
+  );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-  console.log("Service Worker Activated");
-  // Claim clients immediately
-  event.waitUntil(clients.claim());
+self.addEventListener("activate", (event) => {
+  console.log("🚀 PWA Service Worker Activated");
+  // Clean up old caches
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      );
+    }).then(() => clients.claim())
+  );
 });
 
 let messagePort = null;
 
-self.addEventListener('message', (event) => {
-  console.log('Service worker received message:', event.data);
+self.addEventListener("message", (event) => {
+  console.log("Service worker received message:", event.data);
 
-  if (event.data === 'START_TIMER') {
-    // Store the port for continued use
+  if (event.data?.type === "SKIP_WAITING" || event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+    return;
+  }
+
+  if (event.data === "START_TIMER") {
     if (event.ports && event.ports[0]) {
       messagePort = event.ports[0];
-
-      // Start sending messages every 3 seconds
       setInterval(() => {
-        console.log('SW sending CHECK_COOKIE message');
         if (messagePort) {
-          messagePort.postMessage('CHECK_COOKIE');
+          messagePort.postMessage("CHECK_COOKIE");
         }
       }, 8000);
-    } else {
-      console.error('No MessageChannel port provided');
     }
+  }
+});
+
+// Stale-while-revalidate fetch strategy for static assets, network-first for APIs/dynamic
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET requests and WebSocket/API requests
+  if (request.method !== "GET" || url.pathname.startsWith("/api") || url.pathname.startsWith("/socket.io")) {
+    return;
+  }
+
+  // Static assets (images, fonts, scripts, styles)
+  const isStatic =
+    url.pathname.match(/\.(png|jpg|jpeg|svg|ico|css|js|woff2|woff|ttf)$/) ||
+    url.pathname === "/" ||
+    url.pathname === "/index.html";
+
+  if (isStatic) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
+              const responseToCache = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(request, responseToCache);
+              });
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
+
+        return cachedResponse || fetchPromise;
+      })
+    );
   }
 });
 

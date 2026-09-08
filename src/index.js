@@ -17,6 +17,7 @@ import { AuthProvider } from "./context/UseAuth";
 import { TicketProvider } from "./context/useTicket";
 import { CallLogProvider } from "./context/UseCallLog";
 import { NotificationProvider } from "./context/NotificationManager";
+import { PWAProvider } from "./pwa";
 import "@fontsource/poppins";
 import { HelmetProvider } from "react-helmet-async";
 import { SocketProvider } from "./context/SocketContext";
@@ -88,23 +89,25 @@ const Main = () => {
       <Suspense fallback={<Spinner />}>
         <HelmetProvider>
           <BrowserRouter basename={getBaseName()}>
-            <SocketProvider>
-              <AuthProvider>
-                <NotificationProvider>
-                  <CallLogProvider>
-                    <TicketProvider>
-                      <ThemeProvider theme={Maintheme}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns}>
-                          <CssBaseline />
-                          <Entry />
-                          <Toaster />
-                        </LocalizationProvider>
-                      </ThemeProvider>
-                    </TicketProvider>
-                  </CallLogProvider>
-                </NotificationProvider>
-              </AuthProvider>
-            </SocketProvider>
+            <PWAProvider>
+              <SocketProvider>
+                <AuthProvider>
+                  <NotificationProvider>
+                    <CallLogProvider>
+                      <TicketProvider>
+                        <ThemeProvider theme={Maintheme}>
+                          <LocalizationProvider dateAdapter={AdapterDateFns}>
+                            <CssBaseline />
+                            <Entry />
+                            <Toaster />
+                          </LocalizationProvider>
+                        </ThemeProvider>
+                      </TicketProvider>
+                    </CallLogProvider>
+                  </NotificationProvider>
+                </AuthProvider>
+              </SocketProvider>
+            </PWAProvider>
           </BrowserRouter>
         </HelmetProvider>
       </Suspense>

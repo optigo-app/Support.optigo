@@ -9,6 +9,12 @@ import PointToBeDiscuss from "./components/PointToBeDiscuss/Main";
 import LoginPage from "./components/login";
 import NotificationUI from "./components/_ui/NotificationUI/NotificationUI";
 import { NotificationProvider } from "./context/NotificationManager";
+import {
+  PWAInstallBanner,
+  PWAInstallDialog,
+  PWAUpdatePrompt,
+  PWAOfflineBanner,
+} from "./pwa";
 import { notify } from "./libs/NOTIFICATION_TEMPLATES";
 import AccountCenter from "./components/AccountCenter";
 import { isArchiveDomain } from "./utils/AppBasePath";
@@ -21,9 +27,13 @@ const Entry = () => {
 
   return (
     <>
-           <NotificationProvider>
+      <NotificationProvider>
         <HeaderWrapper>
           <NotificationUI />
+          <PWAInstallBanner />
+          <PWAInstallDialog />
+          <PWAUpdatePrompt />
+          <PWAOfflineBanner />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<CallLogDashBoard />} />

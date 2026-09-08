@@ -29,6 +29,7 @@ import ProfileTab from "./tabs/ProfileTab";
 import NotificationsTab from "./tabs/NotificationsTab";
 import AccountsTab from "./tabs/AccountsTab";
 import SupportTab from "./tabs/SupportTab";
+import { PWAQuickInstallBtn } from "../../pwa";
 
 export default function AccountCenter() {
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -123,6 +124,11 @@ export default function AccountCenter() {
           <Box sx={{ display: "flex", flexDirection: "column" }}>
             {/* 1. Profile section */}
             <ProfileTab />
+
+            {/* PWA App Card */}
+            <Box sx={{ mb: 3 }}>
+              <PWAQuickInstallBtn variant="card" />
+            </Box>
 
             {/* 2. Notifications section */}
             <NotificationsTab />
