@@ -329,6 +329,7 @@ export const TicketProvider = ({ children }) => {
 	});
 
 	useSocketEvent("TicketComment", (data) => {
+		console.log(data , "TicketComment")
 		notify(data, "TICKET_COMMENT");
 		setTickets((prev) =>
 			prev.map((t) =>

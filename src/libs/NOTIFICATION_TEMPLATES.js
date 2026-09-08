@@ -130,7 +130,7 @@ export const NOTIFICATION_TEMPLATES = {
   },
 
   TICKET_COMMENT: (data) => {
-    const commenter = formatName(data?.CreatedByName) || "Unknown User";
+    const commenter = formatName(data?.CreatedByName || data?.CreatedBy || data?.username) || "Unknown User";
     const comment = data?.Comments || "-";
 
     return {
