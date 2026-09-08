@@ -5,6 +5,26 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import DataObjectIcon from "@mui/icons-material/DataObject";
 import TableChartIcon from "@mui/icons-material/TableChart";
 
+/**
+ * Check whether a comment/ticket can be edited within N days
+ * @param {string} createdTime - ISO timestamp (e.g. "2025-12-19T14:16:20.587")
+ * @param {number} allowedDays - number of days allowed for edit (default 1 = 24 hrs)
+ * @returns {boolean}
+ */
+export const canEditWithinDays = (createdTime, allowedDays = 1) => {
+  if (!createdTime) return false;
+
+  const createdDate = new Date(createdTime);
+  const now = new Date();
+
+  const diffInMs = now - createdDate;
+  const diffInHours = diffInMs / (1000 * 60 * 60);
+
+  return diffInHours <= allowedDays * 24;
+};
+
+
+
 export function formatBytes(bytes) {
 	if (bytes === 0) return "0 Bytes";
 	const units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
@@ -52,12 +72,12 @@ export const getFileIcon = (input) => {
 	}
 };
 
-export const getFileMetaData = (input) => {
+export const getFileMetaData = (input , fontSize = "medium") => {
 	if (!input || typeof input !== "string") {
 		return {
 			extension: "",
 			type: "unknown",
-			icon: <InsertDriveFileIcon color="action" fontSize="medium" />,
+			icon: <InsertDriveFileIcon color="action" fontSize={fontSize} />,
 		};
 	}
 
@@ -74,7 +94,7 @@ export const getFileMetaData = (input) => {
 		return {
 			extension: "",
 			type: "unknown",
-			icon: <InsertDriveFileIcon color="action" fontSize="medium" />,
+			icon: <InsertDriveFileIcon color="action" fontSize={fontSize} />,
 		};
 	}
 
@@ -86,7 +106,7 @@ export const getFileMetaData = (input) => {
 			return {
 				extension,
 				type: "PDF Document",
-				icon: <PictureAsPdfIcon color="error" fontSize="medium" />,
+				icon: <PictureAsPdfIcon color="error" fontSize={fontSize} />,
 			};
 		case "xlsx":
 		case "xls":
@@ -94,20 +114,20 @@ export const getFileMetaData = (input) => {
 			return {
 				extension,
 				type: "Spreadsheet",
-				icon: <TableChartIcon color="success" fontSize="medium" />,
+				icon: <TableChartIcon color="success" fontSize={fontSize} />,
 			};
 		case "docx":
 		case "doc":
 			return {
 				extension,
 				type: "Word Document",
-				icon: <DescriptionIcon color="primary" fontSize="medium" />,
+				icon: <DescriptionIcon color="primary" fontSize={fontSize} />,
 			};
 		case "json":
 			return {
 				extension,
 				type: "JSON Data",
-				icon: <DataObjectIcon color="secondary" fontSize="medium" />,
+				icon: <DataObjectIcon color="secondary" fontSize={fontSize} />,
 			};
 		case "jpg":
 		case "jpeg":
@@ -122,22 +142,39 @@ export const getFileMetaData = (input) => {
 			return {
 				extension,
 				type: "Image",
-				icon: <ImageIcon fontSize="medium" />,
+				icon: <ImageIcon fontSize={fontSize} />,
 			};
 		case "txt":
 			return {
 				extension,
 				type: "Text File",
-				icon: <InsertDriveFileIcon color="info" fontSize="medium" />,
+				icon: <InsertDriveFileIcon color="info" fontSize={fontSize} />,
 			};
 		default:
 			return {
 				extension,
 				type: "Unknown File",
-				icon: <InsertDriveFileIcon color="action" fontSize="medium" />,
+				icon: <InsertDriveFileIcon color="action" fontSize={fontSize} />,
 			};
 	}
 };
+
+export const getFileNameWithoutExtension = (input) => {
+  if (!input || typeof input !== "string") return "";
+
+  try {
+    // Handle full URLs
+    input = new URL(input).pathname;
+  } catch {}
+
+  const fileName = decodeURIComponent(input.split("/").pop() || "");
+
+  // Remove last extension only
+  return fileName.includes(".")
+    ? fileName.substring(0, fileName.lastIndexOf("."))
+    : fileName;
+};
+
 
 export function similarity(s1, s2) {
 	s1 = s1.toLowerCase();
@@ -164,7 +201,7 @@ export function similarity(s1, s2) {
 export function findCompanyAndClosestOwner(CurrentCall, COMPANY_INFO_MASTER) {
 	const companyName = CurrentCall?.company?.trim().toLowerCase() || "";
 	const callByName = CurrentCall?.callBy?.trim().toLowerCase() || "";
-	let possibleMatches = COMPANY_INFO_MASTER?.filter((item) => item?.CompanyName?.trim().toLowerCase() === companyName);
+	let possibleMatches = COMPANY_INFO_MASTER?.filter((item) => item?.CompanyCode?.trim().toLowerCase() === companyName);
 	if (!possibleMatches || possibleMatches.length === 0) {
 		return null;
 	}

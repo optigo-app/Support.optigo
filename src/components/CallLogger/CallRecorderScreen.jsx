@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { Box, Button, Collapse, IconButton, Typography, List, Chip, MenuItem, Menu, Tooltip, Stack, Paper, Card, CardContent, Grid, Divider } from "@mui/material";
+import { Box, Button, Collapse, IconButton, Typography, List, Chip, MenuItem, Menu, Tooltip, Avatar, Paper, Card, CardContent, Grid, Divider, Badge, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import { formatTime } from "../../libs/formatTime";
+import { formatTime, FormatTime } from "../../libs/formatTime";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import { BriefcaseBusiness, Icon, PhoneIncoming, X } from "lucide-react";
+import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import PhoneCallbackRoundedIcon from "@mui/icons-material/PhoneCallbackRounded";
 import { useCallLog } from "../../context/UseCallLog";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -22,9 +23,17 @@ import DeveloperBoardRoundedIcon from "@mui/icons-material/DeveloperBoardRounded
 import PostCallFeedbackForm from "./CallFaq";
 import { useNavigate } from "react-router-dom";
 import InfoIcon from "@mui/icons-material/Info";
+import { PremiumTooltip } from "../_ui/CustomUI";
 import { truncateByWords, truncateByChars } from "../../libs/data";
 import PersonIcon from "@mui/icons-material/Person";
 import { findCompanyAndClosestOwner } from "../../libs/helper";
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Keyboard, Mousewheel, Autoplay } from 'swiper/modules';
+import "swiper/css";
+import "swiper/css/mousewheel";
+import "swiper/css/keyboard";
+
+
 
 const MuiProps = {
 	sx: {
@@ -38,7 +47,7 @@ const MuiProps = {
 	},
 };
 
-const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDetailsToggle, onEditCall, onAddConCurrentCall, onStartCall, isRecordingExpanded, recordingTime, onEndCall, CurrentCall, onCloseRecord, onPause, onResume, isPaused }) => {
+const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDetailsToggle, onEditCall, onAddConCurrentCall, onStartCall, isRecordingExpanded, recordingTime, onEndCall, CurrentCall, onCloseRecord, onPause, onResume, isPaused, activeFollowUp, onStartFollowUp }) => {
 	const [anchorEl, setAnchorEl] = useState(null);
 	const open = Boolean(anchorEl);
 	const [FaqModal, setFaqModal] = useState(false);
@@ -76,6 +85,31 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 		setAnchorEl(false);
 		setPostReview(true);
 	};
+
+	const hasAnalysis = !!CurrentCall?.callAnalysis &&
+		Object.keys(CurrentCall.callAnalysis).length > 0;
+
+	// Parse follow-up list from the call data
+	const followUpList = useMemo(() => {
+		try {
+			if (CurrentCall?.FollowUpList) {
+				return JSON.parse(CurrentCall.FollowUpList);
+			}
+		} catch (e) {
+			console.error("Error parsing FollowUpList:", e);
+		}
+		return [];
+	}, [CurrentCall?.FollowUpList]);
+
+	const selectedFollowUp = activeFollowUp ? followUpList.find(f => f.Id === activeFollowUp.followUpCallId) : null;
+	const isTimerRunning = recordingTime > 0;
+
+	const isValidDate = (d) => d && typeof d === 'string' && !d.startsWith("1900-01-01");
+	const isFollowUpCompleted = selectedFollowUp
+		? (isValidDate(selectedFollowUp.CallClosed) || (selectedFollowUp.CallDuration && selectedFollowUp.CallDuration !== "00:00:00") || (isValidDate(selectedFollowUp.CallStart) && !isTimerRunning))
+		: false;
+
+	const isFollowUpActive = !!activeFollowUp && activeFollowUp.callLogId === CurrentCall?.sr && !isFollowUpCompleted;
 
 	return (
 		<Collapse in={isRecordingExpanded} ref={collapsibleRef}>
@@ -160,6 +194,21 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 										<X />
 									</IconButton>
 								)}
+								{isFollowUpActive && (
+									<Chip
+										icon={<PhoneCallbackRoundedIcon style={{ fontSize: 16 }} />}
+										label={`Follow-Up #${activeFollowUp?.followUpCallId}`}
+										color="warning"
+										sx={{
+											position: "absolute",
+											top: "15px",
+											left: "25px",
+											fontWeight: 700,
+											color: "#fff",
+											px: 0.5,
+										}}
+									/>
+								)}
 								<Box
 									sx={{
 										display: "flex",
@@ -222,9 +271,20 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 										</Tooltip>
 									</Typography>
 								)}
-								{!CurrentCall?.callClosed && (
+								{!CurrentCall?.callClosed && !isFollowUpActive && (
 									<Typography fontWeight={300} letterSpacing={1} variant="subtitle1" mb={0.5} mt={1}>
 										<FiberManualRecordIcon color="error" /> {recordingTime > 0 ? `Call Duration : ${formatTime(recordingTime)}` : "Start A Call"}
+									</Typography>
+								)}
+								{CurrentCall?.callClosed && !isFollowUpActive && (
+									<Typography fontWeight={300} letterSpacing={1} variant="subtitle1" mb={0.5} mt={1} color="text.secondary">
+										Call Completed {CurrentCall?.CallDuration ? `• Duration: ${CurrentCall.CallDuration}` : ""}
+										{followUpList.length > 0 && ` • ${followUpList.length} Follow-up${followUpList.length > 1 ? "s" : ""}`}
+									</Typography>
+								)}
+								{isFollowUpActive && (
+									<Typography fontWeight={300} letterSpacing={1} variant="subtitle1" mb={0.5} mt={1}>
+										<FiberManualRecordIcon sx={{ color: "#FF9800" }} /> {recordingTime > 0 ? `Follow-Up Duration : ${formatTime(recordingTime)}` : "Start Follow-Up Call"}
 									</Typography>
 								)}
 							</Box>
@@ -261,7 +321,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 											</Box>
 										)}
 										{/* Start Call Button */}
-										{!CurrentCall?.callStart && !CurrentCall?.callClosed && (
+										{!CurrentCall?.callStart && !CurrentCall?.callClosed && !isFollowUpActive && (
 											<Box
 												sx={{
 													display: "flex",
@@ -283,8 +343,31 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 												<Typography sx={{ marginTop: 0.5, fontSize: "12px" }}>Start</Typography>
 											</Box>
 										)}
-										{/* pause and resume Button */}
-										{CurrentCall?.callStart && !CurrentCall?.callClosed && (
+										{/* Start Follow-Up Button — when follow-up added but not yet started */}
+										{isFollowUpActive && recordingTime <= 0 && (
+											<Box
+												sx={{
+													display: "flex",
+													flexDirection: "column",
+													alignItems: "center",
+												}}
+											>
+												<IconButton
+													onClick={() => onStartFollowUp()}
+													sx={{
+														p: 1.5,
+														backgroundColor: "#FF9800",
+														color: "white",
+														":hover": { bgcolor: "#F57C00" },
+													}}
+												>
+													<CallIcon fontSize="medium" />
+												</IconButton>
+												<Typography sx={{ marginTop: 0.5, fontSize: "12px" }}>Start Follow-Up</Typography>
+											</Box>
+										)}
+										{/* pause and resume Button — for both normal and follow-up calls */}
+										{((CurrentCall?.callStart && !CurrentCall?.callClosed) || (isFollowUpActive && recordingTime > 0)) && (
 											<Box
 												sx={{
 													display: "flex",
@@ -296,9 +379,9 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 													onClick={isPaused ? onResume : onPause}
 													sx={{
 														p: 1.5,
-														backgroundColor: "#444",
+														backgroundColor: isFollowUpActive ? "#FF9800" : "#444",
 														color: "white",
-														":hover": { bgcolor: "#444" },
+														":hover": { bgcolor: isFollowUpActive ? "#F57C00" : "#444" },
 													}}
 												>
 													{isPaused ? <PlayArrowRoundedIcon fontSize="medium" /> : <PauseIcon fontSize="medium" />}
@@ -306,8 +389,8 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 												<Typography sx={{ marginTop: 0.5, fontSize: "12px" }}>{isPaused ? "Resume" : "Pause"}</Typography>
 											</Box>
 										)}
-										{/* Add Call Button */}
-										{!CurrentCall?.callClosed && recordingTime > 0 && (
+										{/* Add Call Button — only during normal active call (not follow-up) */}
+										{!CurrentCall?.callClosed && recordingTime > 0 && !isFollowUpActive && (
 											<Box
 												sx={{
 													display: "flex",
@@ -381,8 +464,8 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 											<Typography sx={{ marginTop: 0.5, fontSize: "12px" }}>Details</Typography>
 										</Box>
 
-										{/* Call End Button */}
-										{CurrentCall?.callStart && !CurrentCall?.callClosed && (
+										{/* Call End Button — for both normal and follow-up calls */}
+										{((CurrentCall?.callStart && !CurrentCall?.callClosed) || (isFollowUpActive && recordingTime > 0)) && (
 											<Box
 												sx={{
 													display: "flex",
@@ -401,7 +484,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 												>
 													<CallEndIcon fontSize="medium" />
 												</IconButton>
-												<Typography sx={{ marginTop: 0.5, fontSize: "12px" }}>Hang up</Typography>
+												<Typography sx={{ marginTop: 0.5, fontSize: "12px" }}>{isFollowUpActive ? "End Follow-Up" : "Hang up"}</Typography>
 											</Box>
 										)}
 										{/* customer info */}
@@ -489,7 +572,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 
 											<Tooltip title={"Coming Soon!"} placement="top">
 												<MenuItem
-													disabled
+													// disabled
 													// ={CurrentCall?.callStart}
 													onClick={handleFAQ}
 													{...MuiProps}
@@ -501,12 +584,14 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 												</MenuItem>
 											</Tooltip>
 
-											{/* <MenuItem disabled={Object?.keys(CurrentCall?.callAnalysis).length !== 0} onClick={handlePostCallReview} {...MuiProps}>
-                        <ListItemIcon>
-                          <RateReviewIcon fontSize="small" />
-                        </ListItemIcon>
-                        Post-Call Review
-                      </MenuItem> */}
+											<MenuItem
+												//   disabled={CurrentCall && !hasAnalysis}
+												onClick={handlePostCallReview} {...MuiProps}>
+												<ListItemIcon>
+													<RateReviewIcon fontSize="small" />
+												</ListItemIcon>
+												Post-Call Review
+											</MenuItem>
 										</Menu>
 									</Box>
 								</Box>
@@ -538,121 +623,369 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 
 export default CallRecorderScreen;
 
-const CallQueueUI = ({ onEditCall }) => {
+export const CallQueueUI = ({ onEditCall }) => {
 	const { queue } = useCallLog();
+	window.__queue = queue;
 	const handleCall = (id) => {
 		onEditCall(id);
 	};
+
+	if (!queue || queue.length === 0) {
+		return (
+			<Box sx={{
+				display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+				minHeight: '64px',
+				opacity: 0.7,
+				bgcolor: '#cccccc2a',
+				mb: 0,
+				borderRadius: 4
+			}}>
+				<PhoneCallbackRoundedIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+				<Typography variant="caption" color="text.secondary" fontWeight={500}>
+					No calls in queue
+				</Typography>
+			</Box>
+		);
+	}
+
 	return (
-		<>
-			<Typography
-				variant="h6"
+		<Box sx={{ width: "100%", overflow: "hidden", px: 0.5, py: 0.5 }}>
+			<Swiper
+				spaceBetween={12}
+				slidesPerView={1.2}
+				breakpoints={{
+					600: {
+						slidesPerView: 2.2,
+					},
+					960: {
+						slidesPerView: 4.2,
+					},
+					1400: {
+						slidesPerView: 5,
+					},
+				}}
+				autoplay={{
+					delay: 4000,
+					disableOnInteraction: false,
+					pauseOnMouseEnter: true,
+				}}
+				speed={800}
+				loop={queue && queue.length > 6}
+				grabCursor={true}
+				keyboard={{ enabled: true }}
+				mousewheel={{ forceToAxis: true }}
+				modules={[Autoplay, Keyboard, Mousewheel]}
+			>
+				{queue?.map((call) => (
+					<SwiperSlide key={call?.id || call?.sr}
+					>
+						<UserRequestCard
+							appname={call?.appname}
+							company={call?.company}
+							department={call?.department}
+							description={call?.description}
+							name={call?.callBy}
+							date={call?.date}
+							time={call?.time}
+							onAccept={() => handleCall(call?.sr)}
+						/>
+					</SwiperSlide>
+				))}
+			</Swiper>
+		</Box>
+	);
+};
+
+
+
+const stringToColor = (string) => {
+	if (!string) return "#1A73E8";
+	let hash = 0;
+	for (let i = 0; i < string.length; i += 1) {
+		hash = string.charCodeAt(i) + ((hash << 5) - hash);
+	}
+	let color = "#";
+	for (let i = 0; i < 3; i += 1) {
+		const value = (hash >> (i * 8)) & 0xff;
+		color += `00${value.toString(16)}`.slice(-2);
+	}
+	return color;
+};
+
+const COLORS = {
+	bg: "#F8FAFC",
+	surface: "#FFFFFF",
+	border: "#E5E7EB",
+
+	textPri: "#111827",
+	textSec: "#6B7280",
+	textMuted: "#9CA3AF",
+
+	callFg: "#2563EB",
+	callBg: "#EFF6FF",
+	callBorder: "#BFDBFE",
+
+	tickFg: "#7C3AED",
+	tickBg: "#F3E8FF",
+
+	greenFg: "#16A34A",
+	greenBg: "#DCFCE7",
+
+	orangeFg: "#EA580C",
+	orangeBg: "#FFEDD5",
+
+	redFg: "#DC2626",
+	redBg: "#FEE2E2",
+
+	liveGreen: "#22C55E",
+};
+
+const UserRequestCard = ({ name, appname, company, description, date, time, onAccept }) => {
+	const truncatedDesc = description?.length > 15 ? `${description?.substring(0, 15)}...` : description;
+	const truncatedAppName = appname?.length > 12 ? `${appname?.substring(0, 12)}...` : appname;
+	const truncatedCompany = company?.length > 12 ? `${company?.substring(0, 12)}...` : company;
+
+	const displayTime = time ? time : "";
+	const displayDate = date ? new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : "";
+	const fullTimeText = `${displayDate} ${displayTime}`.trim();
+
+	const titleText = (
+		<Box sx={{ p: 0.5 }}>
+			{company && <Typography sx={{ fontSize: 12, mb: 0.5 }}><strong>Company:</strong> {company}</Typography>}
+			{appname && <Typography sx={{ fontSize: 12, mb: 0.5 }}><strong>App:</strong> {appname}</Typography>}
+			{description && <Typography sx={{ fontSize: 12 }}><strong>Description:</strong> {description}</Typography>}
+		</Box>
+	);
+
+	// Calculate wait time for conditional row coloring
+	const { baseBgColor, hoverBgColor, textColor, relativeTime, shortTime } = React.useMemo(() => {
+		if (!date) return { baseBgColor: "#fff", hoverBgColor: "#F1F3F4", textColor: "#80868b", relativeTime: "", shortTime: "" };
+
+		let callDateTime = new Date(date);
+		if (time) {
+			const dateStr = date.includes('T') ? date.split('T')[0] : date.split(' ')[0];
+			const combined = new Date(`${dateStr} ${time}`);
+			if (!isNaN(combined.getTime())) {
+				callDateTime = combined;
+			}
+		}
+
+		const diffMins = Math.floor((Date.now() - callDateTime.getTime()) / 60000);
+
+		const relTime = FormatTime(callDateTime, "relative");
+		let sTime = "";
+		if (diffMins < 1) {
+			sTime = "now";
+		} else if (diffMins < 60) {
+			sTime = `${diffMins}m`;
+		} else if (diffMins < 1440) {
+			const hours = Math.floor(diffMins / 60);
+			sTime = `${hours}h`;
+		} else {
+			const days = Math.floor(diffMins / 1440);
+			sTime = `${days}d`;
+		}
+
+		if (diffMins < 0) return { baseBgColor: "#fff", hoverBgColor: "#F1F3F4", textColor: "#80868b", relativeTime: relTime, shortTime: sTime };
+		if (diffMins <= 10) return { baseBgColor: COLORS.greenBg, hoverBgColor: COLORS.greenBg, textColor: COLORS.greenFg, relativeTime: relTime, shortTime: sTime }; // Green
+		if (diffMins <= 20) return { baseBgColor: COLORS.orangeBg, hoverBgColor: COLORS.orangeBg, textColor: COLORS.orangeFg, relativeTime: relTime, shortTime: sTime }; // Orange
+		return { baseBgColor: COLORS.redBg, hoverBgColor: COLORS.redBg, textColor: COLORS.redFg, relativeTime: relTime, shortTime: sTime }; // Red
+	}, [date, time]);
+
+	return <>
+		<PremiumTooltip title={titleText} placement="top" arrow>
+			<Paper
+				elevation={0}
+				sx={{
+					width: "100%",
+					borderRadius: 1,
+					px: 1.5,
+					py: 0.7,
+					border: "1px solid",
+					borderColor: textColor + "40",
+					// background: baseBgColor,
+					backdropFilter: "blur(10px)",
+					transition: "0.3s",
+					cursor: 'pointer',
+					"&:hover": {
+						filter: "brightness(0.98)",
+						borderColor: textColor
+					},
+				}}
+				onClick={onAccept}
+			>
+				<Stack
+					direction="row"
+					justifyContent="space-between"
+					alignItems="center"
+				>
+					{/* Left */}
+					<Stack
+						direction="row"
+						spacing={1.5}
+						alignItems="center"
+					>
+						<Avatar
+							sx={{
+								width: 40,
+								height: 40,
+								borderRadius: 1,
+								bgcolor: textColor,
+								color: 'white',
+								fontSize: '0.85rem',
+								fontWeight: 800
+							}}
+							variant="square"
+						>
+							{shortTime}
+						</Avatar>
+
+						<Box>
+							<Typography
+								fontWeight={700}
+								fontSize={14}
+								sx={{
+									textTransform: 'capitalize'
+								}}
+							>
+								{name || "Unknown"}  {company && (<Chip
+									sx={{ fontSize: "0.7rem", height: 20, color: COLORS.callFg, bgcolor: COLORS.callBg }}
+									title={company}
+									label={truncatedCompany}
+									size="small"
+								/>)}
+							</Typography>
+
+							<Stack
+								direction="row"
+								spacing={0.5}
+								alignItems="center"
+							>
+								<Typography
+									variant="caption"
+									color="text.secondary"
+								>
+									<Typography sx={{ fontSize: 11, color: "#5F6368", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+										{truncatedAppName ? truncatedAppName : company ? truncatedCompany : "No App"} {truncatedDesc ? ` • ${truncatedDesc}` : ""}
+									</Typography>
+								</Typography>
+							</Stack>
+							<Stack
+								direction="row"
+								spacing={1.5}
+								alignItems="center"
+								mt={0.5}
+							>
+								{relativeTime && (
+									<Typography sx={{ fontSize: "0.65rem", color: textColor, fontWeight: 600, lineHeight: 1 }}>
+										{relativeTime}
+									</Typography>
+								)}
+							</Stack>
+						</Box>
+					</Stack>
+
+				</Stack>
+			</Paper>
+		</PremiumTooltip>
+	</>
+
+	return (
+		<PremiumTooltip title={titleText} placement="right" arrow>
+			<Box
 				sx={{
 					display: "flex",
 					alignItems: "center",
-					width: "100%",
-					px: 1.5,
 					gap: 1,
-					paddingBottom: "0 !important",
-					paddingTop: "10px",
+					p: 1,
+					mb: 0.5,
+					borderRadius: 2,
+					transition: "background-color 0.15s ease",
+					cursor: "pointer",
+					backgroundColor: baseBgColor,
+					overflow: "hidden", // Never grow the parent
+					"&:hover": {
+						backgroundColor: hoverBgColor,
+					},
 				}}
 			>
-				<PhoneCallbackRoundedIcon color="success" /> Queue
-			</Typography>
-			<List
-				sx={{
-					width: "100%",
-					maxHeight: "41.8vh",
-					overflowY: "auto",
-					paddingInline: "7px",
-					borderBottomRightRadius: "20px",
-					borderBottomLeftRadius: "20px",
-				}}
-			>
-				{queue?.map((call) => (
-					<div key={call?.id}>
-						<UserRequestCard appname={call?.appname} company={call?.company} department={call?.department} description={call?.description} name={call?.callBy} onAccept={() => handleCall(call?.sr)} />
-					</div>
-				))}
-			</List>
-		</>
-	);
-};
+				{/* Left Avatar */}
+				<Avatar
+					sx={{
+						width: 32,
+						height: 32,
+						bgcolor: baseBgColor,
+						color: COLORS.callFg,
+						fontSize: 14,
+						flexShrink: 0
+					}}
+				>
+					{name ? name.charAt(0).toUpperCase() : "U"}
+				</Avatar>
 
-const UserRequestCard = ({ name, appname, company, description, onAccept }) => {
-	const [tooltipOpen, setTooltipOpen] = useState(false);
-	const truncatedDesc = description?.length > 20 ? `${description?.substring(0, 20)}...` : description;
-	const truncatedAppName = appname?.length > 10 ? `${appname?.substring(0, 10)}...` : appname;
-
-	return (
-		<Paper
-			elevation={2}
-			sx={{
-				p: 2,
-				borderRadius: 2,
-				transition: "all 0.2s",
-				position: "relative",
-				overflow: "hidden",
-				"&:hover": {
-					boxShadow: 3,
-				},
-				mb: 1,
-			}}
-		>
-			<Box sx={{ display: "flex", justifyContent: "space-between" }}>
-				<Stack>
-					<Box
+				{/* Center Content */}
+				<Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+					<Typography
 						sx={{
-							position: "absolute",
-							top: 0,
-							left: 0,
-							display: "flex",
-							gap: "0.3rem",
-							mt: 0.4,
-							ml: 0.7,
+							fontSize: 13,
+							fontWeight: 600,
+							color: "#202124",
+							lineHeight: 1.2,
+							mb: 0.3
 						}}
 					>
-						{company && <Chip label={company} size="small" color="primary" sx={{ fontSize: "0.7rem", height: 17, borderRadius: 1 }} />}
-						{truncatedAppName && <Chip label={truncatedAppName} size="small" color="warning" sx={{ fontSize: "0.7rem", height: 17, borderRadius: 2 }} />}
-					</Box>
-					<Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
-						<Typography variant="subtitle1" fontWeight={600}>
-							{name}
+						{name || "Unknown"}  {company && (<Chip
+							sx={{ fontSize: "0.7rem", height: 20, color: COLORS.callFg, bgcolor: COLORS.callBg }}
+							title={company}
+							label={truncatedCompany}
+							size="small"
+						/>)}
+					</Typography>
+
+					<Box sx={{ display: "flex", flexDirection: "column" }}>
+						<Typography sx={{ fontSize: 11, color: "#5F6368", lineHeight: 1.1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+							{truncatedAppName ? truncatedAppName : company ? truncatedCompany : "No App"} {truncatedDesc ? ` • ${truncatedDesc}` : ""}
 						</Typography>
-						<Tooltip title={description} open={tooltipOpen} onClose={() => setTooltipOpen(false)} onOpen={() => setTooltipOpen(true)} arrow>
-							<IconButton size="small" onMouseEnter={() => setTooltipOpen(true)} onMouseLeave={() => setTooltipOpen(false)}>
-								<InfoIcon fontSize="small" color="primary" />
-							</IconButton>
-						</Tooltip>
 					</Box>
-					{description && (
-						<Typography variant="body2" color="text.secondary">
-							{truncatedDesc}
+				</Box>
+
+				{/* Right Accept Button & Time */}
+				<Box sx={{ flexShrink: 0, ml: 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
+					{fullTimeText && (
+						<Typography sx={{ fontSize: "0.65rem", color: textColor, fontWeight: 600, lineHeight: 1 }}>
+							{fullTimeText}
 						</Typography>
 					)}
-				</Stack>
-
-				<Button
-					variant="contained"
-					size="small"
-					sx={{
-						alignSelf: "center",
-						px: 2,
-						borderRadius: 1.5,
-						textTransform: "none",
-						minWidth: "80px",
-					}}
-					color="success"
-					onClick={onAccept}
-				>
-					Accept
-				</Button>
+					<Button
+						variant="contained"
+						size="small"
+						onClick={onAccept}
+						sx={{
+							borderRadius: 1.5,
+							textTransform: "none",
+							minWidth: "auto",
+							px: 1.2,
+							height: "26px",
+							fontWeight: 600,
+							fontSize: "0.7rem",
+							boxShadow: "none",
+							bgcolor: COLORS.greenBg,
+							color: COLORS.greenFg,
+							"&:hover": {
+								bgcolor: COLORS.greenBg,
+								filter: "brightness(0.95)"
+							}
+						}}
+					>
+						Accept
+					</Button>
+				</Box>
 			</Box>
-		</Paper>
+		</PremiumTooltip>
 	);
 };
 
-const CustomerInfoCard = ({ data = null, onClose = () => {} }) => {
+const CustomerInfoCard = ({ data = null, onClose = () => { } }) => {
 	const safeData = data || {};
 	const { CompanyName, SignUp = "", Flow = "", owner = "", Package, BusinessType = "", subscription = {}, advancedFeatures = [], specialFlow = "", integrations = [] } = safeData;
 

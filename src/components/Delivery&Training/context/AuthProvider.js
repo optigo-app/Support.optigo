@@ -7,6 +7,8 @@ import { useSearchParams } from "react-router-dom";
 import { getFullName } from "../utils/helpers";
 import DeliveryAPI from "../../../apis/DeliveryController";
 import TrainingAPI from "./../../../apis/TrainingController";
+import PointToBeDiscuss from "../../../apis/PointToBeDiscussController";
+import Spinner from "../../_ui/Spinner";
 
 const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
@@ -93,7 +95,8 @@ export const AuthProvider = ({ children }) => {
 						sp: SP_ID,
 					});
 					const Deliveryconfig = DeliveryAPI.initialize(cookieUser);
-					if (!config || !Deliveryconfig) {
+					const PointToBeDiscussConfig = PointToBeDiscuss.initialize(cookieUser);
+					if (!config || !Deliveryconfig || !PointToBeDiscussConfig) {
 						console.error("Failed to initialize API with cookie data");
 						setIsInitialized(true);
 						return;
@@ -141,17 +144,20 @@ export const AuthProvider = ({ children }) => {
 	return (
 		<AuthContext.Provider value={value}>
 			{!isInitialized ? (
-				<Box
-					sx={{
-						display: "flex",
-						justifyContent: "center",
-						alignItems: "center",
-						height: "100vh",
-						width: "100vw",
-					}}
-				>
-					<CenteredCircularLoader />
-				</Box>
+				<>
+				<Spinner/>
+				{/* // <Box
+				// 	sx={{
+					// 		display: "flex",
+					// 		justifyContent: "center",
+					// 		alignItems: "center",
+					// 		height: "100vh",
+					// 		width: "100vw",
+					// 	}}
+					// >
+					// 	<CenteredCircularLoader />
+					// </Box> */}
+					</>
 			) : user ? (
 				children
 			) : (

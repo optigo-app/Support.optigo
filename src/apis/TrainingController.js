@@ -1,7 +1,10 @@
-class TrainingAPI {
-	static BASE_URL = "http://newnextjs.web/api/report";
-	// static BASE_URL = process.env.NODE_ENV === "production" ? "https://livenx.optigoapps.com/api/report" : "http://newnextjs.web/api/report";
+import { BaseAPI } from "./BaseAPI";
 
+class TrainingAPI extends BaseAPI{
+  static getBaseUrl() {
+    return super.BASE_URL;
+  }
+  static BASE_URL = this.getBaseUrl();
 	static VERSION_NO = null;
 	static SV = null;
 	static SP = null;
@@ -22,14 +25,6 @@ class TrainingAPI {
 		TrainingAPI.VERSION_NO = cookieData.version || "v1";
 
 		TrainingAPI.isInitialized = true;
-
-		console.log("TrainingAPI initialized with:", {
-			yearCode: TrainingAPI.YEAR_CODE,
-			sv: TrainingAPI.SV,
-			sp: TrainingAPI.SP,
-			appUserId: TrainingAPI.APP_USER_ID,
-			version: TrainingAPI.VERSION_NO,
-		});
 
 		return {
 			yearCode: TrainingAPI.YEAR_CODE,
@@ -105,7 +100,7 @@ class TrainingAPI {
 		}
 	}
 	// ✅ Create
-	static async createTraining({ TrainingDate, Projectcode, TicketNo, TrainingType, TrainingMode, TrainingBy, Attendees, StartTime, EndTime, Details, CutomerType, CutomerPackage, Status, Remark }) {
+	static async createTraining({ Title , TrainingDate, Projectcode, TicketNo, TrainingType, TrainingMode, TrainingBy, Attendees, StartTime, EndTime, Details, CutomerType, CutomerPackage, Status, Remark }) {
 		return await this.requestToApi({
 			mode: "create",
 			params: {
@@ -123,12 +118,13 @@ class TrainingAPI {
 				CutomerPackage,
 				Status,
 				Remark,
+				Title,
 			},
 			functionName: "Create",
 		});
 	}
 	// ✅ Update - Now supports partial updates!
-	static async updateTraining({ SessionID, TrainingDate, Projectcode, TicketNo, TrainingType, TrainingMode, TrainingBy, Attendees, StartTime, EndTime, Details, CutomerType, CutomerPackage, Status, Remark }) {
+	static async updateTraining({Title , SessionID, TrainingDate, Projectcode, TicketNo, TrainingType, TrainingMode, TrainingBy, Attendees, StartTime, EndTime, Details, CutomerType, CutomerPackage, Status, Remark }) {
 		const payload = {
 			SessionID,
 			...(TrainingDate !== undefined && { TrainingDate }),
@@ -145,6 +141,7 @@ class TrainingAPI {
 			...(CutomerPackage !== undefined && { CutomerPackage }),
 			...(Status !== undefined && { Status }),
 			...(Remark !== undefined && { Remark }),
+			...(Title !== undefined && { Title }),
 		};
 
 		return await this.requestToApi({

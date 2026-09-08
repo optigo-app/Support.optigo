@@ -6,6 +6,7 @@ import htmlToDraft from "html-to-draftjs";
 import { useTraining } from "../context/TrainingProvider";
 
 export const INITIAL_FORM_DATA = {
+	title : "",
 	date: "",
 	projectCode: "",
 	ticketNo: "",
@@ -90,7 +91,7 @@ export const useTrainingForm = () => {
 	const validateForm = () => {
 		return new Promise((resolve) => {
 			const newErrors = {};
-			const { date, projectCode, ticketNo, trainingType, trainingMode, trainingBy, attendees, startTime, endTime, status } = formData;
+			const { date, projectCode, ticketNo, trainingType, trainingMode, trainingBy, attendees, startTime, endTime, status, title } = formData;
 
 			if (!date) newErrors.date = "Date is required.";
 			if (!projectCode) newErrors.projectCode = "Project Code is required.";
@@ -102,6 +103,7 @@ export const useTrainingForm = () => {
 			if (!startTime) newErrors.startTime = "Start Time is required.";
 			if (!endTime) newErrors.endTime = "End Time is required.";
 			if (!status) newErrors.status = "Status is required.";
+			if (!title) newErrors.title = "Title is required.";
 
 			if (startTime && endTime && startTime > endTime) {
 				newErrors.endTime = "End Time must be later than or equal to Start Time.";
@@ -136,6 +138,9 @@ export const useTrainingForm = () => {
 				break;
 			case "attendees":
 				if (!value) message = "Number of attendees is required.";
+				break;
+			case "title":
+				if (!value) message = "Title is required.";
 				break;
 			// case "startTime":
 			//     if (!value) message = "Start Time is required.";

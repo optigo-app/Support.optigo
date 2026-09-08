@@ -4,19 +4,23 @@ export const getTicketAgeCategory = (dateString) => {
 	if (!dateString) return "";
 
 	try {
-		const ticketDate = parseISO(dateString);
+		const parsed = typeof dateString === "string" ? parseISO(dateString.replace(" ", "T")) : new Date(dateString);
+		const ticketDate = isNaN(parsed?.getTime?.()) ? new Date(dateString) : parsed;
+		if (isNaN(ticketDate.getTime())) return "";
+
 		const today = new Date();
 		const days = differenceInDays(startOfDay(today), startOfDay(ticketDate));
 
-		if (days === 0) return "Today";
+		if (days < 0 || days === 0) return "Today";
 		if (days === 1) return "1 day";
+		if (days === 2) return "2 days";
 		if (days <= 7) return "1 week";
 		if (days <= 30) return "1 month";
 		if (days <= 365) return `${Math.floor(days / 30)} months`;
 		return "1 year+";
 	} catch (e) {
 		console.error("Error parsing date:", dateString, e);
-		return "Unknown";
+		return "";
 	}
 };
 
@@ -46,42 +50,109 @@ const getLatestCommentDate = (comments) => {
 	}
 };
 
+export const excludedStatuses = ["closed", "delivered"];
+
 export const getDateFieldByType = (ticket, filterType = "created") => {
-	const status = ticket?.Status?.toLowerCase();
+	if (!ticket) return null;
+	const status = (ticket?.Status || "").toLowerCase();
 
 	switch (filterType) {
 		case "updated":
-			return ticket.UpdatedAt || ticket.CreatedOn;
+			return ticket.UpdatedAt || ticket.CreatedOn || null;
 
-		case "latestComment":
+		case "latestComment": {
 			const latestCommentDate = getLatestCommentDate(ticket.comments);
-			return latestCommentDate || ticket.CreatedOn;
+			return latestCommentDate || ticket.CreatedOn || null;
+		}
 
 		case "closedTicket":
-			if (excludedStatuses.includes(status)) {
-				return ticket?.TicketCloseTime || null;
+			if (excludedStatuses.includes(status) || status === "closed") {
+				return ticket?.TicketCloseTime || ticket?.UpdatedAt || ticket?.CreatedOn || null;
 			}
 			return null;
 
+		case "openTicket":
+			if (!excludedStatuses.includes(status) && status !== "closed") {
+				const latestCommentDate = getLatestCommentDate(ticket.comments);
+				return latestCommentDate || ticket.UpdatedAt || ticket.CreatedOn || null;
+			}
+			return null;
+
+		case "newTicket":
+			if (!ticket?.UpdatedAt?.trim() || status === "new") {
+				return ticket.CreatedOn || null;
+			}
+			return null;
+
+		case "isSuggested":
+			if (ticket.isSuggested === true || ticket.isSuggested === "True" || ticket.isSuggested === "true") {
+				const latestCommentDate = getLatestCommentDate(ticket.comments);
+				return latestCommentDate || ticket.UpdatedAt || ticket.CreatedOn || null;
+			}
+			return null;
+
+		case "personWise": {
+			const hasPerson = Boolean(
+				ticket?.CreatedBy ||
+				ticket?.LastUpdatedBy ||
+				ticket?.username ||
+				ticket?.Keywords ||
+				ticket?.keywords ||
+				ticket?.tags
+			);
+			if (hasPerson) {
+				return ticket.UpdatedAt || ticket.CreatedOn || null;
+			}
+			return null;
+		}
+
+		case "mentionedBy": {
+			let parsedComments = [];
+			try {
+				if (Array.isArray(ticket.comments)) parsedComments = ticket.comments;
+				else if (typeof ticket.comments === "string" && ticket.comments.trim()) {
+					parsedComments = JSON.parse(ticket.comments);
+				}
+			} catch (e) {}
+
+			const hasMentionOrAuthor = Array.isArray(parsedComments) && parsedComments.some(
+				(c) => Boolean(c?.Name) || (typeof c?.message === "string" && c.message.includes("@"))
+			);
+
+			if (hasMentionOrAuthor) {
+				const latestCommentDate = getLatestCommentDate(ticket.comments);
+				return latestCommentDate || ticket.CreatedOn || null;
+			}
+			return null;
+		}
+
 		case "created":
+		case "all":
 		default:
-			return ticket.CreatedOn;
+			return ticket.CreatedOn || null;
 	}
 };
-// Statuses considered as closed/excluded
-export const excludedStatuses = ["closed", "solved", "delivered"];
 
 export const getFilteredTickets = (filterName, tickets, filterType = "created") => {
 	if (!tickets || tickets.length === 0) return [];
 
 	const filterByExactAge = (ageCategory) => {
 		return tickets
+			.filter((ticket) => {
+				const dateField = getDateFieldByType(ticket, filterType);
+				if (!dateField) return false;
+				const age = getTicketAgeCategory(dateField);
+				return age === ageCategory;
+			})
 			.map((ticket) => {
 				const dateField = getDateFieldByType(ticket, filterType);
-				const age = getTicketAgeCategory(dateField);
-				return { ...ticket, Age: age };
+				return { ...ticket, Age: getTicketAgeCategory(dateField) };
 			})
-			.filter((ticket) => ticket.Age === ageCategory);
+			.sort((a, b) => {
+				const dateA = getDateFieldByType(a, filterType);
+				const dateB = getDateFieldByType(b, filterType);
+				return new Date(dateB) - new Date(dateA);
+			});
 	};
 
 	switch (filterName) {
@@ -89,11 +160,13 @@ export const getFilteredTickets = (filterName, tickets, filterType = "created") 
 			return [...tickets].sort((a, b) => new Date(b.CreatedOn) - new Date(a.CreatedOn));
 
 		case "all_age":
-			return [...tickets].sort((a, b) => {
-				const dateA = getDateFieldByType(a, filterType);
-				const dateB = getDateFieldByType(b, filterType);
-				return new Date(dateB) - new Date(dateA);
-			});
+			return [...tickets]
+				.filter((ticket) => getDateFieldByType(ticket, filterType) !== null)
+				.sort((a, b) => {
+					const dateA = getDateFieldByType(a, filterType);
+					const dateB = getDateFieldByType(b, filterType);
+					return new Date(dateB) - new Date(dateA);
+				});
 
 		case "new_ticket":
 			return tickets.filter((t) => !t?.UpdatedAt?.trim());
@@ -136,6 +209,7 @@ export const getFilteredTicketCount = (filterName, tickets, filterType = "create
 	const filterByExactAge = (ageCategory) => {
 		return tickets.filter((ticket) => {
 			const dateField = getDateFieldByType(ticket, filterType);
+			if (!dateField) return false;
 			const age = getTicketAgeCategory(dateField);
 			return age === ageCategory;
 		}).length;
@@ -143,8 +217,10 @@ export const getFilteredTicketCount = (filterName, tickets, filterType = "create
 
 	switch (filterName) {
 		case "all":
-		case "all_age":
 			return tickets.length;
+
+		case "all_age":
+			return tickets.filter((ticket) => getDateFieldByType(ticket, filterType) !== null).length;
 
 		case "new_ticket":
 			return tickets.filter((t) => !t?.UpdatedAt?.trim()).length;

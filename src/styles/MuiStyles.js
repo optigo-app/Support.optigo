@@ -117,6 +117,15 @@ const TicketTheme = createTheme({
 			color: "#8007AB",
 		},
 	},
+	components :{
+		    MuiAutocomplete :{
+         defaultProps: {
+        autoSelect: true,
+        autoHighlight: true,
+        selectOnFocus: true,
+      },
+    },
+	}
 });
 
 export { StyledCardHeader, StyledCardContent, MetricValue, MetricLabel, SectionTitle, SectionContent, TimelineContainer, TimelineEvent, TimelineIcon, TimelineTime, TimelineTitle, TimelineDescription, TicketTheme };

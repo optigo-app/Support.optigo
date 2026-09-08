@@ -98,6 +98,14 @@ export const useUrlSyncedFilters = (initialFilters) => {
 
 	const [filters, setFilters] = useState(parseFiltersFromUrl);
 
+	// Sync when URL query changes from Global Search
+	useEffect(() => {
+		const searchVal = searchParams.get("search") || "";
+		if (searchVal !== filters.search) {
+			setFilters((prev) => ({ ...prev, search: searchVal }));
+		}
+	}, [searchParams]);
+
 	useEffect(() => {
 		const newParams = {};
 

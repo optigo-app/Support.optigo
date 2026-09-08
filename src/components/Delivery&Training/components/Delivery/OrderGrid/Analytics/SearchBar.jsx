@@ -5,49 +5,56 @@ import ClearIcon from "@mui/icons-material/ClearRounded";
 import debounce from "lodash/debounce";
 
 const SearchBar = ({ filters, handleSearchChange }) => {
-	const [tempSearch, setTempSearch] = useState(filters.search || "");
+  const [tempSearch, setTempSearch] = useState(filters.search);
 
-	const debouncedSearchChange = useMemo(
-		() =>
-			debounce((value) => {
-				handleSearchChange("search", value);
-			}, 100),
-		[handleSearchChange],
-	);
+  useEffect(() => {
+    setTempSearch(filters.search);
+  }, [filters.search]);
 
-	useEffect(() => {
-		debouncedSearchChange(tempSearch);
-		return () => debouncedSearchChange.cancel();
-	}, [tempSearch, debouncedSearchChange]);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (tempSearch !== filters.search) {
+        handleSearchChange("search", tempSearch);
+      }
+    }, 300);
 
-	const handleClear = () => {
-		setTempSearch("");
-		handleSearchChange("search", "");
-	};
+    return () => clearTimeout(handler);
+  }, [tempSearch]);
 
-	return (
-		<TextField
-			placeholder="Search Orders..."
-			size="small"
-			sx={{ width: "50%" }}
-			value={tempSearch}
-			onChange={(e) => setTempSearch(e.target.value)}
-			InputProps={{
-				startAdornment: (
-					<InputAdornment position="start">
-						<Search fontSize="small" />
-					</InputAdornment>
-				),
-				endAdornment: tempSearch && (
-					<InputAdornment position="end">
-						<IconButton onClick={handleClear}>
-							<ClearIcon fontSize="small" />
-						</IconButton>
-					</InputAdornment>
-				),
-			}}
-		/>
-	);
+  const handleClear = () => {
+    setTempSearch("");
+    handleSearchChange("search", "");
+  };
+
+  return (
+    <TextField
+      placeholder="Search Orders..."
+      size="small"
+      sx={{
+        width: 220,
+        "& .MuiInputBase-root": {
+          height: "38px",
+          fontSize: "0.85rem",
+        },
+      }}
+      value={tempSearch}
+      onChange={(e) => setTempSearch(e.target.value)}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <Search size={16} />
+          </InputAdornment>
+        ),
+        endAdornment: tempSearch && (
+          <InputAdornment position="end">
+            <IconButton size="small" onClick={handleClear}>
+              <ClearIcon fontSize="small" />
+            </IconButton>
+          </InputAdornment>
+        ),
+      }}
+    />
+  );
 };
 
 export default SearchBar;

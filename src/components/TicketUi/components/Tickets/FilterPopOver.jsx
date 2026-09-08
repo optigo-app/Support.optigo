@@ -4,10 +4,16 @@ import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import { useUrlFilters } from "../../../../hooks/useFilters";
 import { useTicket } from "../../../../context/useTicket";
+import { ticketFilterAnchorEl$, closeTicketFilter, useSubject } from "../../../../rxjs/layoutStore";
 
-const FilterPopOver = ({ anchorEl, handleClose, open, HandleDownloadExcel }) => {
+const FilterPopOver = ({ HandleDownloadExcel }) => {
 	const { filters, updateFilters, clearFilters, hasFilters } = useUrlFilters();
 	const { APPNAME_LIST, COMPANY_LIST, CATEGORY_LIST, STATUS_LIST, PRIORITY_LIST } = useTicket();
+	const anchorEl = useSubject(ticketFilterAnchorEl$);
+	const open = Boolean(anchorEl);
+	const handleClose = () => {
+		closeTicketFilter();
+	};
 
 	return (
 		<>

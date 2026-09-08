@@ -1,9 +1,15 @@
-import { Box, FormControl, InputAdornment, InputLabel, MenuItem, Select, TextField, IconButton } from "@mui/material";
+import { Box, FormControl, InputAdornment, InputLabel, MenuItem, Select, TextField, IconButton, Autocomplete, Chip } from "@mui/material";
 import { Search } from "lucide-react";
 import DualDatePicker from "../../shared/ui/DatePicker";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import SearchBar from "./SearchBar";
-const FilterBar = ({ filters, setFilters, initialFilters }) => {
+import ControlPointRoundedIcon from "@mui/icons-material/ControlPointRounded";
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { useTraining } from "../../../context/TrainingProvider";
+
+
+const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin = false, onToggle = () => { } }) => {
+	const { COMPANY_MASTER_LIST } = useTraining();
 	const isAllOrEmpty = (value) => value === "" || value === "All";
 
 	const isAnyFilterActive = () => {
@@ -12,6 +18,7 @@ const FilterBar = ({ filters, setFilters, initialFilters }) => {
 		if (!isAllOrEmpty(filters.trainingType)) return true;
 		if (!isAllOrEmpty(filters.trainingMode)) return true;
 		if (!isAllOrEmpty(filters.status)) return true;
+		if (filters.company && filters.company.length > 0) return true;
 
 		return false;
 	};
@@ -71,10 +78,31 @@ const FilterBar = ({ filters, setFilters, initialFilters }) => {
 				sx={{
 					display: "flex",
 					alignItems: "center",
-					flex: 0.7,
+					flex: 0.6,
+					gap: "0.5rem",
 				}}
 			>
-				<SearchBar filters={filters} handleSearchChange={handleSearchChange} />
+				{isAdmin && (
+					<IconButton
+						onClick={onToggle}
+						size="small"
+						sx={{
+							width: 38,
+							height: 38,
+							border: (theme) => `3px solid ${theme.palette.primary.main}`,
+							borderRadius: 4, // ~8px
+							color: "primary.main",
+							transition: "all 0.2s ease-in-out",
+							"&:hover": {
+								// backgroundColor: (theme) => theme.palette.action.hover,
+								// borderColor: (theme) => theme.palette.primary.dark,
+							},
+						}}
+					>
+						<AddRoundedIcon fontSize="large" />
+					</IconButton>
+				)}
+				<SearchBar filtercount={filtercount} filters={filters} handleSearchChange={handleSearchChange} />
 			</Box>
 
 			<Box
@@ -83,7 +111,7 @@ const FilterBar = ({ filters, setFilters, initialFilters }) => {
 					alignItems: "center",
 					justifyContent: "flex-end",
 					gap: "0.5rem",
-					width: "55%",
+					width: "65%",
 				}}
 			>
 				{isAnyFilterActive() && (
@@ -101,6 +129,55 @@ const FilterBar = ({ filters, setFilters, initialFilters }) => {
 					</IconButton>
 				)}
 				<DualDatePicker value={filters.dateRange} onChange={handleDateChange} />
+				{/* Company Selector */}
+				<FormControl
+					sx={{
+						width: "50%",
+
+						"& .MuiAutocomplete-inputRoot": {
+							flexWrap: "nowrap !important",
+							overflowX: "auto",
+							// overflowY: "hidden",
+							width: '100%'
+						},
+
+						"& .MuiChip-root": {
+							maxWidth: 120,
+							textOverflow: "ellipsis",
+							overflow: "hidden",
+							whiteSpace: "nowrap",
+						},
+
+						"& .MuiAutocomplete-tag": {
+							margin: "2px",
+						},
+					}}
+					size="small"
+				>
+					<Autocomplete
+						multiple
+						size="small"
+						limitTags={4}
+						options={
+							Array.from(
+								new Set(
+									COMPANY_MASTER_LIST?.map(c => c?.CustomerCode).filter(Boolean)
+								)
+							) || []
+						}
+						value={filters.company || []}
+						onChange={(e, newValue) =>
+							setFilters(prev => ({ ...prev, company: newValue }))
+						}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Company (Project Code)"
+								variant="outlined"
+							/>
+						)}
+					/>
+				</FormControl>
 				{/* Training Type Selector */}
 				<FormControl sx={{ width: "20%" }} size="small">
 					<InputLabel>Training Type</InputLabel>

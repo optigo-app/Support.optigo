@@ -36,7 +36,11 @@ export const DATE_FIELDS = [
 	{ label: "Ticket Date", value: "Ticket Date" },
 	{ label: "Request Date", value: "Request Date" },
 	{ label: "Confirmation Date", value: "Confirmation Date" },
+    { label: "Delivery Date", value: "Delivery Date" },
+    { label: "Sample Approve Date", value: "Sample Approve Date" },
+
 ];
+
 
 export { getApprovalStatus, getPaymentStatus, getServiceType };
 
@@ -60,6 +64,13 @@ export const Datetheme = createTheme({
 		},
 	},
 	components: {
+		    MuiAutocomplete :{
+         defaultProps: {
+        autoSelect: true,
+        autoHighlight: true,
+        selectOnFocus: true,
+      },
+    },
 		MuiPaper: {
 			styleOverrides: {
 				root: {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { TextField, Box, Popover, InputAdornment, Button, Stack, MenuItem, IconButton } from "@mui/material";
+import { TextField, Box, Popover, InputAdornment, Button, Stack, MenuItem, IconButton, Tooltip } from "@mui/material";
 import { DateRangePicker } from "mui-daterange-picker";
 import { ThemeProvider } from "@mui/material/styles";
 import { Datetheme } from "../../libs/DateTheme";
@@ -28,11 +28,16 @@ const DualDatePicker = ({ filterState, setFilterState, tempDateRange, setTempDat
 	};
 
 	const handleApply = () => {
+		const startDate = formatDateForApi(tempDateRange.startDate);
+		const endDate = formatDateForApi(tempDateRange.endDate);
+		const targetField =
+			filterState.filterTargetField || (startDate && endDate ? "date" : "");
 		setFilterState({
 			...filterState,
+			filterTargetField: targetField,
 			dateRange: {
-				startDate: formatDateForApi(tempDateRange.startDate),
-				endDate: formatDateForApi(tempDateRange.endDate),
+				startDate,
+				endDate,
 			},
 		});
 		handleClose();
@@ -57,7 +62,13 @@ const DualDatePicker = ({ filterState, setFilterState, tempDateRange, setTempDat
 
 	return (
 		<ThemeProvider theme={Datetheme}>
-			<Box display="flex" gap={1} alignItems="center">
+			 
+			<Box display="flex" gap={1} alignItems="center" sx={{ flexShrink: 0 }}>
+				 <Tooltip
+			  title="Filter call logs by a specific date range. Defaults to showing all dates."
+			  arrow
+							  placement="top"
+							>
 				<TextField
 					label="Filter By"
 					select
@@ -70,7 +81,7 @@ const DualDatePicker = ({ filterState, setFilterState, tempDateRange, setTempDat
 						})
 					}
 					sx={{
-						minWidth: "180px",
+						minWidth: "130px",
 						"& .MuiInputBase-input": {
 							padding: "8.5px 12px",
 						},
@@ -81,7 +92,7 @@ const DualDatePicker = ({ filterState, setFilterState, tempDateRange, setTempDat
 					<MenuItem value="callClosed">Call Closed</MenuItem>
 					<MenuItem value="">None</MenuItem>
 				</TextField>
-
+			</Tooltip>
 				<TextField
 					label="Date Range"
 					value={displayValue}
@@ -89,7 +100,7 @@ const DualDatePicker = ({ filterState, setFilterState, tempDateRange, setTempDat
 					size="small"
 					fullWidth
 					sx={{
-						minWidth: "150px",
+						minWidth: "160px",
 						"& .MuiInputBase-input": {
 							padding: "8.5px 12px",
 						},

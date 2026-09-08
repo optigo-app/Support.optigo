@@ -1,0 +1,927 @@
+
+
+
+
+// import React, { useMemo, useState } from "react";
+// import { Box, Typography, Paper, IconButton, Tooltip, MenuItem, Select, FormControl, Divider } from "@mui/material";
+// import PhoneInTalkIcon from "@mui/icons-material/PhoneInTalk";
+// import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
+// import TimerIcon from "@mui/icons-material/Timer";
+// import EqualizerIcon from "@mui/icons-material/Equalizer";
+// import { Virtuoso } from "react-virtuoso";
+// import { parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+
+// // --- 1. HELPERS ---
+
+// // Parse "HH:mm:ss" to seconds
+// const parseDurationString = (timeStr) => {
+//   if (!timeStr || typeof timeStr !== "string") return 0;
+//   const parts = timeStr.split(":");
+//   if (parts.length !== 3) return 0;
+//   return +parts[0] * 3600 + +parts[1] * 60 + +parts[2];
+// };
+
+// // Format seconds to "10h 25m 30s"
+// const formatDuration = (seconds) => {
+//   if (!seconds) return "0s";
+//   const h = Math.floor(seconds / 3600);
+//   const m = Math.floor((seconds % 3600) / 60);
+//   const s = seconds % 60;
+
+//   const hDisplay = h > 0 ? `${h}h ` : "";
+//   const mDisplay = m > 0 || h > 0 ? `${m}m ` : "";
+//   const sDisplay = `${s < 10 && (h > 0 || m > 0) ? "0" : ""}${s}s`;
+//   return (hDisplay + mDisplay + sDisplay).trim();
+// };
+
+// // --- 2. COMPONENTS ---
+
+// const TooltipContent = ({ user, count, duration }) => (
+//   <Box sx={{ p: 1 }}>
+//     <Typography variant="subtitle2" sx={{ fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.2)", pb: 0.5, mb: 0.5 }}>
+//       {user}
+//     </Typography>
+//     <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+//       <Typography variant="caption" sx={{ color: "#ccc" }}>
+//         Calls: <span style={{ color: "#fff" }}>{count}</span>
+//       </Typography>
+//       <Typography variant="caption" sx={{ color: "#ccc" }}>
+//         Duration: <span style={{ color: "#fff" }}>{formatDuration(duration)}</span>
+//       </Typography>
+//     </Box>
+//   </Box>
+// );
+
+// const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
+//   // Toggle between 'receiver' (Internal User) and 'client' (Company/Client)
+//   const [viewMode, setViewMode] = useState("receiver");
+
+//   // --- PROCESS DATA ---
+//   const processedData = useMemo(() => {
+//     if (!data || !Array.isArray(data)) return { list: [], totalDuration: 0, totalCalls: 0 };
+
+//     const { startDate, endDate } = dateRange || {};
+
+//     // Ensure we compare start of day to end of day to include all times
+//     const start = startDate ? startOfDay(new Date(startDate)) : null;
+//     const end = endDate ? endOfDay(new Date(endDate)) : null;
+
+//     const groupMap = new Map();
+//     let grandTotalSeconds = 0;
+//     let grandTotalCalls = 0;
+
+//     data.forEach((row) => {
+//       // 1. Validate Date
+//       if (!row.date) return;
+//       const rowDateObj = parseISO(row.date);
+//       if (!isValid(rowDateObj)) return;
+
+//       // 2. Filter by Range (Strictly respects props)
+//       if (start && end) {
+//         if (!isWithinInterval(rowDateObj, { start, end })) return;
+//       }
+
+//       // 3. Parse Data
+//       const seconds = parseDurationString(row.CallDuration);
+
+//       // Determine Name based on mode
+//       let entityName = "Unknown";
+//       if (viewMode === "receiver") {
+//         entityName = row.receivedBy?.trim() ? row.receivedBy.trim() : "Unknown";
+//       } else {
+//         // Try Client Name, fallback to Company, fallback to CallBy
+//         entityName = row.client?.trim() || row.company?.trim() || row.callBy?.trim() || "Unknown Client";
+//       }
+
+//       // 4. Update Totals
+//       grandTotalSeconds += seconds;
+//       grandTotalCalls += 1;
+
+//       // 5. Group Data
+//       if (!groupMap.has(entityName)) {
+//         groupMap.set(entityName, { name: entityName, totalSeconds: 0, count: 0 });
+//       }
+//       const entry = groupMap.get(entityName);
+//       entry.totalSeconds += seconds;
+//       entry.count += 1;
+//     });
+
+//     // Convert Map to Array and Sort
+//     const list = Array.from(groupMap.values()).sort((a, b) => b.totalSeconds - a.totalSeconds);
+
+//     return { list, totalDuration: grandTotalSeconds, totalCalls: grandTotalCalls };
+//   }, [data, dateRange, viewMode]);
+
+//   const maxDuration = processedData.list.length > 0 ? processedData.list[0].totalSeconds : 0;
+
+//   // --- RENDER ROW ---
+//   const Row = ({ context, index }) => {
+//     const item = context.items[index];
+//     const percentage = context.maxDuration > 0 ? (item.totalSeconds / context.maxDuration) * 100 : 0;
+
+//     return (
+//       <Box sx={{ display: "flex", alignItems: "center", width: "100%", mb: 1.5, pr: 1 }}>
+//         <Typography
+//           variant="body2"
+//           sx={{
+//             width: "120px",
+//             fontWeight: "500",
+//             color: "#333",
+//             flexShrink: 0,
+//             whiteSpace: "nowrap",
+//             overflow: "hidden",
+//             textOverflow: "ellipsis",
+//             mr: 1,
+//             fontSize: "0.8rem",
+//           }}
+//           title={item.name}
+//         >
+//           {item.name}
+//         </Typography>
+
+//         <Tooltip
+//           title={<TooltipContent user={item.name} count={item.count} duration={item.totalSeconds} />}
+//           arrow
+//           placement="top"
+//           componentsProps={{
+//             tooltip: { sx: { bgcolor: "#333", color: "#fff", borderRadius: "4px" } },
+//             arrow: { sx: { color: "#333" } },
+//           }}
+//         >
+//           <Box sx={{ flexGrow: 1, height: "24px", bgcolor: "#f5f5f5", borderRadius: 25, position: "relative", overflow: "hidden", cursor: "pointer" }}>
+//             <Box
+//               sx={{
+//                 width: `${percentage}%`,
+//                 height: "100%",
+//                 bgcolor: viewMode === "client" ? "#4fc3f7" : "#81c784", 
+//                 borderRadius: 25,
+//                 transition: "width 0.5s ease-in-out",
+//               }}
+//             />
+//             <Typography variant="caption" sx={{ position: "absolute", top: "50%", right: "8px", transform: "translateY(-50%)", fontWeight: "600", color: "#444", zIndex: 1, fontSize: "0.7rem" }}>
+//               {formatDuration(item.totalSeconds)}
+//             </Typography>
+//           </Box>
+//         </Tooltip>
+//       </Box>
+//     );
+//   };
+
+//   return (
+//     <Paper
+//       elevation={0}
+//       sx={{
+//         display: "flex",
+//         flexDirection: "column",
+//         height: `calc(100vh - ${RecordMode ? "70vh" : "170px"})`,
+//         width: "100%",
+//         p: 2,
+//         borderRadius: 2,
+//         border: "1px solid #e0e0e0",
+//         overflow: "hidden",
+//         flex: 0.22,
+//         minHeight: 290,
+//         transition: "border 0.2s ease",
+//         "&:hover": {
+//           borderColor: "#1976d2",
+//         },
+//       }}
+//       onDragOver={(e) => {
+//         e.preventDefault(); // REQUIRED
+//       }}
+//       onDrop={(e) => {
+//         e.preventDefault();
+
+//         const raw = e.dataTransfer.getData("application/json");
+//         if (!raw) return;
+
+//         try {
+//           const payload = JSON.parse(raw);
+
+//           if (payload.type === "CLIENT") {
+//             setViewMode("client");
+//           }
+
+//           if (payload.type === "RECEIVER") {
+//             setViewMode("receiver");
+//           }
+//           console.log(payload)
+//         } catch (err) {
+//           console.error("Invalid drag payload");
+//         }
+//       }}
+//     >
+//       {/* HEADER */}
+//       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+//         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+//           <EqualizerIcon sx={{ color: "#555" }} />
+//           <Typography variant="h6" sx={{ fontWeight: "bold", color: "#222" }}>
+//             Analytics
+//           </Typography>
+//         </Box>
+
+//         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+//           <FormControl size="small" variant="standard">
+//             <Select
+//               value={viewMode}
+//               onChange={(e) => setViewMode(e.target.value)}
+//               disableUnderline
+//               sx={{
+//                 fontSize: "0.85rem",
+//                 fontWeight: 600,
+//                 color: "#1976d2",
+//                 "& .MuiSelect-select": { py: 0.5, pr: 3 },
+//               }}
+//             >
+//               <MenuItem value="receiver">By User</MenuItem>
+//               <MenuItem value="client">By Client</MenuItem>
+//             </Select>
+//           </FormControl>
+//         </Box>
+//       </Box>
+
+//       {/* TOTAL SUMMARY (Dynamic based on range) */}
+//       <Box
+//         sx={{
+//           bgcolor: "#f8f9fa",
+//           p: 2,
+//           borderRadius: 2,
+//           mb: 2,
+//           display: "flex",
+//           alignItems: "center",
+//           justifyContent: "space-between",
+//         }}
+//       >
+//         <Box>
+//           <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+//             <TimerIcon fontSize="inherit" /> TOTAL DURATION
+//           </Typography>
+//           <Typography variant="h5" fontWeight="800" color="#333">
+//             {formatDuration(processedData.totalDuration)}
+//           </Typography>
+//         </Box>
+//         <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+//         <Box sx={{ minWidth: 80 }}>
+//           <Typography variant="caption" color="text.secondary">
+//             TOTAL CALLS
+//           </Typography>
+//           <Typography variant="h6" fontWeight="600" color="#555">
+//             {processedData.totalCalls}
+//           </Typography>
+//         </Box>
+//       </Box>
+
+//       {/* LIST AREA */}
+//       <Box sx={{ flexGrow: 1, height: "100%" }}>
+//         {processedData.list.length === 0 ? (
+//           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.6 }}>
+//             <PhoneInTalkIcon sx={{ fontSize: 40, mb: 1, color: "#ddd" }} />
+//             <Typography variant="body2" color="text.secondary">
+//               No data in this range
+//             </Typography>
+//           </Box>
+//         ) : (
+//           <Virtuoso data={processedData.list} context={{ items: processedData.list, maxDuration }} itemContent={(index, _, context) => <Row index={index} context={context} />} style={{ height: "100%", width: "100%" }} />
+//         )}
+//       </Box>
+//     </Paper>
+//   );
+// };
+
+// export default CallDurationList;
+
+
+// import React, { useMemo, useState } from "react";
+// import { 
+//   Box, 
+//   Typography, 
+//   Paper, 
+//   IconButton, 
+//   Tooltip, 
+//   Stack, 
+//   MenuItem, 
+//   Select, 
+//   FormControl,
+//   Grid 
+// } from "@mui/material";
+// import PhoneInTalkIcon from "@mui/icons-material/PhoneInTalk";
+// import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
+// import AccessTimeIcon from '@mui/icons-material/AccessTime';
+// import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+// import EventRepeatIcon from '@mui/icons-material/EventRepeat';
+// import { Virtuoso } from "react-virtuoso";
+// import { 
+//   parseISO, 
+//   isValid, 
+//   isWithinInterval, 
+//   format, 
+//   isSameMonth, 
+//   isSameYear 
+// } from "date-fns";
+
+// // --- 1. ICONS & SVGS ---
+// const CustomGraphIcon = (props) => (
+//   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" {...props}>
+//     <g fill="none" fillRule="evenodd">
+//       <path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z" />
+//       <path fill="currentColor" d="M10.975 3.002a1 1 0 0 1-.754 1.196a8 8 0 0 0-.583.156a1 1 0 0 1-.59-1.911q.36-.112.73-.195a1 1 0 0 1 1.197.754m2.05 0a1 1 0 0 1 1.196-.754c4.454 1.01 7.78 4.992 7.78 9.752c0 5.523-4.478 10-10 10c-4.761 0-8.743-3.325-9.753-7.779a1 1 0 0 1 1.95-.442a8 8 0 1 0 9.58-9.58a1 1 0 0 1-.753-1.197M6.614 4.72a1 1 0 0 1-.053 1.414q-.222.205-.427.426A1 1 0 0 1 4.668 5.2q.255-.276.532-.533a1 1 0 0 1 1.414.053M12 6a1 1 0 0 1 1 1v4.586l2.707 2.707a1 1 0 0 1-1.414 1.414l-3-3A1 1 0 0 1 11 12V7a1 1 0 0 1 1-1M3.693 8.388a1 1 0 0 1 .661 1.25a8 8 0 0 0-.156.583a1 1 0 0 1-1.95-.442q.084-.37.195-.73a1 1 0 0 1 1.25-.661" />
+//     </g>
+//   </svg>
+// );
+
+// // --- 2. HELPERS ---
+// const parseDurationString = (timeStr) => {
+//   if (!timeStr || typeof timeStr !== "string") return 0;
+//   const parts = timeStr.split(":");
+//   if (parts.length !== 3) return 0;
+//   return (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
+// };
+
+// // Compact format for stats (e.g., 2h 5m)
+// const formatDuration = (seconds, compact = false) => {
+//   if (!seconds) return "0s";
+//   const h = Math.floor(seconds / 3600);
+//   const m = Math.floor((seconds % 3600) / 60);
+//   const s = seconds % 60;
+  
+//   if (compact) {
+//     if (h > 0) return `${h}h ${m}m`;
+//     if (m > 0) return `${m}m ${s}s`;
+//     return `${s}s`;
+//   }
+
+//   const hDisplay = h > 0 ? `${h}h ` : "";
+//   const mDisplay = m > 0 || h > 0 ? `${m}m ` : ""; 
+//   const sDisplay = `${s < 10 && (h > 0 || m > 0) ? "0" : ""}${s}s`;
+//   return (hDisplay + mDisplay + sDisplay).trim();
+// };
+
+// // --- 3. SUB-COMPONENTS ---
+
+// const TooltipContent = ({ user, history }) => (
+//   <Box sx={{ p: 1 }}>
+//     <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, borderBottom: '1px solid rgba(255,255,255,0.2)', pb: 0.5 }}>
+//       {user}
+//     </Typography>
+//     <Stack spacing={0.5}>
+//       {history.length === 0 && <Typography variant="caption">No history details</Typography>}
+//       {history.map((day, idx) => (
+//         <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, minWidth: 180 }}>
+//           <Typography variant="caption" sx={{ color: '#ddd' }}>
+//             {format(day.date, "MMM dd, yyyy")}
+//           </Typography>
+//           <Box sx={{ display: 'flex', gap: 1 }}>
+//              <Typography variant="caption" sx={{ color: '#aaa' }}>
+//               ({day.count} calls)
+//             </Typography>
+//             <Typography variant="caption" sx={{ fontWeight: 600, color: '#fff' }}>
+//               {formatDuration(day.seconds)}
+//             </Typography>
+//           </Box>
+//         </Box>
+//       ))}
+//     </Stack>
+//   </Box>
+// );
+
+// const StatCard = ({ icon, label, value, color }) => (
+//   <Box sx={{ 
+//     display: 'flex', 
+//     flexDirection: 'column', 
+//     p: 1.5, 
+//     borderRadius: 2, 
+//     bgcolor: '#fafafa',
+//     border: '1px solid #eee'
+//   }}>
+//     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+//       {React.cloneElement(icon, { sx: { fontSize: 16, color: color } })}
+//       <Typography variant="caption" color="text.secondary" fontWeight={600}>
+//         {label}
+//       </Typography>
+//     </Box>
+//     <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1 }}>
+//       {value}
+//     </Typography>
+//   </Box>
+// );
+
+// // --- 4. CORE COMPONENT ---
+// const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
+//   // viewMode: 'receiver' = Internal Users, 'client' = External Client/Company
+//   const [viewMode, setViewMode] = useState("receiver");
+
+//   // 4a. Process Data & Calculate Stats
+//   const processedData = useMemo(() => {
+//     if (!data || !Array.isArray(data)) return { list: [], stats: { total: 0, year: 0, month: 0 } };
+
+//     const { startDate, endDate } = dateRange || {};
+//     const start = startDate ? new Date(startDate) : null;
+//     const end = endDate ? new Date(endDate) : null;
+//     const now = new Date();
+
+//     const userMap = new Map();
+//     let stats = { total: 0, year: 0, month: 0 };
+
+//     data.forEach((row) => {
+//       if (!row.date) return;
+//       const rowDateObj = parseISO(row.date);
+//       if (!isValid(rowDateObj)) return;
+
+//       const seconds = parseDurationString(row.CallDuration);
+//       if (seconds === 0) return;
+
+//       // --- GLOBAL STATS (Independent of List Filter) ---
+//       stats.total += seconds;
+//       if (isSameYear(rowDateObj, now)) stats.year += seconds;
+//       if (isSameMonth(rowDateObj, now)) stats.month += seconds;
+
+//       // --- LIST FILTERING ---
+//       if (start && end) {
+//         if (!isWithinInterval(rowDateObj, { start, end })) return;
+//       }
+
+//       // Determine Display Name based on View Mode
+//       let entityName = "Unknown";
+//       if (viewMode === 'receiver') {
+//         entityName = row.receivedBy?.trim() || "Unknown";
+//       } else {
+//         // Use CallBy or fall back to Company if CallBy is empty
+//         entityName = row.callBy?.trim() || row.company?.trim() || "Unknown Client";
+//       }
+
+//       // Aggregate for List
+//       if (!userMap.has(entityName)) {
+//         userMap.set(entityName, { totalSeconds: 0, historyMap: new Map() });
+//       }
+//       const userData = userMap.get(entityName);
+//       userData.totalSeconds += seconds;
+
+//       const dayKey = format(rowDateObj, "yyyy-MM-dd");
+//       if (!userData.historyMap.has(dayKey)) {
+//         userData.historyMap.set(dayKey, { date: rowDateObj, seconds: 0, count: 0 });
+//       }
+//       const dayEntry = userData.historyMap.get(dayKey);
+//       dayEntry.seconds += seconds;
+//       dayEntry.count += 1;
+//     });
+
+//     const list = Array.from(userMap.entries()).map(([user, val], index) => ({
+//       id: index,
+//       user,
+//       durationSeconds: val.totalSeconds,
+//       history: Array.from(val.historyMap.values()).sort((a, b) => b.date - a.date)
+//     })).sort((a, b) => b.durationSeconds - a.durationSeconds);
+
+//     return { list, stats };
+//   }, [data, dateRange, viewMode]);
+
+//   const maxDuration = processedData.list.length > 0 ? processedData.list[0].durationSeconds : 0;
+
+//   // Row Renderer
+//   const Row = ({ context, index }) => {
+//     const item = context.items[index];
+//     const percentage = context.maxDuration > 0 
+//       ? (item.durationSeconds / context.maxDuration) * 100 
+//       : 0;
+
+//     return (
+//       <Box sx={{ display: "flex", alignItems: "center", width: "100%", mb: 1.5, pr: 1 }}>
+//         <Typography
+//           variant="body2"
+//           sx={{
+//             width: "120px",
+//             fontWeight: "500",
+//             color: "#333",
+//             flexShrink: 0,
+//             whiteSpace: "nowrap",
+//             overflow: "hidden",
+//             textOverflow: "ellipsis",
+//             mr: 1,
+//           }}
+//           title={item.user}
+//         >
+//           {item.user}
+//         </Typography>
+
+//         <Tooltip 
+//           title={<TooltipContent user={item.user} history={item.history} />} 
+//           arrow 
+//           placement="top"
+//           componentsProps={{
+//             tooltip: { sx: { bgcolor: '#222', color: '#fff', borderRadius: '8px', padding: 0 } },
+//             arrow: { sx: { color: '#222' } }
+//           }}
+//         >
+//           <Box sx={{ flexGrow: 1, height: "28px", bgcolor: "#f0f0f0", borderRadius: "14px", position: "relative", overflow: "hidden", cursor: "pointer", "&:hover .progress-bar": { filter: "brightness(0.95)" } }}>
+//             <Box
+//               className="progress-bar"
+//               sx={{ width: `${percentage}%`, height: "100%", bgcolor: viewMode === 'client' ? "#64b5f6" : "#81c784", borderRadius: "14px", transition: "width 0.5s ease-in-out" }}
+//             />
+//             <Typography variant="caption" sx={{ position: "absolute", top: "50%", right: "12px", transform: "translateY(-50%)", fontWeight: "600", color: "#444", zIndex: 1, userSelect: "none" }}>
+//               {formatDuration(item.durationSeconds)}
+//             </Typography>
+//           </Box>
+//         </Tooltip>
+//       </Box>
+//     );
+//   };
+
+//   return (
+//     <Paper
+//       elevation={3}
+//       sx={{
+//         display: "flex",
+//         flexDirection: "column",
+//         minHeight: 400, // Increased min-height to accommodate stats
+//         height: `calc(100vh - ${RecordMode ? "70vh" : "150px"})`,
+//         width: "100%",
+//         p: 2,
+//         borderRadius: 2,
+//         flex: 0.35, // Increased width flex slightly
+//         overflow: "hidden",
+//       }}
+//     >
+//       {/* 1. Header & Select */}
+//       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2, flexShrink: 0 }}>
+//         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+//           <CustomGraphIcon sx={{ color: "#444" }} />
+//           <Typography variant="h6" component="h2" sx={{ fontWeight: "bold", color: "#222" }}>
+//             Analytics
+//           </Typography>
+//         </Box>
+        
+//         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+//           <FormControl size="small">
+//             <Select
+//               value={viewMode}
+//               onChange={(e) => setViewMode(e.target.value)}
+//               displayEmpty
+//               sx={{ 
+//                 height: 30, 
+//                 fontSize: '0.875rem', 
+//                 bgcolor: '#f9f9f9',
+//                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ddd' }
+//               }}
+//             >
+//               <MenuItem value="receiver">Received By</MenuItem>
+//               <MenuItem value="client">Client List</MenuItem>
+//             </Select>
+//           </FormControl>
+//           <IconButton size="small">
+//             <ArrowForwardIosRoundedIcon fontSize="small" />
+//           </IconButton>
+//         </Box>
+//       </Box>
+
+//       {/* 2. Stats Grid */}
+//       <Grid container spacing={1} sx={{ mb: 2, flexShrink: 0 }}>
+//         <Grid item xs={4}>
+//           <StatCard 
+//             icon={<AccessTimeIcon />} 
+//             label="Total" 
+//             value={formatDuration(processedData.stats.total, true)} 
+//             color="#555"
+//           />
+//         </Grid>
+//         <Grid item xs={4}>
+//           <StatCard 
+//             icon={<EventRepeatIcon />} 
+//             label="This Year" 
+//             value={formatDuration(processedData.stats.year, true)} 
+//             color="#1976d2"
+//           />
+//         </Grid>
+//         <Grid item xs={4}>
+//           <StatCard 
+//             icon={<CalendarMonthIcon />} 
+//             label="This Month" 
+//             value={formatDuration(processedData.stats.month, true)} 
+//             color="#ed6c02"
+//           />
+//         </Grid>
+//       </Grid>
+
+//       <Typography variant="caption" sx={{ mb: 1, color: '#666', fontWeight: 600 }}>
+//         Top {viewMode === 'receiver' ? 'Employees' : 'Clients'} (Selected Range)
+//       </Typography>
+
+//       {/* 3. List Area */}
+//       <Box sx={{ flexGrow: 1, height: "100%" }}>
+//         {processedData.list.length === 0 ? (
+//           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }}>
+//              <PhoneInTalkIcon sx={{ fontSize: 40, mb: 1 }} />
+//              <Typography variant="body2">No call data found.</Typography>
+//           </Box>
+//         ) : (
+//           <Virtuoso 
+//             data={processedData.list} 
+//             context={{ items: processedData.list, maxDuration }} 
+//             itemContent={(index, _, context) => <Row index={index} context={context} />} 
+//             style={{ height: "100%", width: "100%" }} 
+//           />
+//         )}
+//       </Box>
+//     </Paper>
+//   );
+// };
+
+// export default CallDurationList;
+
+// // import React, { useMemo } from "react";
+// // import { Box, Typography, Paper, IconButton, Tooltip, Stack, Divider } from "@mui/material";
+// // import PhoneInTalkIcon from "@mui/icons-material/PhoneInTalk";
+// // import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
+// // import { Virtuoso } from "react-virtuoso";
+// // import { parseISO, isValid, isWithinInterval, format, startOfDay } from "date-fns";
+
+// // // --- 1. ICONS & SVGS ---
+// // const CustomGraphIcon = (props) => (
+// //   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" {...props}>
+// //     <g fill="none" fillRule="evenodd">
+// //       <path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z" />
+// //       <path fill="currentColor" d="M10.975 3.002a1 1 0 0 1-.754 1.196a8 8 0 0 0-.583.156a1 1 0 0 1-.59-1.911q.36-.112.73-.195a1 1 0 0 1 1.197.754m2.05 0a1 1 0 0 1 1.196-.754c4.454 1.01 7.78 4.992 7.78 9.752c0 5.523-4.478 10-10 10c-4.761 0-8.743-3.325-9.753-7.779a1 1 0 0 1 1.95-.442a8 8 0 1 0 9.58-9.58a1 1 0 0 1-.753-1.197M6.614 4.72a1 1 0 0 1-.053 1.414q-.222.205-.427.426A1 1 0 0 1 4.668 5.2q.255-.276.532-.533a1 1 0 0 1 1.414.053M12 6a1 1 0 0 1 1 1v4.586l2.707 2.707a1 1 0 0 1-1.414 1.414l-3-3A1 1 0 0 1 11 12V7a1 1 0 0 1 1-1M3.693 8.388a1 1 0 0 1 .661 1.25a8 8 0 0 0-.156.583a1 1 0 0 1-1.95-.442q.084-.37.195-.73a1 1 0 0 1 1.25-.661" />
+// //     </g>
+// //   </svg>
+// // );
+
+// // // --- 2. HELPERS ---
+
+// // // Efficiently parse HH:mm:ss to seconds
+// // const parseDurationString = (timeStr) => {
+// //   if (!timeStr || typeof timeStr !== "string") return 0;
+// //   const parts = timeStr.split(":");
+// //   if (parts.length !== 3) return 0;
+// //   return (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
+// // };
+
+// // // Pretty print seconds to 1h 20m 30s
+// // const formatDuration = (seconds) => {
+// //   if (!seconds) return "0s";
+// //   const h = Math.floor(seconds / 3600);
+// //   const m = Math.floor((seconds % 3600) / 60);
+// //   const s = seconds % 60;
+  
+// //   const hDisplay = h > 0 ? `${h}h ` : "";
+// //   const mDisplay = m > 0 || h > 0 ? `${m}m ` : ""; 
+// //   const sDisplay = `${s < 10 && (h > 0 || m > 0) ? "0" : ""}${s}s`;
+  
+// //   return (hDisplay + mDisplay + sDisplay).trim();
+// // };
+
+// // // --- 3. CORE LOGIC ---
+// // const processCallData = (rawData, dateRange) => {
+// //   if (!rawData || !Array.isArray(rawData)) return [];
+
+// //   const { startDate, endDate } = dateRange || {};
+// //   // Parse range once
+// //   const start = startDate ? new Date(startDate) : null;
+// //   const end = endDate ? new Date(endDate) : null;
+  
+// //   // We use a Map for better performance with frequent lookups
+// //   // Key: UserName, Value: { totalSeconds, historyMap: { DateString: { seconds, count } } }
+// //   const userMap = new Map();
+
+// //   rawData.forEach((row) => {
+// //     // 1. Validate Date
+// //     if (!row.date) return;
+// //     const rowDateObj = parseISO(row.date); // Robust ISO parsing
+// //     if (!isValid(rowDateObj)) return;
+
+// //     // 2. Filter by Date Range
+// //     if (start && end) {
+// //       if (!isWithinInterval(rowDateObj, { start, end })) return;
+// //     }
+
+// //     // 3. Identify User
+// //     const userName = row.receivedBy?.trim() || "Unknown";
+// //     const seconds = parseDurationString(row.CallDuration);
+    
+// //     // 4. Initialize User Data if needed
+// //     if (!userMap.has(userName)) {
+// //       userMap.set(userName, { totalSeconds: 0, historyMap: new Map() });
+// //     }
+// //     const userData = userMap.get(userName);
+
+// //     // 5. Update Total
+// //     userData.totalSeconds += seconds;
+
+// //     // 6. Update Daily History
+// //     // We key by YYYY-MM-DD to group calls on the same day
+// //     const dayKey = format(rowDateObj, "yyyy-MM-dd");
+    
+// //     if (!userData.historyMap.has(dayKey)) {
+// //       userData.historyMap.set(dayKey, { date: rowDateObj, seconds: 0, count: 0 });
+// //     }
+// //     const dayEntry = userData.historyMap.get(dayKey);
+// //     dayEntry.seconds += seconds;
+// //     dayEntry.count += 1;
+// //   });
+
+// //   // 7. Transform Map to Sorted Array
+// //   const result = Array.from(userMap.entries()).map(([user, data], index) => {
+// //     // Convert history map to sorted array (Newest first)
+// //     const historyArray = Array.from(data.historyMap.values()).sort((a, b) => b.date - a.date);
+    
+// //     return {
+// //       id: index,
+// //       user,
+// //       durationSeconds: data.totalSeconds,
+// //       history: historyArray
+// //     };
+// //   });
+
+// //   // Sort users by total duration descending
+// //   return result.sort((a, b) => b.durationSeconds - a.durationSeconds);
+// // };
+
+// // // --- 4. SUB-COMPONENTS ---
+
+// // // The Tooltip Content (Vercel Style)
+// // const TooltipContent = ({ user, history }) => {
+// //   return (
+// //     <Box sx={{ p: 1 }}>
+// //       <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, borderBottom: '1px solid rgba(255,255,255,0.2)', pb: 0.5 }}>
+// //         {user}
+// //       </Typography>
+// //       <Stack spacing={0.5}>
+// //         {history.length === 0 && <Typography variant="caption">No history details</Typography>}
+// //         {history.map((day, idx) => (
+// //           <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, minWidth: 180 }}>
+// //             <Typography variant="caption" sx={{ color: '#ddd' }}>
+// //               {format(day.date, "MMM dd, yyyy")}
+// //             </Typography>
+// //             <Box sx={{ display: 'flex', gap: 1 }}>
+// //                <Typography variant="caption" sx={{ color: '#aaa' }}>
+// //                 ({day.count} calls)
+// //               </Typography>
+// //               <Typography variant="caption" sx={{ fontWeight: 600, color: '#fff' }}>
+// //                 {formatDuration(day.seconds)}
+// //               </Typography>
+// //             </Box>
+// //           </Box>
+// //         ))}
+// //       </Stack>
+// //     </Box>
+// //   );
+// // };
+
+// // // --- 5. MAIN COMPONENT ---
+// // const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
+  
+// //   // Memoize heavy processing
+// //   const sortedUsers = useMemo(() => {
+// //     return processCallData(data, dateRange);
+// //   }, [data, dateRange]);
+
+// //   const maxDuration = sortedUsers.length > 0 ? sortedUsers[0].durationSeconds : 0;
+
+// //   // Row Renderer
+// //   const Row = ({ context, index }) => {
+// //     const item = context.items[index];
+// //     const percentage = context.maxDuration > 0 
+// //       ? (item.durationSeconds / context.maxDuration) * 100 
+// //       : 0;
+
+// //     return (
+// //       <Box
+// //         sx={{
+// //           display: "flex",
+// //           alignItems: "center",
+// //           width: "100%",
+// //           mb: 1.5,
+// //           pr: 1,
+// //         }}
+// //       >
+// //         {/* User Name with Ellipsis */}
+// //         <Typography
+// //           variant="body2"
+// //           sx={{
+// //             width: "120px",
+// //             fontWeight: "500",
+// //             color: "#333",
+// //             flexShrink: 0,
+// //             whiteSpace: "nowrap",
+// //             overflow: "hidden",
+// //             textOverflow: "ellipsis",
+// //             mr: 1,
+// //           }}
+// //           title={item.user} // Native tooltip for truncated name
+// //         >
+// //           {item.user}
+// //         </Typography>
+
+// //         {/* The Bar with Tooltip */}
+// //         <Tooltip 
+// //           title={<TooltipContent user={item.user} history={item.history} />} 
+// //           arrow 
+// //           placement="top"
+// //           componentsProps={{
+// //             tooltip: {
+// //               sx: {
+// //                 bgcolor: '#222',
+// //                 color: '#fff',
+// //                 borderRadius: '8px',
+// //                 boxShadow: '0px 4px 20px rgba(0,0,0,0.4)',
+// //                 padding: 0 // We handle padding in Content
+// //               }
+// //             },
+// //             arrow: { sx: { color: '#222' } }
+// //           }}
+// //         >
+// //           <Box
+// //             sx={{
+// //               flexGrow: 1,
+// //               height: "28px",
+// //               bgcolor: "#f0f0f0",
+// //               borderRadius: "14px",
+// //               position: "relative",
+// //               overflow: "hidden",
+// //               cursor: "pointer", // Indicate interactivity
+// //               "&:hover .progress-bar": {
+// //                  filter: "brightness(0.95)" // Subtle hover effect
+// //               }
+// //             }}
+// //           >
+// //             <Box
+// //               className="progress-bar"
+// //               sx={{
+// //                 width: `${percentage}%`,
+// //                 height: "100%",
+// //                 bgcolor: "#81c784",
+// //                 borderRadius: "14px",
+// //                 transition: "width 0.5s ease-in-out, filter 0.2s",
+// //               }}
+// //             />
+
+// //             <Typography
+// //               variant="caption"
+// //               sx={{
+// //                 position: "absolute",
+// //                 top: "50%",
+// //                 right: "12px",
+// //                 transform: "translateY(-50%)",
+// //                 fontWeight: "600",
+// //                 color: "#444",
+// //                 zIndex: 1,
+// //                 userSelect: "none"
+// //               }}
+// //             >
+// //               {formatDuration(item.durationSeconds)}
+// //             </Typography>
+// //           </Box>
+// //         </Tooltip>
+// //       </Box>
+// //     );
+// //   };
+
+// //   return (
+// //     <Paper
+// //       elevation={3}
+// //       sx={{
+// //         display: "flex",
+// //         flexDirection: "column",
+// //         minHeight: 290,
+// //         height: `calc(100vh - ${RecordMode ? "70vh" : "170px"})`,
+// //         width: "100%",
+// //         p: 2,
+// //         borderRadius: 2,
+// //         flex: 0.25,
+// //         overflow: "hidden",
+// //       }}
+// //     >
+// //       {/* Header */}
+// //       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2, flexShrink: 0 }}>
+// //         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+// //           <CustomGraphIcon sx={{ color: "#444" }} />
+// //           <Typography variant="h6" component="h2" sx={{ fontWeight: "bold", color: "#222" }}>
+// //             Call duration
+// //           </Typography>
+// //         </Box>
+// //         <Box sx={{ display: "flex", alignItems: "center" }}>
+// //           <IconButton size="small">
+// //             <ArrowForwardIosRoundedIcon fontSize="small" />
+// //           </IconButton>
+// //         </Box>
+// //       </Box>
+
+// //       {/* List Area */}
+// //       <Box sx={{ flexGrow: 1, height: "100%" }}>
+// //         {sortedUsers.length === 0 ? (
+// //           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }}>
+// //              <PhoneInTalkIcon sx={{ fontSize: 40, mb: 1 }} />
+// //              <Typography variant="body2">No call data found.</Typography>
+// //           </Box>
+// //         ) : (
+// //           <Virtuoso 
+// //             data={sortedUsers} 
+// //             context={{ items: sortedUsers, maxDuration }} 
+// //             itemContent={(index, _, context) => <Row index={index} context={context} />} 
+// //             style={{ height: "100%", width: "100%" }} 
+// //           />
+// //         )}
+// //       </Box>
+// //     </Paper>
+// //   );
+// // };
+
+// // export default CallDurationList;

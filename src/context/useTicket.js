@@ -1,6 +1,9 @@
-import React, { useState, useCallback, useContext, useEffect } from "react";
+import React, { useState, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "./UseAuth";
 import TicketApi from "../apis/TicketApiController";
+import { useSocketEvent } from "../hooks/useSocketListener";
+import { notify } from "../libs/NOTIFICATION_TEMPLATES";
+import { useNavigate } from "react-router-dom";
 
 export const TicketContext = React.createContext();
 
@@ -14,6 +17,23 @@ export const TicketProvider = ({ children }) => {
 	const [TicketMaster, setTicketMaster] = useState(null);
 	const [lastUpdatedTicketNo, setLastUpdatedTicketNo] = useState(sessionStorage.getItem("LastUpdatedticket") || null);
 	const [refreshComment, setRefreshComment] = useState(false);
+	const navigate = useNavigate();
+	const notificationRef = useRef(null);
+	const [isInitialLoading, setIsInitialLoading] = useState(true);
+	const [isTicketDirty, setIsTicketDirty] = useState(false);
+
+	const setNotificationInstance = useCallback((fn) => {
+		notificationRef.current = fn;
+	}, []);
+
+	const showNotify = useCallback((payload) => {
+		if (notificationRef.current) {
+			notificationRef.current(payload);
+		} else {
+			console.warn("Notification instance not registered yet");
+		}
+	}, []);
+
 
 	const handleRefresh = () => {
 		setRefreshComment(!refresh);
@@ -51,6 +71,24 @@ export const TicketProvider = ({ children }) => {
 			value: val?.PriorityID,
 			label: val?.Name,
 		})) || [];
+
+	const CORPORATE_LOGIN_MASTER = useMemo(() => {
+		return (companyname) => {
+			return (
+				TicketMaster?.rd7
+					?.filter((val) => val?.CustId === companyname)
+					?.map((val) => ({
+						label: val?.UserName,
+						value: val?.Id,
+					})) ?? []
+			);
+		};
+	}, [TicketMaster]);
+
+
+
+
+
 	const USERNAME_LIST =
 		CalllogMaster?.employees?.map((val) => ({
 			value: val?.userid,
@@ -85,8 +123,10 @@ export const TicketProvider = ({ children }) => {
 			setError(error);
 		} finally {
 			setLoading(false);
+			setIsInitialLoading(false); // ✅ ONLY after first API resolves
 		}
 	}, [lastUpdatedTicketNo, selectedTicket]);
+
 
 	useEffect(() => {
 		const GetMasterData = async () => {
@@ -124,17 +164,17 @@ export const TicketProvider = ({ children }) => {
 					filePath: ticketData?.attachment !== null ? ticketData?.attachment : "",
 					callLogId: ticketData?.CallId || "",
 				});
-				if (res?.rd1[0]?.stat == 1 && res?.rd1[0]?.stat_code == 1000) {
-					await TicketApi.addComment({
-						createdBy: user?.id,
-						comment: ticketData?.instruction ?? "",
-						filePath: ticketData?.attachment !== null ? ticketData?.attachment : "",
-						callLogId: "",
-						isOfficeUseOnly: 0,
-						ticketNo: res?.rd1[0]?.TicketNo,
-						Role: 1,
-					});
-				}
+				// if (res?.rd1[0]?.stat == 1 && res?.rd1[0]?.stat_code == 1000) {
+				// 	await TicketApi.addComment({
+				// 		createdBy: user?.id,
+				// 		comment: ticketData?.instruction ?? "",
+				// 		filePath: ticketData?.attachment !== null ? ticketData?.attachment : "",
+				// 		callLogId: "",
+				// 		isOfficeUseOnly: 0,
+				// 		ticketNo: res?.rd1[0]?.TicketNo,
+				// 		Role: 1,
+				// 	});
+				// }
 
 				setRefresh(!refresh);
 			} catch (error) {
@@ -144,11 +184,21 @@ export const TicketProvider = ({ children }) => {
 		[tickets, setTickets],
 	);
 
-	// Api Done ✅
 	const updateTicket = useCallback(
 		async (TicketId, updatedFields) => {
 			setLoading(true);
 			try {
+				const keywordsPayload = updatedFields?.tags !== undefined ? updatedFields?.tags : updatedFields?.keywords;
+				if (keywordsPayload !== undefined) {
+					setSelectedTicket((prev) => {
+						if (!prev || prev.TicketNo !== TicketId) return prev;
+						return { ...prev, Keywords: keywordsPayload, keywords: keywordsPayload };
+					});
+					setTickets((prevTickets) =>
+						prevTickets.map((t) => (t?.TicketNo === TicketId ? { ...t, Keywords: keywordsPayload, keywords: keywordsPayload } : t))
+					);
+				}
+
 				const res = await TicketApi.updateTicket({
 					ticketNo: TicketId,
 					statusId: updatedFields?.Status,
@@ -156,8 +206,8 @@ export const TicketProvider = ({ children }) => {
 					cateId: updatedFields?.category,
 					priorityId: updatedFields?.Priority,
 					followUp1: updatedFields?.FollowUp,
-					keywords: updatedFields?.tags,
-					sendEmail: updatedFields?.sendMail === true ? "1" : "0",
+					keywords: keywordsPayload,
+					sendEmail: Number(updatedFields?.sendMail),
 					promiseDate: updatedFields?.PromiseDate,
 					createdBy: user?.id,
 					suggested: updatedFields?.suggested,
@@ -166,13 +216,15 @@ export const TicketProvider = ({ children }) => {
 				});
 				setLastUpdatedTicketNo(TicketId);
 				sessionStorage.setItem("LastUpdatedticket", TicketId);
-				setRefresh(!refresh);
-				console.log("Ticket Added in Suggested List successfully!");
+				setRefresh((prev) => !prev);
+				console.log("Ticket updated successfully!");
 			} catch (error) {
 				console.log("Error updating ticket:", error);
+			} finally {
+				setLoading(false);
 			}
 		},
-		[tickets, setTickets],
+		[tickets, setTickets, selectedTicket, setSelectedTicket, user?.id],
 	);
 
 	// Api Done ✅
@@ -190,7 +242,6 @@ export const TicketProvider = ({ children }) => {
 				});
 				setLastUpdatedTicketNo(commentData?.TicketNo);
 				sessionStorage.setItem("LastUpdatedticket", commentData?.TicketNo);
-				console.log(res, "Comment added successfully!");
 				setRefresh(!refresh);
 			} catch (error) {
 				console.log("Error adding comment:", error);
@@ -211,7 +262,15 @@ export const TicketProvider = ({ children }) => {
 				setLastUpdatedTicketNo(TicketNo);
 				sessionStorage.setItem("LastUpdatedticket", TicketNo);
 				console.log(res, "Ticket closed successfully!");
-				setRefresh((prev) => !prev);
+
+				// Optimistic update instead of expensive full refetch
+				const newStatus = openTicket ? "Open" : "Closed";
+				setTickets((prev) =>
+					prev.map((t) => (t.TicketNo === TicketNo ? { ...t, Status: newStatus } : t))
+				);
+				setSelectedTicket((prev) =>
+					prev?.TicketNo === TicketNo ? { ...prev, Status: newStatus } : prev
+				);
 			} catch (error) {
 				console.log("Error adding comment:", error);
 			}
@@ -219,10 +278,120 @@ export const TicketProvider = ({ children }) => {
 		[tickets, setTickets, selectedTicket],
 	);
 
+	const EditComment = useCallback(async (commentmsg, commentId, filePath, isOfficeUseOnly, ticketNo) => {
+		try {
+			const res = await TicketApi.EditComment({
+				comment: commentmsg,
+				commentId,
+				createdBy: user?.id,
+				filePath,
+				isOfficeUseOnly: isOfficeUseOnly === true ? 1 : 0,
+				ticketNo
+			});
+			const status = res?.rd[0]?.stat_msg;
+			if (status === "Comment update successfully") {
+				setRefresh(!refresh);
+			}
+			return status;
+		} catch (error) {
+			console.log("Error adding comment:", error);
+		}
+	}, [tickets, setTickets, selectedTicket])
+
+
+	useEffect(() => {
+		const channel = new BroadcastChannel("notification_channel");
+		channel.onmessage = (event) => {
+			if (event?.data?.type !== "NOTIFICATION_CLICK") return;
+			const payload = event.data.payload;
+			if (payload?.group === "TICKET") {
+				if (window.location.pathname !== "/ticket") {
+					navigate("/ticket");
+				}
+				setSelectedTicket(payload);
+			}
+		};
+		return () => channel.close();
+	}, []);
+
+
+
+
+	// 🔹 SOCKET EVENT HANDLERS  ✅
+	useSocketEvent("CreateTicket", (data) => {
+		if (data?.CreatedBy == user?.fullName) return;
+		notify(data, "CREATE_TICKET");
+		setTickets((prev) => {
+			const exists = prev.some((t) => t.TicketNo === data.TicketNo);
+			if (exists) return prev;
+			return [data, ...prev];
+		});
+	});
+
+	useSocketEvent("TicketComment", (data) => {
+		notify(data, "TICKET_COMMENT");
+		setTickets((prev) =>
+			prev.map((t) =>
+				t.TicketNo === data?.TicketNo
+					? { ...t, ...data }
+					: t
+			)
+		);
+		setSelectedTicket((prev) => {
+			if (prev?.TicketNo === data?.TicketNo) {
+				return { ...prev, ...data };
+			}
+			return prev;
+		});
+		setRefreshComment((prev) => !prev);
+	});
+
+
+	useSocketEvent("CloseTicket", (data) => {
+		notify(data, "CLOSE_TICKET", user);
+
+		setTickets((prev) =>
+			prev.map((t) =>
+				t.TicketNo === data.TicketNo
+					? { ...t, ...data }
+					: t
+			)
+		);
+		setSelectedTicket((prev) => {
+			if (prev?.TicketNo === data?.TicketNo) {
+				return { ...prev, ...data };
+			}
+			return prev;
+		});
+	});
+
+
+	useSocketEvent("UpdateTicket", (data) => {
+		notify(data, "UPDATE_TICKET", user);
+		setTickets((prev) => {
+			const idx = prev.findIndex((t) => t?.TicketNo === data?.TicketNo);
+			if (idx === -1) return [data, ...prev];
+			const updated = [...prev];
+			updated[idx] = { ...prev[idx], ...data };
+			const [ticket] = updated.splice(idx, 1);
+			return [ticket, ...updated];
+		});
+		setSelectedTicket((prev) => {
+			if (prev?.TicketNo === data?.TicketNo) {
+				return { ...prev, ...data };
+			}
+			return prev;
+		});
+		setRefreshComment((prev) => !prev);
+	});
+
+
+
 	return (
 		<TicketContext.Provider
 			value={{
 				tickets,
+				setTickets,
 				addTicket,
 				updateTicket,
 				selectedTicket,
@@ -239,6 +408,15 @@ export const TicketProvider = ({ children }) => {
 				loading,
 				refreshComment,
 				handleRefresh,
+				CORPORATE_LOGIN_MASTER,
+				setRefresh,
+				EditComment,
+				// 🔔 notification handlers
+				setNotificationInstance,
+				showNotify,
+				isInitialLoading,
+				isTicketDirty,
+				setIsTicketDirty
 			}}
 		>
 			{children}

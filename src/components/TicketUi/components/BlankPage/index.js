@@ -3,6 +3,7 @@ import { Box, Typography } from "@mui/material";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import { useTheme } from "@mui/styles";
 import imag1 from "../../../../assets/1.png";
+import AdvertismentBanner from "./AdvertismentBanner";
 
 export default function BlankPage({ handleCreateTicket }) {
 	const theme = useTheme();
@@ -46,17 +47,7 @@ export default function BlankPage({ handleCreateTicket }) {
 				</Typography>
 				<Typography variant="body2">Please select an existing ticket from the list or create a new one.</Typography>
 			</Box>
-			<Box
-				sx={{
-					width: 200,
-					flexGrow: 1,
-					height: "100%",
-					// borderLeft: "1px solid #dfe1e6",
-					bgcolor: "#ffffff",
-				}}
-			>
-				<img src={imag1} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-			</Box>
+			<AdvertismentBanner/>
 		</Box>
 	);
 }

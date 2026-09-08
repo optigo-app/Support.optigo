@@ -30,18 +30,14 @@ const DateItem = styled(Box)(({ theme }) => ({
 
 export default function DateCard({ ticketData, isClient = false }) {
 	const dateFields = [
-		{ label: "Created At", value: ticketData?.Date, order: 0 },
-		{ label: "Ticket Date", value: ticketData?.TicketDate, order: 1 },
 		{ label: "Request Date", value: ticketData?.RequestDate, order: 2 },
-		{
-			label: "Confirmation Date",
-			value: ticketData?.ConfirmationDate,
-			order: 3,
-		},
+		{ label: "Ticket Date", value: ticketData?.TicketDate, order: 1 },
+		{ label: "Sample Approval Date", value: ticketData?.SampleApprovalDate, order: 1 },
+		{ label: "Created At", value: ticketData?.Date, order: 0 },
+		{ label: "Confirmation Date", value: ticketData?.ConfirmationDate, order: 3, },
 		{ label: "Delivery Date", value: ticketData?.DeliveryDate, order: 3 },
-		{ label: "Last Updated", value: ticketData?.UpdatedAt, order: 4 },
+		// { label: "Last Updated", value: ticketData?.UpdatedAt, order: 4 },
 	];
-
 	const visibleDateFields = isClient ? dateFields.filter(({ label }) => label !== "Last Updated" && label !== "Created At") : dateFields;
 
 	const filteredDates = ticketData && visibleDateFields.map(({ label, value }) => ({ label, formatted: formatDate(value) })).filter(({ formatted }) => formatted);

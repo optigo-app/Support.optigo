@@ -1,27 +1,43 @@
-import { Box, Typography, Grid, Chip, Paper } from "@mui/material";
+import { Box, Typography, Chip, Paper, Stack } from "@mui/material";
 
 import BusinessIcon from "@mui/icons-material/Business";
 import ReportProblemIcon from "@mui/icons-material/ReportProblem";
-import CommentIcon from "@mui/icons-material/Comment";
 import SentimentSatisfiedAltIcon from "@mui/icons-material/SentimentSatisfiedAlt";
 
-const InfoItem = ({ label, value, icon }) => (
-	<Grid item xs={12} sm={6}>
-		<Box display="flex" alignItems="center" mb={1}>
-			{icon && (
-				<Box mr={1} color="primary.main">
-					{icon}
-				</Box>
-			)}
-			<Typography textTransform={"capitalize"} variant="body2" color="text.secondary" fontWeight="bold">
-				{label}
-			</Typography>
+const getSoftSatisfactionStyle = (satisfaction) => {
+	if (!satisfaction) return { bgcolor: "#F3F4F6", color: "#374151", border: "1px solid #D1D5DB" };
+	const normalized = satisfaction.toLowerCase();
+	if (normalized.includes("satisfied") || normalized.includes("happy") || normalized.includes("good")) {
+		return { bgcolor: "#D1FAE5", color: "#047857", border: "1px solid #6EE7B7" };
+	}
+	if (normalized.includes("neutral") || normalized.includes("average")) {
+		return { bgcolor: "#FEF3C7", color: "#D97706", border: "1px solid #FCD34D" };
+	}
+	return { bgcolor: "#FEE2E2", color: "#B91C1C", border: "1px solid #FCA5A5" };
+};
+
+const DetailRow = ({ label, icon, children }) => {
+	return (
+		<Box
+			sx={{
+				display: "flex",
+				alignItems: "flex-start",
+				py: 1.5,
+				px: 0.5,
+			}}
+		>
+			<Box sx={{ display: "flex", alignItems: "center", gap: 1.5, width: 150, flexShrink: 0, pt: 0.2 }}>
+				{icon && <Box sx={{ color: "#80868B", display: "flex", alignItems: "center" }}>{icon}</Box>}
+				<Typography sx={{ fontSize: 13, color: "#5F6368", fontWeight: 500 }}>
+					{label}
+				</Typography>
+			</Box>
+			<Box sx={{ flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 0.8 }}>
+				{children}
+			</Box>
 		</Box>
-		<Typography textTransform={"capitalize"} variant="body1" fontWeight={500}>
-			{value || "-"}
-		</Typography>
-	</Grid>
-);
+	);
+};
 
 const PostDetailTab = ({ data }) => {
 	const hasAnalysis = data?.callAnalysis && Object.keys(data?.callAnalysis).length > 0;
@@ -29,79 +45,103 @@ const PostDetailTab = ({ data }) => {
 
 	if (!hasAnalysis) {
 		return (
-			<Paper
-				elevation={0}
+			<Box
 				sx={{
 					p: 3,
-					borderRadius: 2,
-					backgroundColor: "#fff3f3",
-					border: "1px solid #ffcccc",
+					borderRadius: "8px",
+					backgroundColor: "#FEF2F2",
+					border: "1px solid #FEE2E2",
 					textAlign: "center",
+					mt: 2,
 				}}
 			>
-				<Typography variant="h6" color="error" fontWeight="bold" gutterBottom>
+				<Typography variant="subtitle1" color="#991B1B" fontWeight="700" gutterBottom>
 					No Analysis Data Available
 				</Typography>
-				<Typography variant="body2" color="text.secondary">
+				<Typography sx={{ fontSize: 13, color: "#7F1D1D" }}>
 					This call has not been analyzed yet. Once the analysis is completed, it will appear here.
 				</Typography>
-			</Paper>
+			</Box>
 		);
 	}
 
 	return (
-		<Paper elevation={0}>
-			<Grid container spacing={3}>
-				<InfoItem label="Satisfaction" value={analysis?.satisfaction} icon={<SentimentSatisfiedAltIcon fontSize="small" />} />
+		<Paper elevation={0} sx={{ bgcolor: "transparent" }}>
+			<Stack spacing={0.5}>
+				<DetailRow label="Satisfaction" icon={<SentimentSatisfiedAltIcon sx={{ fontSize: 16 }} />}>
+					<Chip
+						label={analysis?.satisfaction || "Unknown"}
+						size="small"
+						sx={{
+							fontSize: "12px",
+							fontWeight: 600,
+							borderRadius: "6px",
+							height: "24px",
+							px: 0.5,
+							...getSoftSatisfactionStyle(analysis?.satisfaction),
+						}}
+					/>
+				</DetailRow>
 
-				<Grid item xs={12}>
-					<Box display="flex" alignItems="center" mb={1}>
-						<BusinessIcon color="primary" fontSize="small" />
-						<Typography variant="subtitle2" ml={1} color="text.secondary" fontWeight="bold">
-							Departments Involved
-						</Typography>
-					</Box>
-					<Box display="flex" flexWrap="wrap">
-						{analysis?.departments?.map((dept, idx) => (
-							<Chip key={idx} label={dept} color="primary" sx={{ mr: 1, mb: 1 }} />
-						))}
-					</Box>
-				</Grid>
+				<DetailRow label="Departments" icon={<BusinessIcon sx={{ fontSize: 16 }} />}>
+					{analysis?.departments && analysis.departments.length > 0 ? (
+						analysis.departments.map((dept, idx) => (
+							<Chip
+								key={idx}
+								label={dept}
+								size="small"
+								sx={{
+									fontSize: "12px",
+									fontWeight: 600,
+									borderRadius: "6px",
+									height: "24px",
+									px: 0.5,
+									bgcolor: "#EFF6FF",
+									color: "#1D4ED8",
+									border: "1px solid #93C5FD",
+								}}
+							/>
+						))
+					) : (
+						<Typography sx={{ fontSize: 13, color: "#80868B" }}>-</Typography>
+					)}
+				</DetailRow>
 
-				<Grid item xs={12}>
-					<Box display="flex" alignItems="center" mb={1}>
-						<ReportProblemIcon color="error" fontSize="small" />
-						<Typography variant="subtitle2" ml={1} color="text.secondary" fontWeight="bold">
-							Issues Reported
-						</Typography>
-					</Box>
-					<Box display="flex" flexWrap="wrap">
-						{analysis?.issues?.map((issue, idx) => (
-							<Chip key={idx} label={issue} variant="outlined" color="error" sx={{ mr: 1, mb: 1 }} />
-						))}
-					</Box>
-				</Grid>
+				<DetailRow label="Issues" icon={<ReportProblemIcon sx={{ fontSize: 16 }} />}>
+					{analysis?.issues && analysis.issues.length > 0 ? (
+						analysis.issues.map((issue, idx) => (
+							<Chip
+								key={idx}
+								label={issue}
+								size="small"
+								sx={{
+									fontSize: "12px",
+									fontWeight: 600,
+									borderRadius: "6px",
+									height: "24px",
+									px: 0.5,
+									bgcolor: "#FEE2E2",
+									color: "#B91C1C",
+									border: "1px solid #FCA5A5",
+								}}
+							/>
+						))
+					) : (
+						<Typography sx={{ fontSize: 13, color: "#80868B" }}>-</Typography>
+					)}
+				</DetailRow>
 
-				<Grid item xs={12}>
-					<Box display="flex" alignItems="center" mb={1}>
-						<CommentIcon color="action" fontSize="small" />
-						<Typography variant="subtitle2" ml={1} color="text.secondary" fontWeight="bold">
+				{analysis?.additionalComments && (
+					<Box sx={{ mt: 3, px: 0.5 }}>
+						<Typography sx={{ fontSize: 13, fontWeight: 700, color: "#202124", mb: 1, textTransform: "uppercase", letterSpacing: "0.06em" }}>
 							Additional Comments
 						</Typography>
+						<Typography sx={{ fontSize: 13, color: "#3C4043", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+							{analysis?.additionalComments}
+						</Typography>
 					</Box>
-					<Typography
-						variant="body1"
-						sx={{
-							backgroundColor: "#fff",
-							p: 2,
-							borderRadius: 1,
-							border: "1px solid #e0e0e0",
-						}}
-					>
-						{analysis?.additionalComments || "-"}
-					</Typography>
-				</Grid>
-			</Grid>
+				)}
+			</Stack>
 		</Paper>
 	);
 };

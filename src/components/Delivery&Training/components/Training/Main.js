@@ -1,9 +1,9 @@
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { AuthProvider } from "../../context/AuthProvider";
 import { TrainingProvider } from "../../context/TrainingProvider";
-import { SnackbarProvider } from "../../hooks/useSnackBar";
 import { registerAuthServiceWorker } from "../../utils/registerAuthServiceWorker";
 import Main from "./index";
+import MetaWrapper from "../../../../meta/MetaWrapper";
 
 export const theme = createTheme({
 	palette: {
@@ -92,6 +92,13 @@ export const theme = createTheme({
 				},
 			},
 		},
+		    MuiAutocomplete :{
+         defaultProps: {
+        autoSelect: true,
+        autoHighlight: true,
+        selectOnFocus: true,
+      },
+    },
 	},
 });
 
@@ -100,7 +107,7 @@ registerAuthServiceWorker();
 const TrainingDashboard = () => {
 	return (
 		<>
-			<SnackbarProvider>
+		<MetaWrapper page="TrainingDashboard" />
 				<AuthProvider>
 					<TrainingProvider>
 						<ThemeProvider theme={theme}>
@@ -108,7 +115,6 @@ const TrainingDashboard = () => {
 						</ThemeProvider>
 					</TrainingProvider>
 				</AuthProvider>
-			</SnackbarProvider>
 		</>
 	);
 };

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { mapToApiKey } from "../utils/deliveryUtils";
 import DeliveryAPI from "./../../../apis/DeliveryController";
+import WithNotificationDT from "../../../hoc/withNotificationDT";
 
 /**
  * @typedef {Object} Assignment
@@ -42,9 +43,17 @@ import DeliveryAPI from "./../../../apis/DeliveryController";
  * @property {() => void} resetData
  */
 
-const DeliveryContext = createContext(/** @type {DeliveryContextType} */ (null));
+const DeliveryContext = createContext({
+	deliveryData: [],
+	addData: () => { },
+	editData: () => { },
+	COMPANY_MASTER_LIST: [],
+	EMPLOYEE_LIST: [],
+	EMPLOYEE_GROUP_BY_DESIGNATION: {},
+	deleteTraining: () => { },
+});
 
-export const DeliveryProvider = ({ children }) => {
+export const DeliveryProvider = ({ children, showNotification }) => {
 	const [deliveryData, setDeliveryData] = useState([]);
 	const [refresh, setrefresh] = useState(false);
 	const [masterData, setMasterData] = useState(() => {
@@ -103,15 +112,16 @@ export const DeliveryProvider = ({ children }) => {
 
 	// Add Order to database
 	const addData = async (data) => {
+		console.log("🚀 ~ addData ~ data: Delivery", data)
 		try {
-			const { clientCode, createdBy, ticketNo, ticketDate, requestDate, topic, topicType, NoPrints, description, serviceType, paymentStatus, paymentMethod, approvedStatus, communicationWith, confirmationDate, codeUploadTime, assignments, onDemand } = data;
+			const { clientCode, createdBy, ticketNo, ticketDate, requestDate, topic, topicType, NoPrints, description, serviceType, paymentStatus, paymentMethod, approvedStatus, communicationWith, confirmationDate, codeUploadTime, assignments, onDemand, sampleApprovalDate } = data;
 
 			const AssignmentsJson = JSON.stringify(
-				assignments.map(({ department, user, userId, estimate }) => ({
+				assignments.map(({ department, user, userId, estimate, EstimatedHours }) => ({
 					Department: department || "",
 					AssignedTo: user || "",
 					AssignedToUserId: userId || "",
-					EstimatedHours: estimate?.hours || 0,
+					EstimatedHours: Number(estimate?.hours ?? EstimatedHours ?? 0) || 0,
 				})),
 			);
 			const payload = {
@@ -134,21 +144,23 @@ export const DeliveryProvider = ({ children }) => {
 				CodeUploadTime: codeUploadTime || "",
 				AssignmentsJson,
 				OnDemand: onDemand || "",
+				SampleApprovalDate: sampleApprovalDate || "",
 			};
 
 			const response = await DeliveryAPI.createDelivery(payload);
 			console.log("Delivery created:", response);
 
 			setrefresh((prev) => !prev);
+			showNotification("Delivery created successfully!", "success");
 			return true; // ✅ Success
 		} catch (error) {
 			console.error("Error Delivery API createDelivery:", error);
+			showNotification("Delivery created failed!", "error");
 			return false; // ❌ Failure
 		}
 	};
 
 	const editData = async (id, data) => {
-		console.log("🚀 ~ editData ~ data:", data);
 		try {
 			const payload = {};
 			Object.entries(data).forEach(([key, value]) => {
@@ -159,11 +171,11 @@ export const DeliveryProvider = ({ children }) => {
 
 			if (Array.isArray(data.assignments) && data.assignments.length > 0) {
 				payload.AssignmentsJson = JSON.stringify(
-					data.assignments.map(({ department, user, userId, estimate }) => ({
+					data.assignments.map(({ department, user, userId, estimate, EstimatedHours }) => ({
 						Department: department || "",
 						AssignedTo: user || "",
 						AssignedToUserId: userId || "",
-						EstimatedHours: estimate?.hours || 0,
+						EstimatedHours: Number(estimate?.hours ?? EstimatedHours ?? 0) || 0,
 					})),
 				);
 			}
@@ -175,9 +187,11 @@ export const DeliveryProvider = ({ children }) => {
 			console.log("Delivery Updated:", response);
 			console.log("🚀 ~ editData ~ payload:", payload);
 			setrefresh((prev) => !prev);
+			showNotification("Delivery updated successfully!", "success");
 			return true;
 		} catch (error) {
 			console.error("Error Delivery API Update Delivery:", error);
+			showNotification("Delivery updated failed!", "error");
 			return false;
 		}
 	};
@@ -185,9 +199,11 @@ export const DeliveryProvider = ({ children }) => {
 		try {
 			const res = await DeliveryAPI.deleteDelivery(id);
 			setrefresh((prev) => !prev);
+			showNotification("Delivery deleted successfully!", "success");
 			return true;
 		} catch (error) {
 			console.error("Error deleting training:", error);
+			showNotification("Delivery deleted failed!", "error");
 			return false;
 		}
 	};

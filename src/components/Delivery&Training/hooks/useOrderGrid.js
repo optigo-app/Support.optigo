@@ -6,6 +6,7 @@ export const useOrderGrid = (deliveryData) => {
 	const [ShowTrainingForm, setShowTrainingForm] = useState(false);
 	const [ShowDetails, setShowDetails] = useState(false);
 	const [IsFormOpen, setIsFormOpen] = useState(false);
+	const [IsMoveModal, setIsMoveModal] = useState(false);
 	const [sortModel, setSortModel] = useState([{ field: "ticketDate", sort: "desc" }]);
 
 	const analytics = new DynamicAnalytics(deliveryData);
@@ -23,5 +24,7 @@ export const useOrderGrid = (deliveryData) => {
 		sortModel,
 		setSortModel,
 		dashboardData,
+		IsMoveModal ,
+		 setIsMoveModal
 	};
 };

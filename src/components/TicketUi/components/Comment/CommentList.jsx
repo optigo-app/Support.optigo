@@ -1,4 +1,4 @@
-import { Box, Button, Menu, MenuItem, FormControlLabel, Checkbox, Typography } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import { useState } from "react";
 import CommentCard from "./CommentCard";
 import { useAuth } from "../../../../context/UseAuth";
@@ -54,7 +54,6 @@ const CommentList = ({ data }) => {
 						position: "sticky",
 						top: 0,
 						right: 0,
-						backgroundColor: "#fff",
 						zIndex: 100,
 						display: "flex",
 						alignItems: "center",

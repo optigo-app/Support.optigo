@@ -1,9 +1,11 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import DeleteForeverIcon from "@mui/icons-material/RemoveCircleRounded";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 
 /**
- * @typedef {'suggest' | 'close'} ConfirmModalType
+ * @typedef {'suggest' | 'close' | 'deleteStatus' | 'discard' | 'discardKeywords'} ConfirmModalType
  */
 
 /**
@@ -20,55 +22,82 @@ import HighlightOffIcon from "@mui/icons-material/HighlightOff";
  *
  * @param {ReusableConfirmModalProps} props
  */
-const ReusableConfirmModal = ({ open, onClose, onConfirm, type }) => {
-	const modalConfigs = {
-		suggest: {
-			title: "Mark as Suggested Ticket",
-			icon: <LightbulbIcon color="warning" />,
-			message: "Are you sure you want to mark this ticket as a suggestion? It may be shown to other users as a recommended reference.",
-			confirmText: "Confirm",
-			cancelText: "Cancel",
-			confirmColor: "primary",
-			cancelColor: "inherit",
-		},
-		close: {
-			title: "Close Ticket",
-			icon: <HighlightOffIcon color="error" />,
-			message: "Are you sure you want to close this ticket? Once closed, no further actions can be taken unless it is reopened by an authorized user.",
-			confirmText: "Close Ticket",
-			cancelText: "Cancel",
-			confirmColor: "error",
-			cancelColor: "inherit",
-		},
-	};
+const ReusableConfirmModal = ({ open, onClose, onConfirm, type, customMessage, customTitle }) => {
+  const modalConfigs = {
+    suggest: {
+      title: "Mark as Suggested Ticket",
+      icon: <LightbulbIcon color="warning" />,
+      message: "Are you sure you want to mark this ticket as a suggestion? It may be shown to other users as a recommended reference.",
+      confirmText: "Confirm",
+      cancelText: "Cancel",
+      confirmColor: "primary",
+      cancelColor: "inherit",
+    },
+    close: {
+      title: "Close Ticket",
+      icon: <HighlightOffIcon color="error" />,
+      message: "Are you sure you want to close this ticket? Once closed, no further actions can be taken unless it is reopened by an authorized user.",
+      confirmText: "Close Ticket",
+      cancelText: "Cancel",
+      confirmColor: "error",
+      cancelColor: "inherit",
+    },
+    deleteStatus: {
+      title: "Delete Status",
+      icon: <DeleteForeverIcon color="error" />,
+      message: "Are you sure you want to delete this status from the master list? This action is irreversible and may impact existing tickets using this status.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      confirmColor: "error",
+      cancelColor: "inherit",
+    },
+    discard: {
+      title: customTitle || "Unsaved Changes",
+      icon: <WarningAmberRoundedIcon color="warning" />,
+      message: customMessage || "You have unsaved changes in Ticket Info. Do you want to discard your changes and switch ticket?",
+      confirmText: "Discard & Switch",
+      cancelText: "Keep Editing",
+      confirmColor: "error",
+      cancelColor: "inherit",
+    },
+    discardKeywords: {
+      title: "Discard Keyword Changes?",
+      icon: <WarningAmberRoundedIcon color="warning" />,
+      message: "You have unapplied keyword changes. Do you want to discard them?",
+      confirmText: "Discard",
+      cancelText: "Keep Editing",
+      confirmColor: "error",
+      cancelColor: "inherit",
+    },
+  };
 
-	const { title, icon, message, confirmText, cancelText, confirmColor, cancelColor } = modalConfigs[type] || {};
+  const { title, icon, message, confirmText, cancelText, confirmColor, cancelColor } = modalConfigs[type] || {};
 
-	if (!type || !modalConfigs[type]) return null;
+  if (!type || !modalConfigs[type]) return null;
 
-	return (
-		<Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth aria-labelledby="confirm-modal-title">
-			<DialogTitle id="confirm-modal-title" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-				{icon}
-				{title}
-			</DialogTitle>
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth aria-labelledby="confirm-modal-title">
+      <DialogTitle id="confirm-modal-title" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {icon}
+        {title}
+      </DialogTitle>
 
-			<DialogContent>
-				<Typography variant="body2" sx={{ color: "#4B5563" }}>
-					{message}
-				</Typography>
-			</DialogContent>
+      <DialogContent>
+        <Typography variant="body2" sx={{ color: "#4B5563" }}>
+          {message}
+        </Typography>
+      </DialogContent>
 
-			<DialogActions>
-				<Button onClick={onClose} color={cancelColor}>
-					{cancelText}
-				</Button>
-				<Button onClick={onConfirm} variant="contained" color={confirmColor}>
-					{confirmText}
-				</Button>
-			</DialogActions>
-		</Dialog>
-	);
+      <DialogActions>
+        <Button onClick={onClose} color={cancelColor}>
+          {cancelText}
+        </Button>
+        <Button onClick={onConfirm} variant="contained" color={confirmColor}>
+          {confirmText}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 };
 
 export default ReusableConfirmModal;

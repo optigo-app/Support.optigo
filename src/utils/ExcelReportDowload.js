@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { FormatDateIST } from "../components/Delivery&Training/utils/helpers";
 import { DataParser } from "./ticketUtils";
+import { getDisplayNamesFromKeywords } from "./keywordUtils";
 
 /**
  * Downloads the given tickets as an Excel report.
@@ -52,7 +53,7 @@ const ExcelReportDowload = (data) => {
 			UpdatedAt: FormatDateIST(ticket?.UpdatedAt, "dd-mm-yyyy"),
 			SendMail: ticket.sendMail ? "Yes" : "No",
 			Starred: ticket.star ? "Yes" : "No",
-			Tags: ticket?.keywords?.split(",")?.join(", "),
+			Tags: getDisplayNamesFromKeywords(ticket?.Keywords || ticket?.keywords)?.join(", "),
 			Instruction: ticket.instruction || "-",
 			CommentsCount: comments.length || 0,
 			...commentFields,
@@ -76,7 +77,30 @@ export default ExcelReportDowload;
 export const ExcelReportCallog = (data) => {
 	if (!data || data.length === 0) return;
 
-	const exportData = data?.map((log, i) => ({
+	const maxCommentCount = Math.max(
+		...data.map((ticket) => {
+			const comments = DataParser(ticket?.comments).data;
+			return comments.length;
+		}),
+	);
+	
+	const exportData = data?.map((log, i) => {
+		const comments = DataParser(log?.comments).data;
+
+		const commentFields = {};
+		comments.forEach((comment, idx) => {
+			const num = idx + 1;
+			commentFields[`Comment ${num}`] = JSON.stringify({
+				message: comment?.message || "",
+				time: comment?.time || "",
+				by: comment?.Name || "",
+			});
+		});
+
+		for (let i = comments.length + 1; i <= maxCommentCount; i++) {
+			commentFields[`Comment ${i}`] = "";
+		}
+		return {
 		"Sr No": i + 1,
 		Date: new Date(log.date).toLocaleDateString(),
 		Company: log.company,
@@ -98,7 +122,11 @@ export const ExcelReportCallog = (data) => {
 		"Call Duration": log.CallDuration,
 		"Call Details": log.callDetails || "",
 		"Ticket No": log.ticket || "",
-	}));
+		"Call Type": log.CallType || "",
+		...commentFields,
+		};
+
+	});
 
 	const worksheet = XLSX.utils.json_to_sheet(exportData);
 	const workbook = XLSX.utils.book_new();

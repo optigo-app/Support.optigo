@@ -1,6 +1,8 @@
+import React, { useState } from "react";
 import { Box, List, ListItem, ListItemButton, ListItemText, Typography, Divider, IconButton, Tooltip, Menu, MenuItem } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { ticketSidebarCollapsed$, toggleTicketSidebar, useSubject } from "../../../../rxjs/layoutStore";
+import { ticketSidebarCounts$, useSubjectValue } from "../../../../rxjs/ticketStore";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import StarIcon from "@mui/icons-material/Star";
@@ -15,9 +17,10 @@ import DateRangeIcon from "@mui/icons-material/DateRange";
 import EventNoteIcon from "@mui/icons-material/EventNote";
 import EditOutlinedIcon from "@mui/icons-material/ModeEditOutlineRounded";
 import { useTheme } from "@mui/styles";
-import { getFilteredTicketCount } from "../../../../utils/TicketListUtils";
 import Select from "@mui/material/Select";
 import WidgetsRoundedIcon from "@mui/icons-material/WidgetsRounded";
+import MentionFilterSection from "./MentionFilterSection";
+import { useTicket } from "../../../../context/useTicket";
 const CountBadge = styled(Box)(({ theme }) => ({
 	backgroundColor: "#EBECF0",
 	borderRadius: "10px",
@@ -36,21 +39,26 @@ const ageBaseOptions = [
 	{ label: "Last Updated", value: "updated" },
 	{ label: "Latest Comment", value: "latestComment" },
 	{ label: "Ticket Closed", value: "closedTicket" },
+	{ label: "Open Tickets", value: "openTicket" },
+	{ label: "New Tickets", value: "newTicket" },
+	{ label: "Suggestions", value: "isSuggested" },
+	{ label: "Person Wise", value: "personWise" },
+	{ label: "Mentions By Who", value: "mentionedBy" },
 ];
-const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesBasedFilter, setAgesBasedFilter }) => {
-	const [collapsed, setCollapsed] = useState(false);
+const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, AgesBasedFilter, setAgesBasedFilter }) => {
+	const collapsed = useSubject(ticketSidebarCollapsed$);
+	const toggleSidebar = () => toggleTicketSidebar();
 	const [anchorEl, setanchorEl] = useState(null);
 	const open = Boolean(anchorEl);
 	const theme = useTheme();
-	const toggleSidebar = () => setCollapsed((prev) => !prev);
+	const { tickets } = useTicket();
+
+	// Read all 12 counts from the RxJS store — computed in ONE pass across all tickets
+	const counts = useSubjectValue(ticketSidebarCounts$);
 
 	const handleChange = (event) => {
 		setAgesBasedFilter(event.target.value);
 	};
-
-	useEffect(() => {
-		sessionStorage.setItem("AgesBasedFilter", JSON.stringify(AgesBasedFilter));
-	}, [AgesBasedFilter]);
 
 	const renderStaticItem = (id, label, icon, count = 0, filterKey) => (
 		<Tooltip title={collapsed ? `${filterKey ? filterKey : count} - ${label}` : ""} placement="right">
@@ -92,6 +100,9 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 											fontSize: "15px !important",
 											fontWeight: activeItem === id ? "bold" : "normal",
 											color: "#172B4D",
+											whiteSpace: "nowrap",
+											overflow: "hidden",
+											textOverflow: "ellipsis",
 										},
 									}}
 								/>
@@ -118,12 +129,14 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 			<Box
 				sx={{
 					width: collapsed ? 60 : 240,
+					minWidth: collapsed ? 60 : 240,
 					backgroundColor: "#ffffff",
 					display: "flex",
 					flexDirection: "column",
-					overflow: "auto",
-					transition: "width 0.3s ease",
-					borderRight: "1px solid #DFE1E6",
+					overflowX: "hidden",
+					overflowY: "auto",
+					transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+					boxSizing: "border-box",
 				}}
 			>
 				{/* Toggle Button */}
@@ -157,7 +170,7 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 							}}
 						>
 							<EditOutlinedIcon fontSize="small" />
-							{!collapsed && <Typography sx={{ ml: 2, fontWeight: 500, fontSize: "15px" }}>Create</Typography>}
+							{!collapsed && <Typography sx={{ ml: 2, fontWeight: 500, fontSize: "15px", whiteSpace: "nowrap" }}>Create</Typography>}
 						</ListItemButton>
 					</Tooltip>
 				</Box>
@@ -173,17 +186,19 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 								mb: 2,
 								px: collapsed ? 0 : 2,
 								mt: 1,
+								whiteSpace: "nowrap",
+								overflow: "hidden",
 							}}
 						>
 							TICKET VIEWS
 						</Typography>
 					)}
 					<List sx={{ p: 0 }}>
-						{renderStaticItem("all", "All Tickets", <StarIcon fontSize="small" />, getFilteredTicketCount("all", tickets))}
-						{renderStaticItem("new_ticket", "New Ticket", <NewReleasesIcon fontSize="small" />, getFilteredTicketCount("new_ticket", tickets))}
-						{renderStaticItem("open_ticket", "Open Ticket", <WorkIcon fontSize="small" />, getFilteredTicketCount("open_ticket", tickets))}
-						{renderStaticItem("closed_ticket", "Closed Ticket", <CheckCircleIcon fontSize="small" />, getFilteredTicketCount("closed_ticket", tickets))}
-						{renderStaticItem("isSuggested", "Suggestion", <TipsAndUpdatesIcon fontSize="small" />, getFilteredTicketCount("isSuggested", tickets))}
+						{renderStaticItem("all", "All Tickets", <StarIcon fontSize="small" />, counts.all)}
+						{renderStaticItem("new_ticket", "New Ticket", <NewReleasesIcon fontSize="small" />, counts.new_ticket)}
+						{renderStaticItem("open_ticket", "Open Ticket", <WorkIcon fontSize="small" />, counts.open_ticket)}
+						{renderStaticItem("closed_ticket", "Closed Ticket", <CheckCircleIcon fontSize="small" />, counts.closed_ticket)}
+						{renderStaticItem("isSuggested", "Suggestion", <TipsAndUpdatesIcon fontSize="small" />, counts.isSuggested)}
 					</List>
 				</Box>
 
@@ -205,6 +220,8 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 									color: "#42526E",
 									mb: 2,
 									mt: 1,
+									whiteSpace: "nowrap",
+									overflow: "hidden",
 								}}
 							>
 								AGES
@@ -222,10 +239,26 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 									value={AgesBasedFilter}
 									onChange={handleChange}
 									size="small"
+									MenuProps={{
+										PaperProps: {
+											sx: {
+												maxHeight: "320px",
+												borderRadius: 2,
+												boxShadow: "0px 4px 16px rgba(0,0,0,0.12)",
+											},
+										},
+									}}
 									sx={{
 										fontSize: "0.75rem",
 										height: "28px",
-										border: "0px solid transparent",
+										maxWidth: "145px",
+										"& .MuiSelect-select": {
+											py: 0.5,
+											pr: "24px !important",
+											whiteSpace: "nowrap",
+											overflow: "hidden",
+											textOverflow: "ellipsis",
+										},
 									}}
 								>
 									{ageBaseOptions?.map((option, index) => (
@@ -312,19 +345,22 @@ const Sidebar = ({ handleCreateTicket, activeItem, setActiveItem, tickets, AgesB
 						</>
 					)}
 					<List sx={{ p: 0 }}>
-						{renderStaticItem("all_age", "All Ages", <AllInclusiveIcon fontSize="small" />, getFilteredTicketCount("all_age", tickets, AgesBasedFilter), AgesBasedFilter)}
-						{renderStaticItem("Today", "Today", <TodayIcon fontSize="small" />, getFilteredTicketCount("Today", tickets, AgesBasedFilter), AgesBasedFilter)}
-						{renderStaticItem("1d", "1 Day", <TodayIcon fontSize="small" />, getFilteredTicketCount("1d", tickets, AgesBasedFilter), AgesBasedFilter)}
-						{renderStaticItem("2d", "2 Days", <CalendarViewDayIcon fontSize="small" />, getFilteredTicketCount("2d", tickets, AgesBasedFilter), AgesBasedFilter)}
-						{renderStaticItem("1w", "1 Week", <DateRangeIcon fontSize="small" />, getFilteredTicketCount("1w", tickets, AgesBasedFilter), AgesBasedFilter)}
-						{renderStaticItem("1m", "1 Month", <EventNoteIcon fontSize="small" />, getFilteredTicketCount("1m", tickets, AgesBasedFilter), AgesBasedFilter)}
-						{renderStaticItem("1y", "+1 Year", <EventNoteIcon fontSize="small" />, getFilteredTicketCount("1y", tickets, AgesBasedFilter), AgesBasedFilter)}
+						{renderStaticItem("all_age", "All Ages", <AllInclusiveIcon fontSize="small" />, counts.all_age, AgesBasedFilter)}
+						{renderStaticItem("Today", "Today", <TodayIcon fontSize="small" />, counts.Today, AgesBasedFilter)}
+						{renderStaticItem("1d", "1 Day", <TodayIcon fontSize="small" />, counts["1d"], AgesBasedFilter)}
+						{renderStaticItem("2d", "2 Days", <CalendarViewDayIcon fontSize="small" />, counts["2d"], AgesBasedFilter)}
+						{renderStaticItem("1w", "1 Week", <DateRangeIcon fontSize="small" />, counts["1w"], AgesBasedFilter)}
+						{renderStaticItem("1m", "1 Month", <EventNoteIcon fontSize="small" />, counts["1m"], AgesBasedFilter)}
+						{renderStaticItem("1y", "+1 Year", <EventNoteIcon fontSize="small" />, counts["1y"], AgesBasedFilter)}
 					</List>
 				</Box>
+				<Divider sx={{ my: 1 }} />
+				{/* Mentions Section */}
+				<MentionFilterSection tickets={tickets} collapsed={collapsed} />
 				<Divider sx={{ my: 1 }} />
 			</Box>
 		</Box>
 	);
 };
 
-export default Sidebar;
+export default React.memo(Sidebar);

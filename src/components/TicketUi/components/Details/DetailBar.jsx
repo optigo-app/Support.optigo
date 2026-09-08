@@ -7,6 +7,7 @@ import ApartmentRoundedIcon from "@mui/icons-material/ApartmentRounded";
 import { Card, TextField, Button } from "@mui/material";
 import StarIcon from "@mui/icons-material/Star";
 
+
 const EllipsisCell = ({ value }) => (
 	<Tooltip title={value} placement="top">
 		<Typography
@@ -62,6 +63,10 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
 							whiteSpace: "pre-line",
 							wordBreak: "break-word",
 							lineHeight: 1.4,
+							cursor: "pointer",
+							"&:hover": {
+								color: "#7808AE",
+							},
 						}}
 					>
 						{ticket?.MainSubject || ticket?.subject || "No Main Subject"}
@@ -77,6 +82,10 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
 								whiteSpace: "pre-line",
 								wordBreak: "break-word",
 								lineHeight: 1.3,
+								cursor: "pointer",
+								"&:hover": {
+									color: "#172B4D",
+								},
 							}}
 						>
 							{ticket?.subject}
@@ -147,7 +156,7 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
 					}}
 				>
 					{ticket?.companyname || "No Project Code"}
-					{ticket?.createdby === "Client" && (
+					{!!ticket?.IsClient && (
 						<Chip
 							label="Client Ticket"
 							size="small"
@@ -194,6 +203,7 @@ const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, 
 						{ticket?.CreatedBy && (
 							<>
 								&nbsp;by <EllipsisCell value={ticket?.CreatedBy} />
+								on Behalf of <EllipsisCell value={ticket?.username} /> for <EllipsisCell value={ticket?.companyname} />.
 							</>
 						)}
 					</Typography>

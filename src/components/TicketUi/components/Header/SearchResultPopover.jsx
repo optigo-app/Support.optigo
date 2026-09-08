@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Box, InputBase, IconButton, Paper, Typography, Popper, ClickAwayListener, Divider, Chip, Stack, Grid, Badge, Avatar, Tooltip } from "@mui/material";
 import { styled, alpha } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
@@ -135,24 +136,35 @@ const ClearButton = styled(IconButton)(({ theme }) => ({
 }));
 
 const SearchPopover = ({ onSelect = () => {} }) => {
-	const [searchText, setSearchText] = useState("");
+	const location = useLocation();
+	const [searchText, setSearchText] = useState(() => {
+		const params = new URLSearchParams(location.search);
+		return params.get("search") || params.get("searchQuery") || "";
+	});
 	const [showPopover, setShowPopover] = useState(false);
 	const searchRef = useRef(null);
 	const inputRef = useRef(null);
 	const { tickets } = useTicket();
 	const [highlightedIndex, setHighlightedIndex] = useState(0);
 
-	const ticketsData = [];
+	useEffect(() => {
+		const params = new URLSearchParams(location.search);
+		const searchVal = params.get("search") || params.get("searchQuery");
+		if (searchVal !== null && searchVal !== undefined) {
+			setSearchText(searchVal);
+		}
+	}, [location.search]);
+
+	const ticketsData = tickets || [];
 
 	const [searchResults, setSearchResults] = useState([]);
 
 	useEffect(() => {
 		if (searchText.length >= 3) {
+			const searchLower = searchText.toLowerCase();
 			const filteredResults = ticketsData.filter((ticket) => {
-				const searchLower = searchText.toLowerCase();
-
 				// Search across all properties of the ticket
-				const searchableFields = [ticket.subject, ticket.TicketNo, ticket.companyname, ticket.username, ticket.category, ticket.Status, ticket.CreatedBy, ticket.Priority];
+				const searchableFields = [ticket.MainSubject, ticket.subject, ticket.TicketNo, ticket.companyname, ticket.username, ticket.category, ticket.Status, ticket.CreatedBy, ticket.Priority];
 
 				return searchableFields.some((field) => field && field.toString().toLowerCase().includes(searchLower));
 			});
@@ -162,7 +174,7 @@ const SearchPopover = ({ onSelect = () => {} }) => {
 		} else {
 			setShowPopover(false);
 		}
-	}, [searchText]);
+	}, [searchText, ticketsData]);
 
 	useEffect(() => {
 		const handleKeyDown = (e) => {
@@ -263,7 +275,7 @@ const SearchPopover = ({ onSelect = () => {} }) => {
 															}}
 														>
 															<Typography variant="body2" fontWeight="medium" noWrap sx={{ mr: 0.5 }}>
-																{ticket.subject}
+																{ticket.MainSubject || ticket.subject}
 															</Typography>
 															<IconButton size="small" sx={{ p: 0.5 }}>
 																{ticket.star ? <StarIcon fontSize="small" color="warning" /> : <StarBorderIcon fontSize="small" />}

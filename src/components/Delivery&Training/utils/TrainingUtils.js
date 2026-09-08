@@ -53,8 +53,9 @@ export const filterTrainingData = (filters, trainingData) => {
 			const matchesType = isAllOrEmpty(trainingType) || item.TrainingType === trainingType;
 			const matchesMode = isAllOrEmpty(trainingMode) || item.TrainingMode === trainingMode;
 			const matchesStatus = isAllOrEmpty(status) || item.Status === status;
+			const matchesCompany = !filters.company || filters.company.length === 0 || filters.company.some(comp => comp === item.Projectcode);
 
-			return matchesSearch && matchesDateRange && matchesType && matchesMode && matchesStatus;
+			return matchesSearch && matchesDateRange && matchesType && matchesMode && matchesStatus && matchesCompany;
 		})
 		?.sort((a, b) => new Date(b?.EntryDate) - new Date(a?.EntryDate));
 };

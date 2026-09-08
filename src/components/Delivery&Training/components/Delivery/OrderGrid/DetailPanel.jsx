@@ -1,9 +1,10 @@
 import React from "react";
-import { Typography, Box, Chip, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, Drawer, IconButton, Paper } from "@mui/material";
+import { Typography, Box, Chip, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, Drawer, IconButton, Paper, styled, Rating } from "@mui/material";
 import { X } from "lucide-react";
 import { formatDate, getApprovalStatus, getPaymentStatus, calculateTotalHours, parseEstimate, formatDateFun } from "../../../utils/helpers";
 import PaymentMethodModal from "./PaymentModal";
 import { useAuth } from "../../../context/AuthProvider";
+import StarRateRoundedIcon from "@mui/icons-material/StarRateRounded";
 
 const DetailPanel = ({ open, setOpen, isClient }) => {
 	const [openModal, setOpenModal] = React.useState(false);
@@ -29,7 +30,7 @@ const DetailPanel = ({ open, setOpen, isClient }) => {
 			}}
 		>
 			<TicketDetailsContent isClient={isClient} ticketData={open} closeDrawer={toggleDrawer(null)} onToggle={() => setOpenModal(true)} IsClient={isClient} />
-			<PaymentMethodModal onClose={() => setOpenModal(false)} open={openModal} ticketData={open} />
+			{/* <PaymentMethodModal onClose={() => setOpenModal(false)} open={openModal} ticketData={open} /> */}
 		</Drawer>
 	);
 };
@@ -37,7 +38,7 @@ const DetailPanel = ({ open, setOpen, isClient }) => {
 // === Main Content Component ===
 const TicketDetailsContent = ({ closeDrawer, ticketData, onToggle = () => {}, IsClient = false }) => {
 	const approvalStatus = getApprovalStatus(ticketData?.ApprovedStatus ?? false);
-	console.log("🚀 ~ TicketDetailsContent ~ ticketData:", ticketData);
+	
 	const paymentStatus = getPaymentStatus(ticketData?.PaymentStatus ?? "");
 
 	const dateFields = {
@@ -81,6 +82,7 @@ const TicketDetailsContent = ({ closeDrawer, ticketData, onToggle = () => {}, Is
 					height: "calc(100% - 64px)",
 					overflowY: "auto",
 					overflowX: "hidden",
+					paddingBottom: "3rem",
 				}}
 			>
 				<HeaderBanner dateFields={dateFields} ticketData={ticketData} approvalStatus={approvalStatus} paymentStatus={paymentStatus} />
@@ -89,7 +91,8 @@ const TicketDetailsContent = ({ closeDrawer, ticketData, onToggle = () => {}, Is
 				{IsClient && <TimeEstimateSection ticketData={ticketData} />}
 				{IsClient && <AssignmentTable ticketData={ticketData} />}
 				{/* <TrainingSection ticketData={ticketData} /> */}
-				{IsClient && <PaymentInfo ticketData={ticketData} onToggle={onToggle} />}
+				{/* {IsClient && <PaymentInfo ticketData={ticketData} onToggle={onToggle} />} */}
+{ ticketData?.RatingValue &&<FeedbackDisplay ratingValue={ticketData?.RatingValue} ratingDescription={ticketData?.RatingDescription} ratingBy={ticketData?.RatingBy} />}
 			</Box>
 		</>
 	);
@@ -190,7 +193,7 @@ const CompletionProgress = ({ ticketData }) => {
 						On Demand
 					</Typography>
 					<Typography fontWeight="bold" sx={{ textTransform: "capitalize" }}>
-						{ticketData?.OnDemand || "—"}
+						{ticketData?.OnDemand === "yes" ? "Client" : "Optigo" || "—"}
 					</Typography>
 				</Grid>
 				<Grid item xs={12} sm={4} alignItems="center" justifyContent="center" display="flex" flexDirection="column">
@@ -557,3 +560,75 @@ const PaymentInfo = ({ ticketData, onToggle }) => {
 		</Box>
 	);
 };
+
+
+
+
+
+
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+	padding: theme.spacing(2),
+	borderRadius: theme.spacing(1),
+	background: theme.palette.mode === "dark" ? "#1f1f1f" : "#f9f9f9",
+	boxShadow: "0px 1px 4px rgba(0,0,0,0.05)",
+	border: `1px solid ${theme.palette.divider}`,
+	transition: "all 0.3s ease",
+	"&:hover": {
+	  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
+	}
+  }));
+  
+  
+  
+  
+  const FeedbackDisplay = ({ ratingValue, ratingDescription, ratingBy }) => {
+	if (!ratingValue) return null;
+	return (
+	  <Box p={2} mt={1}>
+		<Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+		  Feedback
+		</Typography>
+		<StyledPaper>
+		  <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+			<Rating
+			  value={ratingValue}
+			  readOnly
+			  icon={<StarRateRoundedIcon fontSize="small" />}
+			  emptyIcon={<StarRateRoundedIcon fontSize="small" />}
+			  sx={{
+				color: "#FFC107",
+				"& .MuiRating-iconEmpty": {
+				  color: "#BDBDBD",
+				},
+			  }}
+			/>
+		  </Box>
+  
+		  {ratingDescription && (
+			<Typography
+			  variant="body2"
+			  color="text.secondary"
+			  sx={{ fontStyle: "italic" }}
+			>
+			  “{ratingDescription}”
+			</Typography>
+		  )}
+  
+		  {ratingBy && (
+			<Typography
+			  variant="caption"
+			  color="text.disabled"
+			  display="block"
+			  mt={1}
+			>
+			  — {ratingBy}
+			</Typography>
+		  )}
+		</StyledPaper>
+	  </Box>
+	);
+  };
+  
+
+  

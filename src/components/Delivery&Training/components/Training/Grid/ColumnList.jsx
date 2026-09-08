@@ -16,7 +16,12 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 				field: "SessionID",
 				headerName: "ID",
 				renderHeader: () => <strong>ID</strong>,
-				flex: 0.3,
+				width: 50,
+				renderCell: (params) => {
+					const page = params.api.state.pagination?.paginationModel?.page ?? 0;
+					const pageSize = params.api.state.pagination?.paginationModel?.pageSize ?? 100;
+					return page * pageSize + params.api.getRowIndexRelativeToVisibleRows(params.id) + 1;
+				},
 			},
 			{
 				field: "TicketNo",
@@ -48,6 +53,20 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 				flex: 1,
 			},
 			{
+				field: "training",
+				headerName: "Training",
+				renderHeader: () => <strong>Training</strong>,
+				flex: 1,
+				renderCell: (params) => {
+					const hasTraining = params.row?.Details && extractRecordingLink(params.row?.Details || "");
+					return hasTraining ? (
+						<Chip icon={<CheckCircleOutlineIcon fontSize="small" />} label="Recorded" sx={{ backgroundColor: getColorByStatus("Completed") }} size="small" />
+					) : (
+						<Chip icon={<TimerRoundedIcon fontSize="small" color="action" />} label="Pending" color="warning" size="small" sx={{ backgroundColor: getColorByStatus("Pending") }} />
+					);
+				},
+			},
+			{
 				field: "TrainingBy",
 				headerName: "Trainer",
 				renderHeader: () => <strong>Trainer</strong>,
@@ -66,20 +85,7 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 				renderHeader: () => <strong>Duration</strong>,
 				renderCell: (params) => <Typography variant="body2">{params?.value?.toFixed(2)} hrs</Typography>,
 			},
-			{
-				field: "training",
-				headerName: "Training",
-				renderHeader: () => <strong>Training</strong>,
-				flex: 1,
-				renderCell: (params) => {
-					const hasTraining = params.row?.Details && extractRecordingLink(params.row?.Details || "");
-					return hasTraining ? (
-						<Chip icon={<CheckCircleOutlineIcon fontSize="small" />} label="Recorded" sx={{ backgroundColor: getColorByStatus("Completed") }} size="small" />
-					) : (
-						<Chip icon={<TimerRoundedIcon fontSize="small" color="action" />} label="Pending" color="warning" size="small" sx={{ backgroundColor: getColorByStatus("Pending") }} />
-					);
-				},
-			},
+
 			{
 				field: "Status",
 				headerName: "Status",
@@ -131,9 +137,11 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 			field: "SessionID",
 			headerName: "ID",
 			renderHeader: () => <strong>ID</strong>,
-			flex: 0.3,
+			width: 50,
 			renderCell: (params) => {
-				return params.api.getRowIndexRelativeToVisibleRows(params.id) + 1;
+				const page = params.api.state.pagination?.paginationModel?.page ?? 0;
+				const pageSize = params.api.state.pagination?.paginationModel?.pageSize ?? 100;
+				return page * pageSize + params.api.getRowIndexRelativeToVisibleRows(params.id) + 1;
 			},
 		},
 		{
@@ -157,6 +165,12 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 			field: "CutomerType",
 			headerName: "Customer Type",
 			renderHeader: () => <strong>Customer Type</strong>,
+			flex: 1,
+		},
+		{
+			field: "Title",
+			headerName: "Title",
+			renderHeader: () => <strong>Training Title</strong>,
 			flex: 1,
 		},
 		{
@@ -186,6 +200,20 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 			flex: 1,
 		},
 		{
+			field: "training",
+			headerName: "Training",
+			renderHeader: () => <strong>Training</strong>,
+			flex: 1,
+			renderCell: (params) => {
+				const hasTraining = params.row?.Details && extractRecordingLink(params.row?.Details || "");
+				return hasTraining ? (
+					<Chip icon={<CheckCircleOutlineIcon fontSize="small" />} label="Recorded" sx={{ backgroundColor: getColorByStatus("Completed") }} size="small" />
+				) : (
+					<Chip icon={<TimerRoundedIcon fontSize="small" color="action" />} label="Pending" color="warning" size="small" sx={{ backgroundColor: getColorByStatus("Pending") }} />
+				);
+			},
+		},
+		{
 			field: "TrainingBy",
 			headerName: "Trainer",
 			renderHeader: () => <strong>Trainer</strong>,
@@ -204,20 +232,7 @@ export const getDeliveryColumns = (setDetailModal, HandleEditMode, showNotificat
 			renderHeader: () => <strong>Duration</strong>,
 			renderCell: (params) => <Typography variant="body2">{params?.value?.toFixed(2)} hrs</Typography>,
 		},
-		{
-			field: "training",
-			headerName: "Training",
-			renderHeader: () => <strong>Training</strong>,
-			flex: 1,
-			renderCell: (params) => {
-				const hasTraining = params.row?.Details && extractRecordingLink(params.row?.Details || "");
-				return hasTraining ? (
-					<Chip icon={<CheckCircleOutlineIcon fontSize="small" />} label="Recorded" sx={{ backgroundColor: getColorByStatus("Completed") }} size="small" />
-				) : (
-					<Chip icon={<TimerRoundedIcon fontSize="small" color="action" />} label="Pending" color="warning" size="small" sx={{ backgroundColor: getColorByStatus("Pending") }} />
-				);
-			},
-		},
+
 		{
 			field: "Status",
 			headerName: "Status",

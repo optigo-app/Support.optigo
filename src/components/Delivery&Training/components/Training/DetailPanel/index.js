@@ -1,6 +1,6 @@
 import React from "react";
 import { parse, format } from "date-fns";
-import { Drawer, Box, Typography, IconButton, Grid, Avatar, Link } from "@mui/material";
+import { Drawer, Box, Typography, IconButton, Grid, Avatar, Link, Rating } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
@@ -82,6 +82,12 @@ export default function TrainingDetailPanel({ open, onClose, isAdmin = false }) 
 					{/* Basic Info */}
 					<Box bgcolor="grey.100" p={2} borderRadius={2} mb={3}>
 						<Grid container spacing={2}>
+							<Grid item xs={12}>
+								<Typography variant="caption" color="textSecondary" textTransform="uppercase">
+									Title
+								</Typography>
+								<Typography>{open?.Title}</Typography>
+							</Grid>
 							<Grid item xs={6}>
 								<Typography variant="caption" color="textSecondary" textTransform="uppercase">
 									Company
@@ -235,6 +241,63 @@ export default function TrainingDetailPanel({ open, onClose, isAdmin = false }) 
 							<Typography variant="body2">{open?.Remark || "No remarks available"}</Typography>
 						</Box>
 					</Box>
+					{!!open?.Rating && (
+						<Box mb={3}>
+							<Typography
+								variant="overline"
+								color="textSecondary"
+								display="block"
+								mb={1}
+							>
+								Rating
+							</Typography>
+
+							<Box
+								p={2.5}
+								borderRadius={3}
+								bgcolor="#FFFFFF"
+								border="1px solid #F1F5F9"
+								boxShadow="0 2px 8px rgba(0,0,0,0.05)"
+								display="flex"
+								flexDirection="column"
+								gap={1.2}
+							>
+								{/* Stars */}
+								<Rating
+									value={open?.Rating}
+									readOnly
+									size="large"
+
+									sx={{
+										"& .MuiRating-iconFilled": { color: "#FDBA21" },
+										"& .MuiRating-iconEmpty": { color: "#FDBA21" },
+									}}
+								/>
+
+								{/* Description */}
+								<Typography
+									fontSize={15}
+									fontWeight={600}
+									color="#0F172A"
+									sx={{ textTransform: "capitalize" }}
+								>
+									{open?.RatingDesc || "No feedback provided"}
+								</Typography>
+
+								{/* Meta Info */}
+								<Typography fontSize={12.5} color="#64748B">
+									{open?.RatingDate &&
+										format(new Date(open?.RatingDate), "dd MMM yyyy, hh:mm a")}
+								</Typography>
+
+								<Typography fontSize={12.5} color="#94A3B8">
+									by {open?.RatingBy || "N/A"}
+								</Typography>
+							</Box>
+
+						</Box>
+					)}
+
 					{/* Topics Covered */}
 					{open?.Details !== "<p></p>\n" && (
 						<Box mb={3}>

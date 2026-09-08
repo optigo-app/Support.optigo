@@ -17,3 +17,5 @@ export const generateTicketNumber = () => {
 	// Return formatted ticket ID
 	return `${TICKET_PREFIX}${next}`;
 };
+
+

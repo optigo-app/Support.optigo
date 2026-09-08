@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography, Button, Container } from "@mui/material";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useNavigate } from "react-router-dom";
+import MetaWrapper from "../../meta/MetaWrapper";
 
 const NotFoundPage = () => {
 	const navigate = useNavigate();
@@ -19,6 +20,7 @@ const NotFoundPage = () => {
 				flexDirection: "column",
 			}}
 		>
+			<MetaWrapper page="NotFound" />
 			<Box>
 				<ErrorOutlineIcon color="error" sx={{ fontSize: 80, mb: 2 }} />
 				<Typography variant="h2" sx={{ fontWeight: 700, mb: 1 }}>

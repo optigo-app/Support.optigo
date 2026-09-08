@@ -49,7 +49,7 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 
 		const parsedComments = DataParser(ticket?.comments || "").data || [];
 		setComments([...parsedComments]);
-	}, [ticket, ticket?.TicketNo, refreshComment]);
+	}, [ticket, ticket?.TicketNo, refreshComment , ticket?.TicketId]);
 
 	return (
 		<Box
@@ -57,8 +57,11 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 				flexGrow: 1,
 				display: "flex",
 				overflow: "hidden",
-				bgcolor: "#ffffff",
+				// bgcolor: "#ffffff",
 				width: "100%",
+					backdropFilter: "blur(10px)",                   // blur behind the element
+						WebkitBackdropFilter: "blur(10px)",             // for Safari support
+						boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",     // subtle shadow for depth
 			}}
 		>
 			<Box
@@ -72,14 +75,16 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 					height: "100%",
 				}}
 			>
-				<ClosedSeeOff IsClosed={IsClosed} TicketNo={ticket?.TicketNo} />
+				<Box sx={{padding:'8px'}}>
+					<ClosedSeeOff IsClosed={IsClosed} TicketNo={ticket?.TicketNo} />
+				</Box>
 				<Box sx={{ flex: 1, overflow: "auto" }}>
 					<DetailBar handleClick={handleClick} anchorEl={anchorEl} open={open} handleClose={handleClose} inputValue={inputValue} HandleSave={HandleSave} handleInputChange={handleInputChange} onClose={onClose} ticket={ticket} />
 					<TicketComment showNotification={showNotification} data={ticket} setComments={setComments} />
 					<CommentList data={Comments} key={ticket?.TicketId} />
 				</Box>
 			</Box>
-			<DetailSideBar ticket={ticket} IsClosed={IsClosed} />
+			<DetailSideBar key={ticket?.TicketNo || ticket?.TicketId} ticket={ticket} IsClosed={IsClosed} />
 		</Box>
 	);
 };

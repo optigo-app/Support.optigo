@@ -7,14 +7,20 @@ import { useCallLog } from "../../context/UseCallLog";
 import { formatTimeX } from "../../libs/formatTime";
 import { useAuth } from "../../context/UseAuth";
 
-export default function EditCallLogDrawer({ open, onClose, callData }) {
+export default function EditCallLogDrawer({ open, onClose, callData, showNotification }) {
 	const [formData, setFormData] = useState({});
-	const { editCall, APPNAME_LIST, companyOptions, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, setCurrentCall } = useCallLog();
+	const [saving, setSaving] = useState(false);
+	const { editCall, APPNAME_LIST, currentCall, companyOptions, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, setCurrentCall, CALL_TYPE_MASTER } = useCallLog();
 	const { user } = useAuth();
 	useEffect(() => {
 		if (open && callData) {
-			const companyObj = companyOptions?.find((option) => option?.label === callData?.company || option?.value === callData?.company);
+			const companyObj = companyOptions?.find((option) => option?.label?.split("/")?.[0]?.toLocaleLowerCase() === callData?.company?.toLocaleLowerCase() || null);
 			const appnameObj = APPNAME_LIST?.find((option) => option?.AppName === callData?.appname || option?.AppId === callData?.appname);
+			const callTypeObj = CALL_TYPE_MASTER?.find(
+				(option) =>
+					option?.label?.toLowerCase() === callData?.CallType?.toLowerCase() ||
+				option?.value === callData?.CallType
+			);
 			let receivedByValue = null;
 			if (callData?.receivedBy) {
 				if (typeof callData.receivedBy === "object" && callData?.receivedBy?.value) {
@@ -24,11 +30,11 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 
 					if (receivedByPerson) {
 						receivedByValue = {
-							label: receivedByPerson.person,
-							value: receivedByPerson.id?.split(",")[1],
+							label: receivedByPerson?.person,
+							value: receivedByPerson?.id?.split(",")[1],
 						};
-					} else if (typeof callData.receivedBy === "string") {
-						receivedByValue = callData.receivedBy;
+					} else if (typeof callData?.receivedBy === "string") {
+						receivedByValue = callData?.receivedBy;
 					}
 				}
 			}
@@ -44,6 +50,15 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 				forwardToValue = forwardPerson || null;
 			}
 
+			// Format appname value for Autocomplete
+			let appnameValue = null;
+			if (appnameObj) {
+				appnameValue = {
+					label: appnameObj.AppName,
+					value: appnameObj.AppId
+				};
+			}
+
 			setFormData({
 				...callData,
 				id: callData?.sr,
@@ -51,7 +66,7 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 				time: callData?.time || formatTimeX(new Date()),
 				company: companyObj || null,
 				callBy: callData?.callBy || "",
-				appname: appnameObj ? appnameObj.AppId : null,
+				appname: appnameValue,
 				receivedBy: receivedByValue,
 				forwardTo: forwardToValue,
 				status: callData?.status,
@@ -59,15 +74,28 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 				Estatus: callData?.Estatus,
 				description: callData?.description || "",
 				callDetails: callData?.callDetails || "",
+				topicRaisedBy: callData?.topicRaisedBy || "Optigo",
+				callType: callTypeObj || null,
+
 			});
 		}
-	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption]);
+	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption ,currentCall]);
 
-	const handleChange = (field) => (event, newValue) => {
-		setFormData((prev) => ({
-			...prev,
-			[field]: newValue !== undefined ? newValue : event?.target?.value || "",
-		}));
+	const handleChange = (field) => {
+		return (event, newValue) => {
+			if (field === "appname" || field === "company" || field === "callType" || field === "status" || field === "Estatus" || field === "priority" || field === "receivedBy" || field === "forwardTo") {
+				setFormData((prev) => ({
+					...prev,
+					[field]: newValue || null,
+				}));
+			} else {
+				// Handle regular text inputs
+				setFormData((prev) => ({
+					...prev,
+					[field]: event?.target?.value || "",
+				}));
+			}
+		};
 	};
 
 	const filterForwardOptions = (options, { inputValue }) => {
@@ -81,41 +109,45 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 		});
 	};
 
-	// Prepare data for company autocomplete
-	const selectedCompany = formData?.company || null;
-
-	// Prepare data for appName autocomplete
-	const selectedAppName = APPNAME_LIST?.find((option) => option?.AppId === formData?.appname || option?.value === formData?.appname);
-
-	const appNameValue = selectedAppName
-		? {
-				label: selectedAppName?.AppName,
-				value: selectedAppName?.AppId,
+	const handleSubmit = async () => {
+		if (saving) return;
+		setSaving(true);
+		try {
+			const submitData = {
+				...formData,
+				company: formData?.company?.value || formData?.company,
+				appname: formData?.appname?.value || formData?.appname,
+				receivedBy: typeof formData?.receivedBy === "object" ? formData?.receivedBy.value : formData?.receivedBy,
+				forward: formData?.forwardTo?.id || "",
+				callType: formData?.callType?.value || "",
+			};
+			const result = await editCall(callData?.sr, {
+				CreatedBy: user?.id,
+				CustomerName: submitData?.callBy || "",
+				PriorityId: submitData?.priority?.value || "",
+				ParentId: submitData?.parentId || "",
+				Descr: submitData?.description || "",
+				EmpId: submitData?.forwardTo?.id?.split(",")[1] || submitData?.forward?.split(",")[1] || "",
+				DeptId: submitData?.forwardTo?.id?.split(",")[0] || submitData?.forward?.split(",")[0] || "",
+				StatusId: submitData?.status?.value || "",
+				Estatus: submitData?.Estatus?.value || "",
+				calldetails: submitData?.callDetails || "",
+				EntryDate: submitData?.date || "",
+				CallType: submitData?.callType || "",
+				AppId: submitData?.appname || "",
+			});
+			if (result?.success) {
+				onClose();
+			} else {
+				const errorMsg = result?.msg?.stat_msg || "You do not have permission to edit this call.";
+				showNotification?.(errorMsg, "error");
 			}
-		: null;
-	const handleSubmit = () => {
-		const submitData = {
-			...formData,
-			company: formData?.company?.value || formData?.company,
-			appname: formData?.appname,
-			receivedBy: typeof formData.receivedBy === "object" ? formData.receivedBy.value : formData.receivedBy,
-			forward: formData?.forwardTo?.id || "",
-		};
-		onClose();
-		editCall(callData?.sr, {
-			CreatedBy: user?.id,
-			CustomerName: submitData?.callBy || "",
-			PriorityId: submitData?.priority?.value || "",
-			ParentId: submitData?.parentId || "",
-			Descr: submitData?.description || "",
-			EmpId: submitData?.forwardTo?.id?.split(",")[1] || submitData?.forward?.split(",")[1] || "",
-			DeptId: submitData?.forwardTo?.id?.split(",")[0] || submitData?.forward?.split(",")[0] || "",
-			StatusId: submitData?.status?.value || "",
-			Estatus: submitData?.Estatus?.value || "",
-			calldetails: submitData?.callDetails || "",
-			EntryDate: submitData?.date || "",
-		});
-		// setCurrentCall(null)
+		} catch (error) {
+			console.error("Error editing call:", error);
+			showNotification?.("An error occurred while saving.", "error");
+		} finally {
+			setSaving(false);
+		}
 	};
 
 	return (
@@ -138,7 +170,7 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 					</Box>
 
 					{/* Scrollable Form */}
-					<Box sx={{ px: 2, flexGrow: 1, overflowY: "auto" }}>
+					<Box sx={{ px: 2, flexGrow: 1, overflowY: "auto", pb: 4 }}>
 						<Grid container spacing={2}>
 							<Grid item xs={6}>
 								<TextField
@@ -163,7 +195,7 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 							disabled
 							fullWidth
 							options={companyOptions || []}
-							value={selectedCompany}
+							value={formData?.company || null}
 							onChange={handleChange("company")}
 							getOptionLabel={(option) => {
 								if (typeof option === "string") return option;
@@ -177,18 +209,17 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 							renderInput={(params) => <TextField {...params} label="Company Name" margin="normal" autoFocus />}
 						/>
 
-						<TextField fullWidth label="Customer Name" disabled value={formData?.callBy || ""} margin="normal" />
+						<TextField fullWidth label="Customer Name" name="callBy" onChange={handleChange("callBy")} value={formData?.callBy || ""} margin="normal" />
 
 						<Autocomplete
 							fullWidth
-							disabled
 							options={
 								APPNAME_LIST?.map((option) => ({
 									label: option?.AppName,
 									value: option?.AppId,
 								})) || []
 							}
-							value={appNameValue}
+							value={formData?.appname || null}
 							onChange={handleChange("appname")}
 							getOptionLabel={(option) => option?.label || ""}
 							isOptionEqualToValue={(option, value) => {
@@ -197,10 +228,23 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 							}}
 							renderInput={(params) => <TextField {...params} label="AppName" margin="normal" />}
 						/>
+						<Autocomplete
+							key="callType-input"
+							fullWidth
+							options={CALL_TYPE_MASTER || []}
+							value={formData?.callType || null}
+							onChange={handleChange("callType")}
+							getOptionLabel={(option) => option?.label || ""}
+							isOptionEqualToValue={(option, value) => option?.value === value?.value}
+							renderInput={(params) => (
+								<TextField {...params} label="Call Type" margin="normal" />
+							)}
+						/>
+
 
 						<TextField fullWidth label="Description" value={formData?.description || ""} onChange={handleChange("description")} margin="normal" multiline rows={3} />
 
-						<TextField fullWidth label="Topic Raised By" disabled value={formData?.topicRaisedBy || ""} margin="normal" />
+						<TextField sx={{ textTransform: 'capitalize !important' }} fullWidth label="Topic Raised By" disabled value={formData?.topicRaisedBy || ""} margin="normal" />
 
 						<Grid container spacing={2}>
 							<Grid item xs={6}>
@@ -247,9 +291,9 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 
 						<TextField fullWidth label="Call Duration" disabled value={formData?.CallDuration || ""} margin="normal" />
 
-						<TextField fullWidth label="Call Details" value={formData?.callDetails || ""} onChange={handleChange("callDetails")} margin="normal" multiline rows={3} />
+						{/* <TextField fullWidth label="Call Details" value={formData?.callDetails || ""} onChange={handleChange("callDetails")} margin="normal" multiline rows={3} /> */}
 
-						<TextField fullWidth label="Parent ID" disabled value={formData?.parentId || ""} margin="normal" />
+						{/* <TextField fullWidth label="Parent ID" disabled value={formData?.parentId || ""} margin="normal" />    */}
 
 						<TextField fullWidth label="Ticket" disabled value={formData?.ticket || ""} margin="normal" />
 
@@ -294,8 +338,8 @@ export default function EditCallLogDrawer({ open, onClose, callData }) {
 							gap: 2,
 						}}
 					>
-						<Button variant="contained" sx={{ flex: 1 }} color="primary" size="large" onClick={handleSubmit}>
-							Save
+						<Button variant="contained" sx={{ flex: 1 }} color="primary" size="large" onClick={handleSubmit} disabled={saving}>
+							{saving ? "Saving..." : "Save"}
 						</Button>
 						<Button variant="contained" sx={{ flex: 1 }} onClick={onClose} size="large" color="error">
 							Cancel

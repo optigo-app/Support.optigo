@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { TextField, MenuItem, Select, FormControl, InputLabel, Button, Grid, Typography, Box, Paper, useMediaQuery, useTheme, Drawer, IconButton, InputAdornment, FormHelperText } from "@mui/material";
 import MUIRichTextEditor from "mui-rte";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -12,13 +12,15 @@ import { useTraining } from "./../../../context/TrainingProvider";
 import useCapsLock from "../../../hooks/experimental/useCapsLock";
 import SentimentNeutralRoundedIcon from "@mui/icons-material/SentimentNeutralRounded";
 import SentimentVerySatisfiedRoundedIcon from "@mui/icons-material/SentimentVerySatisfiedRounded";
+import ModernBackdropLoader from "./ModernBackdropLoader";
 
-const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotification }) => {
+const TrainingForm = ({ open, onClose = () => { }, editValue, onReset, onNotification }) => {
 	const { formData, handleSave, setFormData, editorRef, editorState, setEditorState, validateForm, saveEditorContent, handleChange, handleChangeProject, handleChangeTraining, handleEditorChange, errors } = useTrainingForm();
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const { editTraining, COMPANY_MASTER_LIST, EMPLOYEE_LIST } = useTraining();
 	const IsCapsLockON = useCapsLock();
+	const [IsLoading, setIsLoading] = useState(false);
 	useEffect(() => {
 		if (editorState === null) {
 			if (formData.details) {
@@ -41,24 +43,38 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 		onReset();
 		setFormData(INITIAL_FORM_DATA);
 		onClose();
+		setIsLoading(false);
 	};
 
 	const handleSubmit = async (e) => {
+		setIsLoading(true);
 		e.preventDefault();
 
 		try {
+			const isValid = await validateForm();
+			if (!isValid) {
+				const errorMessages = Object.entries(errors)
+					.filter(([_, value]) => value)
+					.map(([_, msg]) => msg);
+
+				const errorMessage = errorMessages.length > 0 ? errorMessages.join(", ") : "Some required fields are missing.";
+
+				throw new Error("These fields are mandatory. Please fill in all required fields.");
+			}
+
+
 			if (editorState) {
 				saveEditorContent(editorState);
 			}
-
 			const data = { ...formData };
-
 			if (editValue) {
 				const isValid = await validateForm();
 				if (!isValid) throw new Error("Validation failed.");
-				editTraining(editValue?.SessionID, data);
-				onNotification("Training Updated Successfully", "success");
-				RestFun();
+				const res = await editTraining(editValue?.SessionID, data);
+				if (res) {
+					onNotification("Training Updated Successfully", "success");
+					RestFun();
+				}
 			} else {
 				const res = await handleSave(data);
 				if (res?.success === true) {
@@ -67,51 +83,70 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 					return;
 				} else {
 					onNotification(res?.message, "error");
+					setIsLoading(false);
 				}
 			}
 		} catch (error) {
 			onNotification(error.message, "error");
+			setIsLoading(false);
 		}
 	};
 
 	useEffect(() => {
-		if (editValue) {
-			const companyMatch = COMPANY_MASTER_LIST.find((c) => c?.label?.toLowerCase() === editValue?.Projectcode?.toLowerCase());
-			const employeeMatch = EMPLOYEE_LIST.find((e) => e?.label?.toLowerCase() === editValue?.TrainingBy?.toLowerCase());
-			setFormData({
-				attendees: editValue.Attendees,
-				customerType: editValue.CutomerType,
-				date: editValue.TrainingDate,
-				details: editValue.Details,
-				endTime: editValue.EndTime,
-				packageInfo: editValue.CutomerPackage,
-				projectCode: companyMatch?.value,
-				remarks: editValue?.Remark,
-				startTime: editValue.StartTime,
-				status: editValue.Status,
-				ticketNo: editValue.TicketNo,
-				trainingBy: employeeMatch?.value,
-				trainingMode: editValue.TrainingMode,
-				trainingType: editValue.TrainingType,
-			});
-			try {
-				const blocksFromHtml = htmlToDraft(editValue.Details || "");
-				const { contentBlocks, entityMap } = blocksFromHtml;
-				const contentState = ContentState.createFromBlockArray(contentBlocks, entityMap);
-				const newEditorState = EditorState.createWithContent(contentState);
-				setEditorState(newEditorState);
-			} catch (err) {
-				console.error("Error initializing editor:", err);
+		if (open) {
+			if (editValue) {
+				const companyMatch = COMPANY_MASTER_LIST.find((c) => c?.label?.toLowerCase() === editValue?.Projectcode?.toLowerCase());
+				const employeeMatch = EMPLOYEE_LIST.find((e) => e?.label?.toLowerCase() === editValue?.TrainingBy?.toLowerCase());
+				setFormData({
+					attendees: editValue.Attendees,
+					customerType: editValue.CutomerType,
+					date: editValue.TrainingDate,
+					details: editValue.Details,
+					endTime: editValue.EndTime,
+					packageInfo: editValue.CutomerPackage,
+					projectCode: companyMatch?.value,
+					remarks: editValue?.Remark,
+					startTime: editValue.StartTime,
+					status: editValue.Status,
+					ticketNo: editValue.TicketNo,
+					trainingBy: employeeMatch?.value,
+					trainingMode: editValue.TrainingMode,
+					trainingType: editValue.TrainingType,
+					title: editValue.Title,
+				});
+				try {
+					const blocksFromHtml = htmlToDraft(editValue.Details || "");
+					const { contentBlocks, entityMap } = blocksFromHtml;
+					const contentState = ContentState.createFromBlockArray(contentBlocks, entityMap);
+					const newEditorState = EditorState.createWithContent(contentState);
+					setEditorState(newEditorState);
+				} catch (err) {
+					console.error("Error initializing editor:", err);
+					setEditorState(EditorState.createEmpty());
+				}
+			} else {
+				const today = new Date().toISOString().split("T")[0];
+				setFormData({
+					...INITIAL_FORM_DATA,
+					date: today,
+				});
 				setEditorState(EditorState.createEmpty());
 			}
 		}
-	}, [editValue, setFormData, setEditorState]);
+	}, [open, editValue, COMPANY_MASTER_LIST, EMPLOYEE_LIST, setFormData, setEditorState]);
 
 	const rteTheme = createTheme({
 		typography: {
 			fontFamily: '"Poppins", sans-serif',
 		},
 		components: {
+			    MuiAutocomplete :{
+         defaultProps: {
+        autoSelect: true,
+        autoHighlight: true,
+        selectOnFocus: true,
+      },
+    },
 			MUIRichTextEditor: {
 				styleOverrides: {
 					root: {
@@ -159,8 +194,11 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 					borderRadius: 0,
 					maxWidth: "100%",
 				},
+
 			}}
+			transitionDuration={10}
 		>
+			<ModernBackdropLoader open={IsLoading} />
 			<Box
 				sx={{
 					display: { xs: "block", md: "flex" },
@@ -170,6 +208,7 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 				}}
 			>
 				<IconButton
+					onClick={() => onClose()}
 					sx={{
 						position: "absolute",
 						top: 22,
@@ -178,7 +217,7 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 						zindex: 9999,
 					}}
 				>
-					<CloseOutlined onClick={() => onClose()} />
+					<CloseOutlined />
 				</IconButton>
 				{/* Left - Form */}
 				<Paper
@@ -204,6 +243,10 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 					<form onSubmit={handleSubmit}>
 						<Grid container spacing={2.5}>
 							{/* Date */}
+							<Grid item xs={12} sm={12}>
+								<TextField helperText={errors.title} error={!!errors.title} fullWidth label="Title" name="title" value={formData.title} onChange={handleChange} />
+							</Grid>
+
 							<Grid item xs={12} sm={6}>
 								<TextField error={!!errors?.date} helperText={errors?.date} fullWidth label="Date" type="date" name="date" value={formData.date} onChange={handleChange} InputLabelProps={{ shrink: true }} />
 							</Grid>
@@ -322,8 +365,9 @@ const TrainingForm = ({ open, onClose = () => {}, editValue, onReset, onNotifica
 									"&:hover": { bgcolor: "#0056b3" },
 									color: "white",
 								}}
+								disabled={IsLoading}
 							>
-								Submit
+								{IsLoading ? "Submitting..." : "Submit"}
 							</Button>
 						</Box>
 					</form>

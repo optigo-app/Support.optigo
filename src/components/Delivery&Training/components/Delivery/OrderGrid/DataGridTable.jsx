@@ -1,7 +1,7 @@
-import React from "react";
+import React, { memo } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 
-const DataGridTable = ({ deliveryData, setPageSize, pageSize, columns, sortModel, setSortModel, getRowId }) => {
+const DataGridTable = memo(({ deliveryData, setPageSize, pageSize, columns, sortModel, setSortModel, getRowId }) => {
 	return (
 		<DataGrid
 			rows={deliveryData}
@@ -91,6 +91,6 @@ const DataGridTable = ({ deliveryData, setPageSize, pageSize, columns, sortModel
 			}}
 		/>
 	);
-};
+});
 
 export default DataGridTable;
