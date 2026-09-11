@@ -2,6 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () {
+        var path = window.location.pathname;
+        var knownRoutes = [
+          "login",
+          "calllog",
+          "newcall",
+          "archive",
+          "ticket",
+          "orders",
+          "training",
+          "orderrequest",
+          "account",
+        ];
+        var firstSeg = (path.split("/")[1] || "").toLowerCase();
+        var baseHref = "/";
+        if (firstSeg && !knownRoutes.includes(firstSeg)) {
+          var match = path.match(/^(\/[^/]+\/[^/]+)/);
+          if (match) {
+            baseHref = match[1] + "/";
+          }
+        }
+        var base = document.createElement("base");
+        base.href = baseHref;
+        document.head.appendChild(base);
+      })();
+    </script>
 
     <meta
       name="viewport"

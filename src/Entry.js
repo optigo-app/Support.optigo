@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 import TicketUi from "./components/TicketUi";
+import SingleTicketView from "./components/[ticketId]";
 import HeaderWrapper from "./components/_ui/HeaderWrapper";
 import NotFoundPage from "./components/_ui/NotFound";
 import DeliveryDashboard from "./components/Delivery&Training/components/Delivery/Main";
@@ -48,6 +49,8 @@ const Entry = () => {
             )}
             {/* <Route path="/test" element={<Page />} /> */}
             <Route path="/Ticket" element={<TicketUi />} />
+            <Route path="/ticket/:ticketId" element={<SingleTicketView />} />
+            <Route path="/Ticket/:ticketId" element={<SingleTicketView />} />
             <Route path="/Orders" element={<DeliveryDashboard />} />
             <Route path="/Training" element={<TrainingDashboard />} />
             <Route path="/OrderRequest" element={<PointToBeDiscuss />} />

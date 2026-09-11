@@ -30,6 +30,8 @@ import { useCallLog } from "../../context/UseCallLog";
 import { FormatTime, generateActivities } from "../../libs/formatTime";
 import { useAuth } from "../../context/UseAuth";
 import { getFileMetaData } from "../../libs/helper";
+import CompactMediaPreview from "../NewCall/CompactMediaPreview";
+import DocumentPreviewer from "../../services/DocumentPreviewer";
 
 // ─── Apple HIG Token System ───────────────────────────────────────────────────
 const hig = {
@@ -160,72 +162,86 @@ const InfoRow = ({ label, value, icon: Icon, isLast = false }) => (
 
 // ─── Reusable: Attachment pill ────────────────────────────────────────────────
 const AttachmentPill = ({ url }) => {
+  const [open, setOpen] = useState(false);
   const meta = getFileMetaData(url);
   const isImage = meta.type === "Image";
   const fileName = decodeURIComponent(url.split("/").pop() || "Attachment");
+  const previewFile = { name: fileName, url };
 
   return (
-    <Box
-      onClick={() => window.open(url, "_blank")}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        mt: 1,
-        px: 1.5,
-        py: 1,
-        borderRadius: `${hig.radius.sm}px`,
-        bgcolor: hig.fill.tertiary,
-        cursor: "pointer",
-        maxWidth: 240,
-        transition: "background-color 0.15s ease",
-        "&:hover": { bgcolor: hig.fill.secondary },
-      }}
-    >
-      {/* Thumbnail */}
+    <>
       <Box
+        onClick={() => setOpen(true)}
         sx={{
-          width: 36,
-          height: 36,
-          borderRadius: `${hig.radius.sm - 2}px`,
-          overflow: "hidden",
-          bgcolor: "rgba(0,0,0,0.04)",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
+          gap: 1,
+          mt: 1,
+          px: 1.5,
+          py: 1,
+          borderRadius: `${hig.radius.sm}px`,
+          bgcolor: hig.fill.tertiary,
+          cursor: "pointer",
+          maxWidth: 240,
+          transition: "background-color 0.15s ease",
+          "&:hover": { bgcolor: hig.fill.secondary },
         }}
       >
-        {isImage ? (
-          <img
-            src={url}
-            alt={fileName}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : (
-          React.cloneElement(meta.icon, { sx: { fontSize: 20 } })
-        )}
-      </Box>
-
-      {/* Labels */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography
+        {/* Thumbnail */}
+        <Box
           sx={{
-            ...hig.type.footnote,
-            fontWeight: 500,
-            color: hig.label.primary,
+            width: 36,
+            height: 36,
+            borderRadius: `${hig.radius.sm - 2}px`,
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            bgcolor: "rgba(0,0,0,0.04)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
-          {fileName}
-        </Typography>
-        <Typography sx={{ ...hig.type.caption2, color: hig.label.secondary }}>
-          {meta.type}{meta.extension ? ` · ${meta.extension.toUpperCase()}` : ""}
-        </Typography>
+          {isImage ? (
+            <img
+              src={url}
+              alt={fileName}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            React.cloneElement(meta.icon, { sx: { fontSize: 20 } })
+          )}
+        </Box>
+
+        {/* Labels */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            sx={{
+              ...hig.type.footnote,
+              fontWeight: 500,
+              color: hig.label.primary,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {fileName}
+          </Typography>
+          <Typography sx={{ ...hig.type.caption2, color: hig.label.secondary }}>
+            {meta.type}{meta.extension ? ` · ${meta.extension.toUpperCase()}` : ""}
+          </Typography>
+        </Box>
       </Box>
-    </Box>
+
+      {/* FilePreviewModal — opens on pill click */}
+      {open && (
+        <DocumentPreviewer
+          files={[previewFile]}
+          currentIndex={0}
+          isOpen={open}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 };
 
@@ -736,7 +752,7 @@ export default function CallLogDetailView({
                         {c?.text}
                       </Typography>
 
-                      {/* Attachment */}
+                      {/* Attachment — pill opens FilePreviewModal */}
                       {c?.img && <AttachmentPill url={c.img} />}
                     </Box>
                   </Box>

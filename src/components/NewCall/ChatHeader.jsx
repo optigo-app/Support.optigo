@@ -828,29 +828,46 @@ export default function ChatHeader({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
           {/* Follow-Up Action Button */}
           {activeThread && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => openAddFollowUpModal(activeThread)}
-              startIcon={<ArrowsClockwise size={14} weight="bold" />}
-              sx={{
-                borderColor: '#CBD5E1',
-                color: '#334155',
-                fontWeight: 700,
-                fontSize: '0.76rem',
-                textTransform: 'none',
-                px: 1.2,
-                height: 32,
-                borderRadius: '6px',
-                whiteSpace: 'nowrap',
-                '&:hover': {
-                  bgcolor: '#F8FAFC',
-                  borderColor: '#94A3B8',
-                },
-              }}
+            <Tooltip
+              title={
+                isPrimaryPending
+                  ? 'Complete the main call first before adding a follow-up'
+                  : 'Add a follow-up call'
+              }
+              arrow
+              placement="bottom"
             >
-              Follow-Up
-            </Button>
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={isPrimaryPending}
+                  onClick={() => openAddFollowUpModal(activeThread)}
+                  startIcon={<ArrowsClockwise size={14} weight="bold" />}
+                  sx={{
+                    borderColor: isPrimaryPending ? '#E2E8F0' : '#CBD5E1',
+                    color: isPrimaryPending ? '#94A3B8' : '#334155',
+                    fontWeight: 700,
+                    fontSize: '0.76rem',
+                    textTransform: 'none',
+                    px: 1.2,
+                    height: 32,
+                    borderRadius: '6px',
+                    whiteSpace: 'nowrap',
+                    '&:hover': {
+                      bgcolor: isPrimaryPending ? 'transparent' : '#F8FAFC',
+                      borderColor: isPrimaryPending ? '#E2E8F0' : '#94A3B8',
+                    },
+                    '&.Mui-disabled': {
+                      borderColor: '#E2E8F0',
+                      color: '#CBD5E1',
+                    },
+                  }}
+                >
+                  Follow-Up
+                </Button>
+              </span>
+            </Tooltip>
           )}
 
           {/* Forward Call Button */}
@@ -1132,24 +1149,44 @@ export default function ChatHeader({
             <Box sx={{ my: 0.5, borderTop: '1px solid #F1F5F9' }} />
 
             {/* + Add New Follow-Up Call Option */}
-            <MenuItem
-              onClick={() => {
-                setStartCallAnchor(null);
-                openAddFollowUpModal(activeThread);
-              }}
-              sx={{
-                borderRadius: '6px',
-                py: 0.8,
-                color: '#6900C6',
-                fontWeight: 700,
-                fontSize: 12,
-                display: 'flex',
-                gap: 1,
-              }}
+            <Tooltip
+              title={isPrimaryPending ? 'Complete the main call first before adding a follow-up' : ''}
+              placement="left"
+              arrow
             >
-              <ArrowsClockwise size={14} weight="bold" />
-              + Create New Follow-Up Call
-            </MenuItem>
+              <span>
+                <MenuItem
+                  disabled={isPrimaryPending}
+                  onClick={() => {
+                    setStartCallAnchor(null);
+                    openAddFollowUpModal(activeThread);
+                  }}
+                  sx={{
+                    borderRadius: '6px',
+                    py: 0.8,
+                    color: isPrimaryPending ? '#CBD5E1' : '#6900C6',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    display: 'flex',
+                    gap: 1,
+                    '&.Mui-disabled': {
+                      opacity: 1,
+                      color: '#CBD5E1',
+                      cursor: 'not-allowed',
+                      pointerEvents: 'none',
+                    },
+                  }}
+                >
+                  <ArrowsClockwise size={14} weight="bold" />
+                  + Create New Follow-Up Call
+                  {isPrimaryPending && (
+                    <Typography sx={{ fontSize: 10, color: '#94A3B8', ml: 'auto', fontWeight: 500 }}>
+                      Main call pending
+                    </Typography>
+                  )}
+                </MenuItem>
+              </span>
+            </Tooltip>
           </Menu>
 
           {/* Right Inspector Toggle Button */}

@@ -363,13 +363,14 @@ class CallLogApi extends BaseAPI {
   }
 
   // Add Call Comments
-  static async addCallComments(callLogId, comments, filePath, createdBy) {
+  static async addCallComments(callLogId, comments, filePath, createdBy, isClient = 0) {
     try {
       const params = {
         CallLogid: callLogId,
         Comments: comments,
         FilePath: filePath,
         CreatedBy: createdBy,
+        IsClient: isClient,
       };
       const response = await this.requestToApi({
         mode: "COMMENTS",

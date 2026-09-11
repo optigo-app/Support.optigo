@@ -35,7 +35,7 @@ const EASE = "0.35s cubic-bezier(0.4,0,0.2,1)";
 
 const ALL_NAV_BUTTONS = [
   { label: "Call log", path: "/", icon: <Call fontSize="small" /> },
-  // { label: "New Call", path: "/newCall", icon: <Call fontSize="small" /> },
+  { label: "New Call", path: "/newCall", icon: <Call fontSize="small" /> },
   {
     label: "Archive Calllog",
     path: "/Archive",

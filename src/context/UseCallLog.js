@@ -954,13 +954,14 @@ export function CallLogProvider(props) {
   );
 
   const addComment = useCallback(
-    async (callId, comment, img, createdBy) => {
+    async (callId, comment, img, createdBy, isClient = 0) => {
       try {
         const data = await CallLogApi.addCallComments(
           callId,
           comment,
           img,
           createdBy,
+          isClient,
         );
         console.log(data, "data");
         triggerRefresh();

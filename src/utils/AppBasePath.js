@@ -33,8 +33,23 @@ export function getAppBasePath() {
     // ignore
   }
 
-  // Fallback for local dev — derive from first 2 path segments
+  // Fallback for local dev — derive from first 2 path segments if not a known top-level route
   const path = window.location.pathname;
+  const firstSegment = path.split("/").filter(Boolean)[0]?.toLowerCase();
+  const KNOWN_APP_ROUTES = [
+    "login",
+    "calllog",
+    "newcall",
+    "archive",
+    "ticket",
+    "orders",
+    "training",
+    "orderrequest",
+    "account",
+  ];
+  if (firstSegment && KNOWN_APP_ROUTES.includes(firstSegment)) {
+    return "";
+  }
   const match = path.match(/^(\/[^/]+\/[^/]+)/);
   return match ? match[1] : "";
 }

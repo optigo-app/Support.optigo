@@ -182,6 +182,26 @@ class TicketAPI extends BaseAPI {
     }
   }
 
+    // Get ticket data ✅
+  static async getSingleTickets({ ticketId, ticketNo } = {}) {
+    try {
+      const params = {
+        TicketId: ticketId ?? ticketNo ?? "",
+      };
+
+      const response = await this.requestToApi({
+        mode: "TICKETDATA",
+        params,
+        functionName: "TICKETDATA",
+      });
+
+      return response;
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+      throw error;
+    }
+  }
+
   // Add a new project
   static async addProject({ projectCode, projectName }) {
     try {

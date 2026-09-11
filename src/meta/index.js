@@ -44,4 +44,9 @@ export const META_CONFIG = {
     description: "View and restore archived call log records. A read-only reference of all archived customer interactions managed through Optigo.",
     keywords: "Archived Call Logs, Call History, Restore Calls, Optigo Archive",
   },
+  SingleTicket: {
+    title: "Ticket Details — Optigo Softwares",
+    description: "View detailed ticket information, comments, and attachments.",
+    keywords: "Single Ticket, Ticket Details, Customer Support, Optigo",
+  },
 };

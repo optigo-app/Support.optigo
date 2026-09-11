@@ -8,6 +8,7 @@ import {
   Globe,
   Clock8,
   MoreHorizontal,
+  Paperclip,
 } from "lucide-react";
 import { ThemeProvider } from "@mui/material/styles";
 import { SideBarTheme } from "../../libs/DateTheme";
@@ -18,6 +19,7 @@ import {
 } from "../_ui/detail/CadJobDetailPanelstyles";
 import CallLogDetailView from "./CallDetails";
 import PostDetailTab from "./PostDetailTab";
+import CompactMediaPreview from "../NewCall/CompactMediaPreview";
 
 export default function CallLogDetailsSidebar({
   open,
@@ -241,6 +243,50 @@ export default function CallLogDetailsSidebar({
           <SegmentedTab label="Timeline" />
         </SegmentedTabs>
       </Box>
+
+      {/* Attachments Strip — shown when call has file attachments */}
+      {(() => {
+        const rawPaths =
+          defaultCallLogData?.filePath ||
+          defaultCallLogData?.imgUrl ||
+          defaultCallLogData?.FilePath ||
+          defaultCallLogData?.ImgUrl ||
+          '';
+        const urls = rawPaths
+          .split(',')
+          .map((u) => u.trim())
+          .filter(Boolean);
+        if (urls.length === 0) return null;
+        return (
+          <Box
+            sx={{
+              px: 3,
+              pb: 1.5,
+              borderBottom: '1px solid #f1f5f9',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
+              <Paperclip size={14} color="#64748b" />
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>
+                Attachments ({urls.length})
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+              {urls.map((url, idx) => {
+                const parts = url.split('/');
+                const fname = parts[parts.length - 1] || `file-${idx + 1}`;
+                return (
+                  <CompactMediaPreview
+                    key={idx}
+                    imgUrl={url}
+                    filename={fname}
+                  />
+                );
+              })}
+            </Box>
+          </Box>
+        );
+      })()}
 
       {/* Content Section */}
       <Box sx={{ flexGrow: 1, overflowY: "auto", p: 0 }}>

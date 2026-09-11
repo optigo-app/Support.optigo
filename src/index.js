@@ -69,6 +69,18 @@ const _appBase = detectAppBase(); // e.g. "http://nzen/calllogweb/call"
 // eslint-disable-next-line no-undef
 if (_appBase) __webpack_public_path__ = _appBase + "/";
 
+const KNOWN_APP_ROUTES = [
+  "login",
+  "calllog",
+  "newcall",
+  "archive",
+  "ticket",
+  "orders",
+  "training",
+  "orderrequest",
+  "account",
+];
+
 // Derive the BrowserRouter basename from the same detected base href.
 // We only want the *pathname* part (strip origin).
 function getBaseName() {
@@ -79,6 +91,10 @@ function getBaseName() {
   } catch (_) {}
   // Fallback for local dev (script src won't have hashed name during npm start)
   const path = window.location.pathname;
+  const firstSegment = path.split("/").filter(Boolean)[0]?.toLowerCase();
+  if (firstSegment && KNOWN_APP_ROUTES.includes(firstSegment)) {
+    return "/";
+  }
   const match = path.match(/^\/([^/]+\/[^/]+)/);
   return match ? `/${match[1]}` : "/";
 }

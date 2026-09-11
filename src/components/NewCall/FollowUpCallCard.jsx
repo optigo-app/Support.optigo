@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -10,6 +10,8 @@ import {
   Autocomplete,
   Popover,
   Tooltip,
+  CircularProgress,
+  Collapse,
 } from '@mui/material';
 import {
   PhoneCall,
@@ -70,6 +72,9 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
 
   const [activeCall, setActiveCall] = useState(null);
   const [localEndData, setLocalEndData] = useState(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [startError, setStartError] = useState(null);
+  const startErrorTimerRef = useRef(null);
 
   // Popover state for 1-click status change
   const [statusAnchorEl, setStatusAnchorEl] = useState(null);
@@ -309,13 +314,22 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
     }
   };
 
+  // Auto-clear inline start error after 5 seconds
+  const setStartErrorWithAutoClear = (msg) => {
+    setStartError(msg);
+    if (startErrorTimerRef.current) clearTimeout(startErrorTimerRef.current);
+    startErrorTimerRef.current = setTimeout(() => setStartError(null), 5000);
+  };
+
   // 2. Call Handlers
   const handleStart = async (e) => {
     e?.stopPropagation();
     if (!fuId || !callLogId) {
-      toast.error('Missing follow-up or primary call reference');
+      setStartErrorWithAutoClear('Missing follow-up or call reference.');
       return;
     }
+    setIsStarting(true);
+    setStartError(null);
     try {
       if (startFollowUpCall) {
         const res = await startFollowUpCall(fuId, callLogId);
@@ -323,8 +337,8 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
           const errMsg =
             res.error?.message ||
             res.msg?.stat_msg ||
-            'Failed to start follow-up call';
-          toast.error(errMsg);
+            'Failed to start this call.';
+          setStartErrorWithAutoClear(errMsg);
           return;
         }
       }
@@ -344,7 +358,9 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
       if (triggerRefresh) triggerRefresh();
     } catch (err) {
       console.error('Error starting follow-up:', err);
-      toast.error(err?.message || 'Failed to start follow-up');
+      setStartErrorWithAutoClear(err?.message || 'Failed to start follow-up.');
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -736,6 +752,59 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
         )}
       </Box>
 
+      {/* Inline Start Error Banner */}
+      <Collapse in={Boolean(startError)} unmountOnExit>
+        <Box
+          sx={{
+            mt: 0.8,
+            px: 1,
+            py: 0.7,
+            bgcolor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 0.6,
+          }}
+        >
+          <Box
+            sx={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              bgcolor: '#DC2626',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 9,
+              fontWeight: 900,
+              flexShrink: 0,
+              mt: 0.15,
+            }}
+          >
+            !
+          </Box>
+          <Typography sx={{ fontSize: 11, color: '#B91C1C', fontWeight: 600, lineHeight: 1.4, flex: 1 }}>
+            {startError}
+          </Typography>
+          <Box
+            onClick={() => setStartError(null)}
+            sx={{
+              fontSize: 12,
+              color: '#B91C1C',
+              cursor: 'pointer',
+              opacity: 0.6,
+              lineHeight: 1,
+              px: 0.3,
+              '&:hover': { opacity: 1 },
+            }}
+          >
+            ✕
+          </Box>
+        </Box>
+      </Collapse>
+
       {/* Compact Action Buttons Footer */}
       <Box
         sx={{
@@ -808,9 +877,10 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 height: 24,
                 borderRadius: '5px',
                 '&:hover': { bgcolor: '#15803D' },
+                '&.Mui-disabled': { bgcolor: '#15803D', color: '#FFFFFF' },
               }}
             >
-              Start Call
+              {isStarting ? 'Starting...' : 'Start Call'}
             </Button>
             <Button
               variant="outlined"

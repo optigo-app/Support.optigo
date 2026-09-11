@@ -23,7 +23,9 @@ import {
   Ticket,
   Timer,
   Activity,
+  Paperclip,
 } from "lucide-react";
+import CompactMediaPreview from "../NewCall/CompactMediaPreview";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -428,6 +430,47 @@ export default function ArchivedDetailSidebar({ open, onClose, callLogData }) {
             </Paper>
           </Box>
         )}
+
+        {/* Section: Attachments */}
+        {(() => {
+          // Parse comma-separated URLs from filePath or imgUrl
+          const rawPaths = d?.filePath || d?.imgUrl || d?.FilePath || d?.ImgUrl || '';
+          const urls = rawPaths
+            .split(',')
+            .map((u) => u.trim())
+            .filter(Boolean);
+
+          if (urls.length === 0) return null;
+
+          return (
+            <Box sx={{ mb: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Paperclip size={15} color="#64748b" />
+                <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>
+                  Attachments ({urls.length})
+                </Typography>
+              </Box>
+              <Paper
+                variant="outlined"
+                sx={{ p: 1.5, borderRadius: 2, borderColor: '#e2e8f0', bgcolor: '#fafafa' }}
+              >
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                  {urls.map((url, idx) => {
+                    const parts = url.split('/');
+                    const fname = parts[parts.length - 1] || `file-${idx + 1}`;
+                    return (
+                      <CompactMediaPreview
+                        key={idx}
+                        imgUrl={url}
+                        filename={fname}
+                      />
+                    );
+                  })}
+                </Box>
+              </Paper>
+            </Box>
+          );
+        })()}
 
         {/* Archived badge */}
         <Box

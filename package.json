@@ -1,12 +1,13 @@
 {
 	"homepage": ".",
 	"name": "call_logger",
-	"version": "4.0.47",
+	"version": "4.0.51",
 	"private": true,
 	"dependencies": {
 		"@babel/core": "^7.16.0",
 		"@emotion/react": "^11.11.4",
 		"@emotion/styled": "^11.11.5",
+		"@eternalheart/react-file-preview": "^1.6.7",
 		"@fontsource-variable/raleway": "^5.2.5",
 		"@fontsource/poppins": "^5.2.5",
 		"@mui/icons-material": "^5.18.0",
@@ -125,8 +126,8 @@
 	},
 	"scripts": {
 		"prebuild": "node scripts/prebuild.js",
-		"dev": "react-scripts  start",
-		"build": "cross-env GENERATE_SOURCEMAP=false react-scripts --max_old_space_size=6144 build",
+		"dev": "react-app-rewired start",
+		"build": "cross-env GENERATE_SOURCEMAP=false react-app-rewired --max_old_space_size=6144 build",
 		"test": "node scripts/test.js",
 		"format": "biome format .",
 		"lint": "biome lint .",
@@ -155,6 +156,7 @@
 		"@babel/plugin-proposal-private-property-in-object": "^7.21.11",
 		"@biomejs/biome": "^1.9.4",
 		"cross-env": "^7.0.3",
+		"react-app-rewired": "^2.2.1",
 		"sass": "^1.81.0",
 		"sass-loader": "^16.0.3",
 		"webpack-closure-compiler": "^2.1.6"

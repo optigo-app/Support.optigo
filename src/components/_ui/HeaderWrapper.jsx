@@ -74,7 +74,10 @@ const HeaderWrapper = ({ children }) => {
   const isLoginPage =
     location.pathname.toLowerCase().replace(/\/$/, "") === "/login";
 
-  if (isLoginPage) {
+  const isSingleTicketPage =
+    location.pathname.toLowerCase().startsWith("/ticket/");
+
+  if (isLoginPage || isSingleTicketPage) {
     return children;
   }
 

@@ -1064,9 +1064,9 @@ export default function ChatWorkspace() {
       if (callLogSr) {
         try {
           if (callLogCtx?.addComment) {
-            await callLogCtx.addComment(callLogSr, messageContent, uploadedUrl || '', user?.id);
+            await callLogCtx.addComment(callLogSr, messageContent, uploadedUrl || '', user?.id, 0); // IsClient=0 => Support Agent
           } else {
-            await CallLogApi.addCallComments(callLogSr, messageContent, uploadedUrl || '', user?.id);
+            await CallLogApi.addCallComments(callLogSr, messageContent, uploadedUrl || '', user?.id, 0);
           }
           toast.success('Comment posted');
           if (callLogCtx?.triggerRefresh) callLogCtx.triggerRefresh();
