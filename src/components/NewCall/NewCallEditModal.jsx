@@ -1,709 +1,621 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ThemeProvider } from '@mui/material/styles';
 import {
-  Dialog,
+  Drawer,
   Box,
   Typography,
+  Divider,
   TextField,
+  Grid,
   Button,
-  IconButton,
   Autocomplete,
-  Card,
-  CardContent,
-  Chip,
 } from '@mui/material';
-import {
-  X,
-  PencilSimpleLine,
-  CheckCircle,
-  Buildings,
-  ChatCircleText,
-  SlidersHorizontal,
-} from '@phosphor-icons/react';
+import { CopyPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { SideBarTheme } from '../../libs/DateTheme';
 import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
-import { editCallModal$, closeEditCallModal, useNewCallSubject } from './rxjs/newCallEvents';
-import { callStreamService } from '../../services/callStreamService';
+import { formatTimeX } from '../../libs/formatTime';
+import {
+  editCallModal$,
+  closeEditCallModal,
+  useNewCallSubject,
+} from './rxjs/newCallEvents';
+import { callStreamService } from './services/callStreamService';
 
 export default function NewCallEditModal() {
   const modalState = useNewCallSubject(editCallModal$);
   const { open, call } = modalState || {};
 
+  const [formData, setFormData] = useState({});
+  const [saving, setSaving] = useState(false);
+
   const {
-    companyOptions = [],
+    editCall,
     APPNAME_LIST = [],
+    companyOptions = [],
     forwardOption = [],
     STATUS_LIST = [],
     ESTATUS_LIST = [],
     PRIORITY_LIST = [],
-    editCall,
+    CALL_TYPE_MASTER = [],
     triggerRefresh,
   } = useCallLog();
 
   const { user } = useAuth();
 
-  const [formData, setFormData] = useState({
-    company: null,
-    customerName: '',
-    description: '',
-    appname: null,
-    receivedBy: null,
-    forwardTo: null,
-    status: null,
-    estatus: null,
-    priority: null,
-  });
-
-  const [loading, setLoading] = useState(false);
+  const callData = call ? { ...(call.rawRecord || {}), ...call } : null;
 
   useEffect(() => {
-    if (open && call) {
-      const raw = call.rawRecord || call;
+    if (open && callData) {
+      const companyObj =
+        companyOptions?.find(
+          (option) =>
+            option?.label?.split('/')?.[0]?.toLowerCase() ===
+              (callData?.company || '').toLowerCase() ||
+            option?.label?.toLowerCase() === (callData?.company || '').toLowerCase() ||
+            String(option?.value) ===
+              String(callData?.projectID || callData?.ProjectID || callData?.company)
+        ) || null;
 
-      const compMatch = companyOptions.find(
-        (c) =>
-          c.label?.toLowerCase() === (call.company || raw.company || '').toLowerCase() ||
-          c.value === raw.projectID ||
-          c.value === raw.CompanyCode
+      const appnameObj = APPNAME_LIST?.find(
+        (option) =>
+          option?.AppName === (callData?.appname || callData?.AppName) ||
+          option?.AppId === (callData?.appname || callData?.AppId)
       );
 
-      const appMatch = APPNAME_LIST.find(
-        (a) => a.AppName === (call.appname || raw.appname) || a.AppId === (call.appname || raw.appname)
-      );
+      const callTypeObj =
+        CALL_TYPE_MASTER?.find(
+          (option) =>
+            option?.label?.toLowerCase() ===
+              (callData?.CallType || callData?.callType || '').toLowerCase() ||
+            String(option?.value) === String(callData?.CallType || callData?.callType)
+        ) || null;
 
-      const statusMatch = STATUS_LIST.find(
-        (s) =>
-          String(s.value) === String(raw.StatusID || raw.statusId) ||
-          s.label?.toLowerCase() === (call.status || raw.status || '').toLowerCase()
-      );
+      let receivedByValue = null;
+      if (callData?.receivedBy) {
+        if (typeof callData.receivedBy === 'object' && callData?.receivedBy?.value) {
+          receivedByValue = callData.receivedBy;
+        } else {
+          const receivedByPerson = forwardOption?.find(
+            (option) =>
+              option?.person?.toLowerCase() === String(callData?.receivedBy).toLowerCase() ||
+              option?.id?.split(',')?.[1] === String(callData?.receivedBy)
+          );
 
-      const estatusMatch = ESTATUS_LIST.find(
-        (e) =>
-          String(e.value) === String(raw.EStatusId || raw.estatusId) ||
-          e.label?.toLowerCase() === (call.estatus || raw.Estatus || '').toLowerCase()
-      );
-
-      const priorityMatch = PRIORITY_LIST.find(
-        (p) =>
-          String(p.value) === String(raw.PriorityId || raw.priorityId) ||
-          p.label?.toLowerCase() === (call.priority || raw.priority || '').toLowerCase()
-      );
-
-      const fwdMatch = forwardOption.find(
-        (f) =>
-          f.id === raw.forward ||
-          f.id === `${raw.DeptId},${raw.EmpId}` ||
-          f.person?.toLowerCase() === (raw.AssignedEmpName || raw.ForwardedEmp || '').toLowerCase()
-      );
-
-      setFormData({
-        company: compMatch || (call.company ? { label: call.company, value: raw.projectID || call.company } : null),
-        customerName: call.callBy || raw.callBy || raw.customerName || '',
-        description: call.lastMessage || raw.description || raw.Descr || '',
-        appname: appMatch || null,
-        receivedBy: raw.receivedBy ? { label: raw.receivedBy, value: raw.receivedBy } : null,
-        forwardTo: fwdMatch || null,
-        status: statusMatch || null,
-        estatus: estatusMatch || null,
-        priority: priorityMatch || null,
-      });
-    }
-  }, [open, call, companyOptions, APPNAME_LIST, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, forwardOption]);
-
-  const handleSave = async (e) => {
-    e?.preventDefault();
-    if (!call?.sr) {
-      toast.error('Missing call log reference');
-      return;
-    }
-
-    if (!formData.customerName.trim()) {
-      toast.error('Caller Name is required');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const raw = call.rawRecord || call;
-
-      const payload = {
-        CreatedBy: user?.id,
-        CustomerName: formData.customerName.trim(),
-        PriorityId: formData.priority?.value || raw.PriorityId || '',
-        ParentId: raw.ParentCalllogId || '',
-        Descr: formData.description || '',
-        EmpId: formData.forwardTo?.id?.split(',')?.[1] || raw.EmpId || '',
-        DeptId: formData.forwardTo?.id?.split(',')?.[0] || raw.DeptId || '',
-        StatusId: formData.status?.value || raw.StatusID || '',
-        Estatus: formData.estatus?.value || raw.EStatusId || '',
-        calldetails: formData.description || '',
-        EntryDate: raw.date || raw.callStart || '',
-        appID: formData.appname?.AppId || raw.appname || '',
-      };
-
-      if (editCall) {
-        const result = await editCall(call.sr, payload);
-        if (result && !result.success) {
-          const errorMsg =
-            result?.msg?.stat_msg ||
-            result?.error?.message ||
-            'You do not have permission to edit this call.';
-          toast.error(errorMsg);
-          return;
+          if (receivedByPerson) {
+            receivedByValue = {
+              label: receivedByPerson?.person,
+              value: receivedByPerson?.id?.split(',')?.[1],
+            };
+          } else if (typeof callData?.receivedBy === 'string') {
+            receivedByValue = {
+              label: callData.receivedBy,
+              value: callData.receivedBy,
+            };
+          }
         }
       }
 
-      // Optimistic update only on success
-      callStreamService.updateCallStatus(call.id, {
-        callBy: formData.customerName.trim(),
-        description: formData.description,
-        lastMessage: formData.description,
-        priority: formData.priority?.label || call.priority,
-        status: formData.estatus?.label || call.status,
-        estatus: formData.status?.label || call.estatus,
+      let forwardToValue = null;
+      if (callData?.forwardTo) {
+        forwardToValue = callData.forwardTo;
+      } else if (callData?.forward) {
+        const forwardPerson = forwardOption?.find(
+          (option) =>
+            option?.id === callData.forward ||
+            option?.person?.toLowerCase() === (callData?.AssignedEmpName || '').toLowerCase()
+        );
+        forwardToValue = forwardPerson || null;
+      } else if (callData?.AssignedEmpName) {
+        const forwardPerson = forwardOption?.find(
+          (option) =>
+            option?.person?.toLowerCase() === (callData.AssignedEmpName || '').toLowerCase() ||
+            option?.id === `${callData?.DeptId},${callData?.EmpId}`
+        );
+        forwardToValue = forwardPerson || null;
+      }
+
+      let appnameValue = null;
+      if (appnameObj) {
+        appnameValue = {
+          label: appnameObj.AppName,
+          value: appnameObj.AppId,
+        };
+      }
+
+      const statusObj =
+        STATUS_LIST?.find(
+          (s) =>
+            String(s.value) === String(callData?.StatusID || callData?.statusId) ||
+            s.label?.toLowerCase() === String(callData?.status || callData?.Status || '').toLowerCase()
+        ) || null;
+
+      const estatusObj =
+        ESTATUS_LIST?.find(
+          (e) =>
+            String(e.value) === String(callData?.EStatusId || callData?.estatusId) ||
+            e.label?.toLowerCase() === String(callData?.Estatus || callData?.estatus || '').toLowerCase()
+        ) || null;
+
+      const priorityObj =
+        PRIORITY_LIST?.find(
+          (p) =>
+            String(p.value) === String(callData?.PriorityId || callData?.priorityId) ||
+            p.label?.toLowerCase() === String(callData?.priority || callData?.Priority || '').toLowerCase()
+        ) || null;
+
+      setFormData({
+        ...callData,
+        id: callData?.sr || callData?.id,
+        date: callData?.date
+          ? new Date(callData.date).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0],
+        time: callData?.time || formatTimeX(new Date()),
+        company: companyObj || (callData?.company ? { label: callData.company, value: callData.company } : null),
+        callBy: callData?.callBy || callData?.CustomerName || '',
+        appname: appnameValue,
+        receivedBy: receivedByValue,
+        forwardTo: forwardToValue,
+        status: statusObj,
+        priority: priorityObj,
+        Estatus: estatusObj,
+        description: callData?.description || callData?.Descr || callData?.lastMessage || '',
+        callDetails: callData?.callDetails || callData?.description || '',
+        topicRaisedBy: callData?.topicRaisedBy || 'Optigo',
+        callType: callTypeObj,
+        callStart: callData?.callStart || '',
+        callClosed: callData?.callClosed || '',
+        CallDuration: callData?.CallDuration || callData?.duration || '',
+        ticket: callData?.ticket || '',
+      });
+    }
+  }, [open, call, companyOptions, APPNAME_LIST, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, CALL_TYPE_MASTER]);
+
+  const handleChange = (field) => {
+    return (event, newValue) => {
+      if (
+        field === 'appname' ||
+        field === 'company' ||
+        field === 'callType' ||
+        field === 'status' ||
+        field === 'Estatus' ||
+        field === 'priority' ||
+        field === 'receivedBy' ||
+        field === 'forwardTo'
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: newValue || null,
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: event?.target?.value || '',
+        }));
+      }
+    };
+  };
+
+  const filterForwardOptions = (options, { inputValue }) => {
+    const query = inputValue?.toLowerCase()?.trim() || '';
+    if (!query) return options;
+
+    const keywords = query.split(' ').filter(Boolean);
+    return options.filter((option) => {
+      const fullText = `${option?.designation || ''} ${option?.person || ''}`.toLowerCase();
+      return keywords.every((word) => fullText.includes(word));
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const submitData = {
+        ...formData,
+        company: formData?.company?.value || formData?.company,
+        appname: formData?.appname?.value || formData?.appname,
+        receivedBy:
+          typeof formData?.receivedBy === 'object'
+            ? formData?.receivedBy?.value
+            : formData?.receivedBy,
+        forward: formData?.forwardTo?.id || '',
+        callType: formData?.callType?.value || '',
+      };
+
+      const sr = callData?.sr || callData?.id;
+      if (!sr) {
+        toast.error('Missing call log reference');
+        return;
+      }
+
+      const payload = {
+        CreatedBy: user?.id,
+        CustomerName: submitData?.callBy || '',
+        PriorityId: submitData?.priority?.value || '',
+        ParentId: submitData?.parentId || '',
+        Descr: submitData?.description || '',
+        EmpId:
+          submitData?.forwardTo?.id?.split(',')?.[1] ||
+          submitData?.forward?.split(',')?.[1] ||
+          '',
+        DeptId:
+          submitData?.forwardTo?.id?.split(',')?.[0] ||
+          submitData?.forward?.split(',')?.[0] ||
+          '',
+        StatusId: submitData?.status?.value || '',
+        Estatus: submitData?.Estatus?.value || '',
+        calldetails: submitData?.callDetails || submitData?.description || '',
+        EntryDate: submitData?.date || '',
+        CallType: submitData?.callType || '',
+        AppId: submitData?.appname || '',
+      };
+
+      const result = await editCall(sr, payload);
+      if (result && !result.success) {
+        const errorMsg =
+          result?.msg?.stat_msg ||
+          result?.error?.message ||
+          'You do not have permission to edit this call.';
+        toast.error(errorMsg);
+        return;
+      }
+
+      // Optimistically update reactive Call Stream in NewCall workspace
+      callStreamService.patchPrimaryCall(sr, {
+        callBy: submitData?.callBy,
+        CustomerName: submitData?.callBy,
+        description: submitData?.description,
+        Descr: submitData?.description,
+        lastMessage: submitData?.description,
+        priority: submitData?.priority?.label || callData?.priority,
+        priorityId: submitData?.priority?.value || callData?.priorityId,
+        status: submitData?.status?.label || callData?.status,
+        statusId: submitData?.status?.value || callData?.statusId,
+        Estatus: submitData?.Estatus?.label || callData?.Estatus,
+        estatus: submitData?.Estatus?.label || callData?.estatus,
+        estatusId: submitData?.Estatus?.value || callData?.estatusId,
+        appname: submitData?.appname,
+        CallType: submitData?.callType,
+        AssignedEmpName: formData?.forwardTo?.person || callData?.AssignedEmpName,
       });
 
       toast.success('Call log updated successfully');
       if (triggerRefresh) triggerRefresh();
       closeEditCallModal();
-    } catch (err) {
-      toast.error(err?.message || 'Failed to update call log');
+    } catch (error) {
+      console.error('Error editing call:', error);
+      toast.error('An error occurred while saving.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (!open) return null;
-
   return (
-    <Dialog
-      open={open}
-      onClose={closeEditCallModal}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '20px',
-          bgcolor: '#565A61', // Dark slate header layer
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 1px 1px rgba(0, 0, 0, 0.1)',
-          overflow: 'hidden',
-          pt: '2px',
-          m: 2,
-        },
-      }}
-    >
-      {/* Layer 1: Top Bar */}
-      <Box
-        sx={{
-          height: 42,
-          px: 2.5,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          color: '#FFFFFF',
-          userSelect: 'none',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PencilSimpleLine size={16} weight="bold" color="#FFFFFF" />
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
-            Edit Call Log #{call?.sr} • {formData.company?.label || call?.company || 'Call Details'}
-          </Typography>
-        </Box>
-
-        <IconButton
-          size="small"
-          onClick={closeEditCallModal}
-          sx={{
-            color: 'rgba(255, 255, 255, 0.85)',
-            p: 0.35,
-            '&:hover': {
-              color: '#FFFFFF',
-              bgcolor: 'rgba(255, 255, 255, 0.12)',
-            },
-          }}
-        >
-          <X size={16} weight="bold" />
-        </IconButton>
-      </Box>
-
-      {/* Layer 2: Inner White Form Card */}
-      <Box
-        component="form"
-        onSubmit={handleSave}
-        sx={{
-          bgcolor: '#FFFFFF',
-          borderRadius: '20px 20px 0 0',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Scrollable Form Content */}
+    <ThemeProvider theme={SideBarTheme}>
+      <Drawer anchor="left" open={Boolean(open)} onClose={closeEditCallModal}>
         <Box
           sx={{
-            maxHeight: '75vh',
-            overflowY: 'auto',
-            p: { xs: 2, sm: 3 },
+            width: 500,
+            height: '100vh',
             display: 'flex',
             flexDirection: 'column',
-            gap: 2.5,
           }}
         >
-          {/* SECTION 1: Company & Caller Information */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 24,
-                height: 24,
-                borderRadius: 1.5,
-                bgcolor: '#6900C6',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 800,
-                mt: 0.6,
-                flexShrink: 0,
-                boxShadow: '0 2px 5px rgba(105, 0, 198, 0.2)',
-              }}
-            >
-              1
-            </Box>
-
-            <Card
-              variant="outlined"
-              sx={{
-                flex: 1,
-                borderRadius: 2.5,
-                borderColor: '#E2E8F0',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
-                bgcolor: '#FFFFFF',
-                overflow: 'hidden',
-              }}
-            >
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.8 }}>
-                  <Chip
-                    icon={<Buildings size={13} weight="bold" color="#6900C6" />}
-                    label="Core Identity"
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: '#F3E8FF',
-                      color: '#6900C6',
-                      borderRadius: 1,
-                    }}
-                  />
-                  <Typography sx={{ fontWeight: 800, fontSize: 13.5, color: '#0F172A' }}>
-                    Company & Caller Information
-                  </Typography>
-                </Box>
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.2fr 1.2fr 1fr' }, gap: 1.8 }}>
-                  {/* Company Name is locked after call creation matching old Call Log */}
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      Company / Client (Locked)
-                    </Typography>
-                    <Autocomplete
-                      disabled
-                      options={companyOptions}
-                      getOptionLabel={(opt) => opt?.label || opt?.name || ''}
-                      value={formData.company}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Company"
-                          size="small"
-                          disabled
-                          fullWidth
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: '#F8FAFC',
-                              borderRadius: 2,
-                              fontSize: 13,
-                              color: '#64748B',
-                              '& fieldset': { borderColor: '#E2E8F0' },
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      Caller Name *
-                    </Typography>
-                    <TextField
-                      size="small"
-                      placeholder="e.g. Ramesh Soni"
-                      required
-                      fullWidth
-                      value={formData.customerName}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, customerName: e.target.value }))}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          bgcolor: '#FFFFFF',
-                          borderRadius: 2,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          '& fieldset': { borderColor: '#CBD5E1' },
-                          '&:hover fieldset': { borderColor: '#94A3B8' },
-                          '&.Mui-focused fieldset': { borderColor: '#6900C6', borderWidth: 1.5 },
-                        },
-                      }}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      Application / Module
-                    </Typography>
-                    <Autocomplete
-                      options={APPNAME_LIST}
-                      getOptionLabel={(opt) => opt?.AppName || opt?.label || ''}
-                      value={formData.appname}
-                      onChange={(_, val) => setFormData((prev) => ({ ...prev, appname: val }))}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Module"
-                          size="small"
-                          fullWidth
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: '#F8FAFC',
-                              borderRadius: 2,
-                              fontSize: 13,
-                              '& fieldset': { borderColor: '#E2E8F0' },
-                              '&:hover fieldset': { borderColor: '#CBD5E1' },
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
+          {/* Header */}
+          <Box sx={{ p: 2 }}>
+            <Typography variant="h6">
+              <CopyPlus size={22} /> Edit Call Log
+            </Typography>
+            <Divider sx={{ mt: 2 }} />
           </Box>
 
-          {/* SECTION 2: Description / Notes */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 24,
-                height: 24,
-                borderRadius: 1.5,
-                bgcolor: '#6900C6',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 800,
-                mt: 0.6,
-                flexShrink: 0,
-                boxShadow: '0 2px 5px rgba(105, 0, 198, 0.2)',
-              }}
-            >
-              2
-            </Box>
-
-            <Card
-              variant="outlined"
-              sx={{
-                flex: 1,
-                borderRadius: 2.5,
-                borderColor: '#E2E8F0',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
-                bgcolor: '#FFFFFF',
-                overflow: 'hidden',
-              }}
-            >
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Chip
-                    icon={<ChatCircleText size={13} weight="bold" color="#6900C6" />}
-                    label="Call Details"
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: '#F3E8FF',
-                      color: '#6900C6',
-                      borderRadius: 1,
-                    }}
-                  />
-                  <Typography sx={{ fontWeight: 800, fontSize: 13.5, color: '#0F172A' }}>
-                    Call Description & Issue Notes
-                  </Typography>
-                </Box>
-
+          {/* Scrollable Form */}
+          <Box sx={{ px: 2, flexGrow: 1, overflowY: 'auto', pb: 4 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
                 <TextField
                   fullWidth
-                  multiline
-                  rows={2.5}
-                  placeholder="Enter details, issues, or instructions discussed during this call..."
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: '#F8FAFC',
-                      borderRadius: 2,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      '& fieldset': { borderColor: '#E2E8F0' },
-                      '&:hover fieldset': { borderColor: '#CBD5E1' },
-                      '&.Mui-focused fieldset': { borderColor: '#6900C6', borderWidth: 1.5 },
-                    },
+                  label="Date"
+                  type="date"
+                  value={formData?.date || new Date().toISOString().split('T')[0]}
+                  onChange={handleChange('date')}
+                  margin="normal"
+                  inputProps={{
+                    min: new Date(new Date()?.setDate(new Date()?.getDate() - 1))
+                      ?.toISOString()
+                      ?.split('T')[0],
+                    max: new Date()?.toISOString()?.split('T')[0],
                   }}
                 />
-              </CardContent>
-            </Card>
-          </Box>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Time"
+                  type="time"
+                  value={formData?.time || ''}
+                  margin="normal"
+                  disabled
+                />
+              </Grid>
+            </Grid>
 
-          {/* SECTION 3: Workflow, Status & Assignment */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 24,
-                height: 24,
-                borderRadius: 1.5,
-                bgcolor: '#6900C6',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 800,
-                mt: 0.6,
-                flexShrink: 0,
-                boxShadow: '0 2px 5px rgba(105, 0, 198, 0.2)',
+            <Autocomplete
+              disabled
+              fullWidth
+              options={companyOptions || []}
+              value={formData?.company || null}
+              onChange={handleChange('company')}
+              getOptionLabel={(option) => {
+                if (typeof option === 'string') return option;
+                return option?.label || '';
               }}
-            >
-              3
-            </Box>
+              isOptionEqualToValue={(option, value) => {
+                if (!option || !value) return false;
+                if (typeof option === 'string' && typeof value === 'string')
+                  return option === value;
+                return option?.value === value?.value;
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Company Name" margin="normal" autoFocus />
+              )}
+            />
 
-            <Card
-              variant="outlined"
-              sx={{
-                flex: 1,
-                borderRadius: 2.5,
-                borderColor: '#E2E8F0',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
-                bgcolor: '#FFFFFF',
-                overflow: 'hidden',
+            <TextField
+              fullWidth
+              label="Customer Name"
+              name="callBy"
+              onChange={handleChange('callBy')}
+              value={formData?.callBy || ''}
+              margin="normal"
+            />
+
+            <Autocomplete
+              fullWidth
+              options={
+                APPNAME_LIST?.map((option) => ({
+                  label: option?.AppName,
+                  value: option?.AppId,
+                })) || []
+              }
+              value={formData?.appname || null}
+              onChange={handleChange('appname')}
+              getOptionLabel={(option) => option?.label || ''}
+              isOptionEqualToValue={(option, value) => {
+                if (!option || !value) return false;
+                return option?.value === value?.value;
               }}
-            >
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.8 }}>
-                  <Chip
-                    icon={<SlidersHorizontal size={13} weight="bold" color="#6900C6" />}
-                    label="Status & Routing"
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: '#F3E8FF',
-                      color: '#6900C6',
-                      borderRadius: 1,
-                    }}
-                  />
-                  <Typography sx={{ fontWeight: 800, fontSize: 13.5, color: '#0F172A' }}>
-                    Status, Priority & Routing
+              renderInput={(params) => (
+                <TextField {...params} label="AppName" margin="normal" />
+              )}
+            />
+
+            <Autocomplete
+              key="callType-input"
+              fullWidth
+              options={CALL_TYPE_MASTER || []}
+              value={formData?.callType || null}
+              onChange={handleChange('callType')}
+              getOptionLabel={(option) => option?.label || ''}
+              isOptionEqualToValue={(option, value) => option?.value === value?.value}
+              renderInput={(params) => (
+                <TextField {...params} label="Call Type" margin="normal" />
+              )}
+            />
+
+            <TextField
+              fullWidth
+              label="Description"
+              value={formData?.description || ''}
+              onChange={handleChange('description')}
+              margin="normal"
+              multiline
+              rows={3}
+            />
+
+            <TextField
+              sx={{ textTransform: 'capitalize !important' }}
+              fullWidth
+              label="Topic Raised By"
+              disabled
+              value={formData?.topicRaisedBy || ''}
+              margin="normal"
+            />
+
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Autocomplete
+                  fullWidth
+                  options={STATUS_LIST}
+                  value={formData?.status || null}
+                  onChange={handleChange('status')}
+                  getOptionLabel={(option) => option?.label || option || ''}
+                  isOptionEqualToValue={(option, value) =>
+                    option?.value === value?.value ||
+                    option?.label === value?.label ||
+                    option === value
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Status" margin="normal" />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <Autocomplete
+                  fullWidth
+                  options={ESTATUS_LIST}
+                  value={formData?.Estatus || null}
+                  onChange={handleChange('Estatus')}
+                  getOptionLabel={(option) => option?.label || option || ''}
+                  isOptionEqualToValue={(option, value) =>
+                    option?.value === value?.value ||
+                    option?.label === value?.label ||
+                    option === value
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Estatus" margin="normal" />
+                  )}
+                />
+              </Grid>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Autocomplete
+                fullWidth
+                options={PRIORITY_LIST}
+                value={formData?.priority || null}
+                onChange={handleChange('priority')}
+                getOptionLabel={(option) => option?.label || option || ''}
+                isOptionEqualToValue={(option, value) =>
+                  option?.value === value?.value ||
+                  option?.label === value?.label ||
+                  option === value
+                }
+                renderInput={(params) => (
+                  <TextField {...params} label="Priority" margin="normal" />
+                )}
+              />
+            </Grid>
+
+            <Autocomplete
+              fullWidth
+              options={
+                forwardOption?.map((val) => ({
+                  label: val?.person,
+                  value: val?.id?.split(',')?.[1],
+                })) || []
+              }
+              value={formData?.receivedBy || null}
+              onChange={handleChange('receivedBy')}
+              freeSolo
+              getOptionLabel={(option) => {
+                if (typeof option === 'string') return option;
+                return option?.label || '';
+              }}
+              isOptionEqualToValue={(option, value) => {
+                if (!option || !value) return false;
+                if (typeof option === 'string' && typeof value === 'string')
+                  return option === value;
+                if (option.value && value.value) return option.value === value.value;
+                if (option.label && value.label) return option.label === value.label;
+                return false;
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Received By" margin="normal" />
+              )}
+              disabled
+            />
+
+            <TextField
+              fullWidth
+              label="Call Start"
+              disabled
+              value={formData?.callStart || ''}
+              margin="normal"
+            />
+
+            <TextField
+              fullWidth
+              label="Call Closed"
+              disabled
+              value={formData?.callClosed || ''}
+              margin="normal"
+            />
+
+            <TextField
+              fullWidth
+              label="Call Duration"
+              disabled
+              value={formData?.CallDuration || ''}
+              margin="normal"
+            />
+
+            <TextField
+              fullWidth
+              label="Ticket"
+              disabled
+              value={formData?.ticket || ''}
+              margin="normal"
+            />
+
+            <Autocomplete
+              fullWidth
+              options={forwardOption || []}
+              value={formData?.forwardTo || null}
+              getOptionLabel={(option) => {
+                if (!option) return '';
+                return option.designation && option.person
+                  ? `${option.designation} / ${option.person}`
+                  : option.person || '';
+              }}
+              isOptionEqualToValue={(option, value) => {
+                if (!option || !value) return false;
+                return option?.id === value?.id;
+              }}
+              filterOptions={filterForwardOptions}
+              onChange={handleChange('forwardTo')}
+              renderInput={(params) => (
+                <TextField {...params} label="Forward To" margin="normal" sx={{ mt: 2 }} />
+              )}
+              renderOption={(props, option) => (
+                <Box
+                  component="li"
+                  {...props}
+                  sx={{ borderBottom: '1px solid #eee' }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {option.designation || ''}
+                  </Typography>
+                  {option.designation ? ' / ' : ''}
+                  <Typography
+                    variant="body2"
+                    fontWeight="600"
+                    sx={{ color: 'text.primary' }}
+                  >
+                    {option.person || ''}
                   </Typography>
                 </Box>
+              )}
+            />
+          </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.8, mb: 1.8 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      Internal Status
-                    </Typography>
-                    <Autocomplete
-                      options={STATUS_LIST}
-                      getOptionLabel={(opt) => opt?.label || opt?.Name || ''}
-                      value={formData.status}
-                      onChange={(_, val) => setFormData((prev) => ({ ...prev, status: val }))}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Select internal status"
-                          size="small"
-                          fullWidth
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: '#FFFFFF',
-                              borderRadius: 2,
-                              fontSize: 13,
-                              '& fieldset': { borderColor: '#CBD5E1' },
-                              '&:hover fieldset': { borderColor: '#94A3B8' },
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      External Status
-                    </Typography>
-                    <Autocomplete
-                      options={ESTATUS_LIST}
-                      getOptionLabel={(opt) => opt?.label || opt?.Name || ''}
-                      value={formData.estatus}
-                      onChange={(_, val) => setFormData((prev) => ({ ...prev, estatus: val }))}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Select external status"
-                          size="small"
-                          fullWidth
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: '#FFFFFF',
-                              borderRadius: 2,
-                              fontSize: 13,
-                              '& fieldset': { borderColor: '#CBD5E1' },
-                              '&:hover fieldset': { borderColor: '#94A3B8' },
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.8 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      Priority
-                    </Typography>
-                    <Autocomplete
-                      options={PRIORITY_LIST}
-                      getOptionLabel={(opt) => opt?.label || opt?.PriorityName || ''}
-                      value={formData.priority}
-                      onChange={(_, val) => setFormData((prev) => ({ ...prev, priority: val }))}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Select priority"
-                          size="small"
-                          fullWidth
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: '#FFFFFF',
-                              borderRadius: 2,
-                              fontSize: 13,
-                              '& fieldset': { borderColor: '#CBD5E1' },
-                              '&:hover fieldset': { borderColor: '#94A3B8' },
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#475569', mb: 0.5 }}>
-                      Assign / Forward To
-                    </Typography>
-                    <Autocomplete
-                      options={forwardOption}
-                      getOptionLabel={(opt) =>
-                        opt?.person || opt?.user || opt?.EmpName || opt?.label || ''
-                      }
-                      value={formData.forwardTo}
-                      onChange={(_, val) => setFormData((prev) => ({ ...prev, forwardTo: val }))}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Select assignee"
-                          size="small"
-                          fullWidth
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: '#FFFFFF',
-                              borderRadius: 2,
-                              fontSize: 13,
-                              '& fieldset': { borderColor: '#CBD5E1' },
-                              '&:hover fieldset': { borderColor: '#94A3B8' },
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
+          {/* Fixed Bottom Buttons */}
+          <Box
+            sx={{
+              position: 'sticky',
+              bottom: 0,
+              background: 'white',
+              p: 2,
+              borderTop: '1px solid #ddd',
+              display: 'flex',
+              gap: 2,
+            }}
+          >
+            <Button
+              variant="contained"
+              sx={{ flex: 1 }}
+              color="primary"
+              size="large"
+              onClick={handleSubmit}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button
+              variant="contained"
+              sx={{ flex: 1 }}
+              onClick={closeEditCallModal}
+              size="large"
+              color="error"
+            >
+              Cancel
+            </Button>
           </Box>
         </Box>
-
-        {/* Footer Action Bar */}
-        <Box
-          sx={{
-            px: 3,
-            py: 1.75,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 1.5,
-            borderTop: '1px solid #F1F5F9',
-            bgcolor: '#FFFFFF',
-          }}
-        >
-          <Button
-            onClick={closeEditCallModal}
-            color="inherit"
-            size="small"
-            disabled={loading}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 650,
-              fontSize: 13,
-              color: '#475569',
-              px: 2,
-            }}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={loading}
-            size="small"
-            startIcon={<CheckCircle size={15} weight="bold" />}
-            sx={{
-              bgcolor: '#6900C6',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: 13,
-              textTransform: 'none',
-              borderRadius: '8px',
-              px: 2.8,
-              py: 0.7,
-              boxShadow: '0 2px 8px rgba(105, 0, 198, 0.25)',
-              '&:hover': {
-                bgcolor: '#5800A8',
-                boxShadow: '0 4px 12px rgba(105, 0, 198, 0.35)',
-              },
-            }}
-          >
-            {loading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </Box>
-      </Box>
-    </Dialog>
+      </Drawer>
+    </ThemeProvider>
   );
 }

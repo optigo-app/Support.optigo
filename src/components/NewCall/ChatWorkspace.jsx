@@ -16,8 +16,13 @@ import { callStreamService } from '../../services/callStreamService';
 import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
 import CallLogApi from '../../apis/CallLogApiController';
-import { openAddCallModal } from './rxjs/newCallEvents';
-import NewCallAddModal from './NewCallAddModal';
+import {
+  openAddCallModal,
+  closeAddCallModal,
+  addCallModal$,
+  useNewCallSubject,
+} from './rxjs/newCallEvents';
+import CallLogDrawer from '../CallLogger/SideBar';
 import NewCallFollowUpModal from './NewCallFollowUpModal';
 import NewCallEditModal from './NewCallEditModal';
 import NewCallForwardModal from './NewCallForwardModal';
@@ -53,6 +58,7 @@ export default function ChatWorkspace() {
   const [conversationViewMode, setConversationViewMode] = useState('single'); // 'single' | 'timeline'
 
   const lastFilterKeyRef = useRef('');
+  const isInternalUrlUpdateRef = useRef(false);
   // When ChatWorkspace has fetched its own filtered data, it "owns" the stream.
   // After that, UseCallLog background refreshes do a smart MERGE (patch existing threads)
   // instead of a full replace — so description saves, status updates etc. work smoothly.
@@ -61,6 +67,47 @@ export default function ChatWorkspace() {
   // Live CallLog Context
   const callLogCtx = useCallLog();
   const liveCallLog = callLogCtx?.callLog;
+
+  const addModalState = useNewCallSubject(addCallModal$);
+
+  const handleCallAdded = useCallback((addedCallData) => {
+    if (!addedCallData) return;
+    const companyObj = callLogCtx?.companyOptions?.find(
+      (c) =>
+        String(c.value) === String(addedCallData.company || addedCallData.ProjectID) ||
+        c.label?.toLowerCase() === String(addedCallData.company || '').toLowerCase() ||
+        c.label?.split('/')?.[0]?.toLowerCase() === String(addedCallData.company || '').toLowerCase()
+    );
+    const companyLabel = companyObj?.label || addedCallData.company || 'Company';
+    const createdThreadRecord = {
+      sr: addedCallData.sr || addedCallData.id || Date.now(),
+      company: companyLabel,
+      CompanyName: companyLabel,
+      ProjectID: addedCallData.company || addedCallData.ProjectID || companyObj?.value || '',
+      projectId: addedCallData.company || addedCallData.ProjectID || companyObj?.value || '',
+      callBy: addedCallData.callBy || addedCallData.CustomerName || 'Client Caller',
+      CustomerName: addedCallData.callBy || addedCallData.CustomerName || 'Client Caller',
+      appname: addedCallData.appname || '',
+      description: addedCallData.description || '',
+      Descr: addedCallData.description || '',
+      lastMessage: addedCallData.description || 'Voice support call logged',
+      date: addedCallData.date || new Date().toISOString().split('T')[0],
+      time: addedCallData.time || '',
+      timestamp: addedCallData.time ? String(addedCallData.time).slice(0, 5) : '00:00',
+      status: 'Solved',
+      estatus: 'Completed',
+      Estatus: 'Completed',
+      receivedBy: user?.firstname
+        ? `${user.firstname} ${user.lastname || ''}`.trim()
+        : user?.name || 'Support Desk',
+    };
+    callStreamService.addNewCall(createdThreadRecord, true);
+    callStreamService.selectCompany('all');
+    toast.success(`Call logged successfully for ${companyLabel}`);
+    if (callLogCtx?.triggerRefresh) {
+      callLogCtx.triggerRefresh();
+    }
+  }, [callLogCtx, user]);
 
   // 1. Sync current user to RxJS stream
   useEffect(() => {
@@ -240,9 +287,24 @@ export default function ChatWorkspace() {
     const currentQueryStr = currentParams.toString();
 
     if (newQueryStr !== currentQueryStr) {
+      isInternalUrlUpdateRef.current = true;
       navigate({ pathname: location.pathname, search: newQueryStr ? `?${newQueryStr}` : '' }, { replace: true });
     }
   }, [searchQuery, viewMode, selectedCompany, statusFilter, filterBy, dateRangeObj, navigate, location.pathname, location.search]);
+
+  // 6. Sync search query when URL changes externally (e.g. from GlobalSearchBar)
+  useEffect(() => {
+    if (isInternalUrlUpdateRef.current) {
+      isInternalUrlUpdateRef.current = false;
+      return;
+    }
+    const params = new URLSearchParams(location.search);
+    const savedSearch = params.get('search') || params.get('searchQuery') || '';
+    if (savedSearch !== searchQuery) {
+      setSearchQuery(savedSearch);
+      callStreamService.setSearchQuery(savedSearch);
+    }
+  }, [location.search, searchQuery]);
 
   // ID Resolvers to ensure Backend gets ProjectID and StatusId numbers
   const getProjectId = useCallback(
@@ -1224,7 +1286,14 @@ export default function ChatWorkspace() {
       </Box>
 
       {/* Modals triggered via RxJS Event Bus */}
-      <NewCallAddModal />
+      <CallLogDrawer
+        key={`newcall-add-drawer-${addModalState?.open ? 'open' : 'closed'}`}
+        open={Boolean(addModalState?.open)}
+        onClose={closeAddCallModal}
+        defaultCompany=""
+        onSuccess={handleCallAdded}
+        onRecordToggle={() => {}}
+      />
       <NewCallFollowUpModal />
       <NewCallEditModal />
       <NewCallForwardModal />

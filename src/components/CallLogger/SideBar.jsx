@@ -39,12 +39,15 @@ export default function CallLogDrawer({
   onRecordToggle,
   data,
   callStatusValue,
+  defaultCompany,
+  onSuccess,
 }) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({ ...INITIAL_FORM_STATE });
   const [errors, setErrors] = useState({});
   const [additionalSettingsOpen, setAdditionalSettingsOpen] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [formKey, setFormKey] = useState(0);
   const {
     addCall,
     APPNAME_LIST,
@@ -58,14 +61,27 @@ export default function CallLogDrawer({
 
   useEffect(() => {
     if (open) {
+      setFormKey((k) => k + 1);
       if (!data) {
         const now = new Date();
+        let initialCompany = "";
+        if (defaultCompany) {
+          const matched = companyOptions?.find(
+            (opt) =>
+              opt?.label?.toLowerCase() === String(defaultCompany).toLowerCase() ||
+              opt?.value === String(defaultCompany) ||
+              opt?.label?.split("/")?.[0]?.toLowerCase() === String(defaultCompany).toLowerCase()
+          );
+          initialCompany = matched ? matched.value : defaultCompany;
+        }
+
         setFormData({
           ...INITIAL_FORM_STATE,
           id: uuidv4(),
           date: now.toISOString().split("T")[0],
           time: formatTimeX(now),
           receivedBy: user?.id ? String(user.id) : "",
+          company: initialCompany,
         });
 
         // Update time every minute
@@ -126,8 +142,14 @@ export default function CallLogDrawer({
           callType: data?.CallType || "",
         });
       }
+    } else {
+      // When drawer is closed, reset form state completely so next open starts fresh
+      setFormData({ ...INITIAL_FORM_STATE, id: uuidv4() });
+      setErrors({});
+      setAdditionalSettingsOpen(false);
+      setFormKey((k) => k + 1);
     }
-  }, [open, data, companyOptions]);
+  }, [open, data, companyOptions, defaultCompany, user?.id]);
 
   useEffect(() => {
     if (open && companyInputRef.current) {
@@ -266,9 +288,14 @@ export default function CallLogDrawer({
       if (formData.callBy) {
         await addCustomerName(formData.callBy);
       }
-      await addCall(callData, isConcurrent);
+      const res = await addCall(callData, isConcurrent);
       if (!data || !open) {
-        onRecordToggle();
+        if (typeof onRecordToggle === "function") {
+          onRecordToggle();
+        }
+      }
+      if (typeof onSuccess === "function") {
+        onSuccess(res || callData);
       }
       handleReset();
     } catch (error) {
@@ -282,36 +309,40 @@ export default function CallLogDrawer({
     setFormData({ ...INITIAL_FORM_STATE, id: uuidv4() });
     setErrors({});
     setAdditionalSettingsOpen(false);
-    // onclearFilters();
-    onClose();
+    setFormKey((k) => k + 1);
+    if (typeof onClose === "function") {
+      onClose();
+    }
   };
 
   const derivedSelections = useMemo(() => {
-    const selectedCompany =
-      companyOptions?.find(
-        (option) =>
-          option?.value === String(formData?.company) ||
-          option?.label?.toLowerCase() === String(formData?.company || "").toLowerCase() ||
-          option?.label?.split("/")?.[0]?.toLowerCase() === String(formData?.company || "").toLowerCase()
-      ) ||
-      (formData?.company
-        ? {
-            label:
-              companyOptions?.find((o) => o?.value === String(formData?.company))?.label ||
-              String(formData.company),
-            value: String(formData.company),
-          }
-        : null);
-    const selectedAppName = APPNAME_LIST?.find(
-      (option) =>
-        option?.AppId === formData?.appname ||
-        option?.value === formData?.appname,
-    );
-    const selectedCallType = CALL_TYPE_MASTER?.find(
-      (option) =>
-        option?.label === formData?.callType ||
-        option?.label === formData?.callType,
-    );
+    const selectedCompany = formData?.company
+      ? companyOptions?.find(
+          (option) =>
+            option?.value === String(formData?.company) ||
+            option?.label?.toLowerCase() === String(formData?.company).toLowerCase() ||
+            option?.label?.split("/")?.[0]?.toLowerCase() === String(formData?.company).toLowerCase()
+        ) || {
+          label:
+            companyOptions?.find((o) => o?.value === String(formData?.company))?.label ||
+            String(formData.company),
+          value: String(formData.company),
+        }
+      : null;
+    const selectedAppName = formData?.appname
+      ? APPNAME_LIST?.find(
+          (option) =>
+            option?.AppId === formData?.appname ||
+            option?.value === formData?.appname,
+        ) || null
+      : null;
+    const selectedCallType = formData?.callType
+      ? CALL_TYPE_MASTER?.find(
+          (option) =>
+            option?.label === formData?.callType ||
+            option?.value === formData?.callType,
+        ) || null
+      : null;
     const appNameValue = selectedAppName
       ? {
           label: selectedAppName?.AppName,
@@ -376,8 +407,9 @@ export default function CallLogDrawer({
 
   return (
     <ThemeProvider theme={SideBarTheme}>
-      <Drawer anchor="left" open={open} onClose={onClose}>
+      <Drawer anchor="left" open={open} onClose={handleReset}>
         <Box
+          key={formKey}
           sx={{
             width: 500,
             p: 2,
@@ -674,7 +706,7 @@ export default function CallLogDrawer({
             <Button
               variant="contained"
               sx={{ flex: 1 }}
-              onClick={onClose}
+              onClick={handleReset}
               size="large"
               color="error"
             >

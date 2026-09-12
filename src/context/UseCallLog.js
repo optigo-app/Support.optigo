@@ -355,6 +355,7 @@ export function CallLogProvider(props) {
           setCurrentCall(newCall);
         }
         triggerRefresh();
+        return newCall;
       } catch (error) {
         console.log(error);
       }

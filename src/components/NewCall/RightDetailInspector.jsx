@@ -7,8 +7,6 @@ import {
   Tooltip,
   Avatar,
   Chip,
-  Tabs,
-  Tab,
   Button,
   LinearProgress,
 } from '@mui/material';
@@ -20,30 +18,72 @@ import {
   TrendUp,
   Star,
   PencilSimpleLine,
+  CalendarBlank,
+  Clock,
+  User,
+  Copy,
+  Check,
 } from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import AttachmentPill from './AttachmentPill';
 import SimpleBar from './SimpleBar';
 import { openEditCallModal, openDurationModal } from './rxjs/newCallEvents';
 import { formatCallDateTime } from './utils/dateUtils';
-import { getStatusColor } from '../../libs/data';
 
-function getStatusStyle(statusName) {
-  const { color } = getStatusColor(statusName);
-  switch (color) {
-    case 'success':
-      return { bg: '#DCFCE7', text: '#15803D', border: '#BBF7D0' };
-    case 'error':
-      return { bg: '#FEE2E2', text: '#DC2626', border: '#FECACA' };
-    case 'info':
-    case 'primary':
-      return { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' };
-    case 'secondary':
-      return { bg: '#FAF5FF', text: '#6900C6', border: '#DDD6FE' };
-    case 'warning':
-    default:
-      return { bg: '#FEF3C7', text: '#B45309', border: '#FDE68A' };
+// Apple-inspired semantic status styling
+function getAppleStatusStyle(statusName = '') {
+  const s = String(statusName).toLowerCase();
+  if (s.includes('solved') || s.includes('complete') || s.includes('success')) {
+    return { bg: '#EBF9F1', text: '#0E7043', border: '#A7F3D0', dot: '#10B981' };
   }
+  if (s.includes('run') || s.includes('prog') || s.includes('active')) {
+    return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE', dot: '#3B82F6' };
+  }
+  if (s.includes('pend') || s.includes('open') || s.includes('hold') || s.includes('wait')) {
+    return { bg: '#FFFBEB', text: '#B45309', border: '#FDE68A', dot: '#F59E0B' };
+  }
+  if (s.includes('cancel') || s.includes('fail') || s.includes('error') || s.includes('reject')) {
+    return { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA', dot: '#EF4444' };
+  }
+  return { bg: '#F8FAFC', text: '#475569', border: '#E2E8F0', dot: '#64748B' };
 }
+
+function AppleStatusPill({ prefix, statusName }) {
+  const st = getAppleStatusStyle(statusName);
+  return (
+    <Box
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        px: '9px',
+        py: '3.5px',
+        borderRadius: '7px',
+        bgcolor: st.bg,
+        border: `1px solid ${st.border}`,
+        fontSize: '11px',
+        fontWeight: 650,
+        color: st.text,
+        lineHeight: 1.2,
+      }}
+    >
+      <Box
+        sx={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          bgcolor: st.dot,
+          flexShrink: 0,
+        }}
+      />
+      <span>
+        {prefix ? `${prefix}: ` : ''}
+        {statusName}
+      </span>
+    </Box>
+  );
+}
+
 export default function RightDetailInspector({
   open = false,
   onClose,
@@ -54,6 +94,7 @@ export default function RightDetailInspector({
   onSelectThread,
 }) {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'files' | 'history'
+  const [copied, setCopied] = useState(false);
 
   const isCompanyView =
     selectedCompany &&
@@ -117,10 +158,16 @@ export default function RightDetailInspector({
     }
 
     const targetCompName = Array.isArray(selectedCompany)
-      ? (selectedCompany.length > 1 ? selectedCompany.join(', ') : (selectedCompany[0] || 'Company'))
+      ? selectedCompany.length > 1
+        ? selectedCompany.join(', ')
+        : selectedCompany[0] || 'Company'
       : String(selectedCompany || 'Company');
-    const compDisplayName = Array.isArray(selectedCompany) ? (selectedCompany[0] || 'Company') : String(selectedCompany || 'Company');
-    const companyMeta = companies.find((c) => (c.name || '').toLowerCase() === String(compDisplayName || '').toLowerCase());
+    const compDisplayName = Array.isArray(selectedCompany)
+      ? selectedCompany[0] || 'Company'
+      : String(selectedCompany || 'Company');
+    const companyMeta = companies.find(
+      (c) => (c.name || '').toLowerCase() === String(compDisplayName || '').toLowerCase()
+    );
     const total = compCalls.length || 1;
     const resolutionRate = Math.round((solvedCount / total) * 100);
 
@@ -179,7 +226,7 @@ export default function RightDetailInspector({
     return [];
   }, [activeThread]);
 
-  // Event delegation click handler for fast item switching
+  // Event delegation click handler for fast item switching in Calls Feed
   const handleTimelineClick = useCallback(
     (e) => {
       const row = e.target.closest('[data-call-id]');
@@ -192,6 +239,21 @@ export default function RightDetailInspector({
   );
 
   const rec = activeThread?.rawRecord || {};
+
+  const handleCopyCallSummary = () => {
+    const summary = `Call #${rec.sr || activeThread?.sr || ''} | ${rec.company || activeThread?.company || ''} | Caller: ${rec.callBy || activeThread?.name || ''} | Agent: ${rec.receivedBy || rec.AssignedEmpName || ''} | Status: ${rec.status || ''}`;
+    navigator.clipboard.writeText(summary);
+    setCopied(true);
+    toast.success('Call summary copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const hasValidDurationEdit = Boolean(
+    (rec.callStart || rec.CallStart) &&
+    (rec.callStart || rec.CallStart) !== '1900-01-01T00:00:00' &&
+    (rec.callClosed || rec.CallClosed) &&
+    (rec.callClosed || rec.CallClosed) !== '1900-01-01T00:00:00'
+  );
 
   return (
     <Box
@@ -206,96 +268,208 @@ export default function RightDetailInspector({
         flexDirection: 'column',
         boxSizing: 'border-box',
         overflow: 'hidden',
-        transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'width 0.28s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: 10,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif',
       }}
     >
-      {/* 1. Slack-Style Top Header Bar */}
+      {/* 1. Apple-Style Clean Top Header Bar */}
       <Box
         sx={{
-          height: 48,
-          minHeight: 48,
-          px: 2.2,
+          height: 52,
+          minHeight: 52,
+          px: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid #F1F3F5',
           bgcolor: '#FFFFFF',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {isCompanyView ? (
-            <Buildings size={18} weight="bold" color="#6900C6" />
-          ) : (
-            <PhoneCall size={18} weight="bold" color="#0284C7" />
-          )}
-          <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.01em' }}>
-            {isCompanyView ? 'Company Profile' : 'Ticket Inspector'}
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: '8px',
+              bgcolor: isCompanyView ? '#F3E8FF' : '#EFF6FF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {isCompanyView ? (
+              <Buildings size={17} weight="bold" color="#6900C6" />
+            ) : (
+              <PhoneCall size={17} weight="bold" color="#0071E3" />
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8 }}>
+            <Typography sx={{ fontSize: 13.5, fontWeight: 750, color: '#1D1D1F', letterSpacing: '-0.015em' }}>
+              {isCompanyView ? 'Company Profile' : 'Call Inspector'}
+            </Typography>
+            {!isCompanyView && (rec.sr || activeThread?.sr) && (
+              <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#86868B', fontVariantNumeric: 'tabular-nums' }}>
+                #{rec.sr || activeThread?.sr}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
-        <Tooltip title="Close (Esc)">
+        <Tooltip title="Close inspector (Esc)">
           <IconButton
             size="small"
             onClick={onClose}
             sx={{
-              p: 0.5,
-              color: '#64748B',
-              borderRadius: '6px',
-              '&:hover': { bgcolor: '#F1F5F9', color: '#0F172A' },
+              width: 28,
+              height: 28,
+              color: '#86868B',
+              borderRadius: '50%',
+              transition: 'all 0.15s ease',
+              '&:hover': { bgcolor: '#F1F3F5', color: '#1D1D1F' },
             }}
           >
-            <X size={17} weight="bold" />
+            <X size={15} weight="bold" />
           </IconButton>
         </Tooltip>
       </Box>
 
-      {/* Tabs Navigation */}
-      <Box sx={{ borderBottom: '1px solid #F1F5F9', px: 1.5, bgcolor: '#FAFAFA' }}>
-        <Tabs
-          value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
-          variant="fullWidth"
+      {/* 2. Apple Segmented Control Navigation */}
+      <Box sx={{ px: 2, pt: 1.2, pb: 1.2, borderBottom: '1px solid #F1F3F5', bgcolor: '#FFFFFF' }}>
+        <Box
           sx={{
-            minHeight: 38,
-            '& .MuiTab-root': {
-              minHeight: 38,
-              fontSize: 12,
-              fontWeight: 700,
-              textTransform: 'none',
-              py: 0.6,
-              color: '#64748B',
-              '&.Mui-selected': { color: '#6900C6' },
-            },
-            '& .MuiTabs-indicator': { bgcolor: '#6900C6', height: 2 },
+            display: 'flex',
+            p: '3px',
+            bgcolor: '#F1F3F5',
+            borderRadius: '10px',
+            border: '1px solid #E9ECEF',
+            gap: '2px',
           }}
         >
-          <Tab label="Overview" value="overview" />
-          <Tab
-            label={`Files (${isCompanyView ? companyData?.attachments.length || 0 : callAttachments.length})`}
-            value="files"
-          />
-          {isCompanyView && <Tab label="Calls Feed" value="history" />}
-        </Tabs>
+          <Box
+            component="button"
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            sx={{
+              flex: 1,
+              py: '6px',
+              px: 1,
+              border: 'none',
+              borderRadius: '7px',
+              fontSize: '12px',
+              fontWeight: activeTab === 'overview' ? 700 : 550,
+              color: activeTab === 'overview' ? '#1D1D1F' : '#6E6E73',
+              bgcolor: activeTab === 'overview' ? '#FFFFFF' : 'transparent',
+              boxShadow: activeTab === 'overview' ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              outline: 'none',
+              '&:hover': {
+                color: '#1D1D1F',
+              },
+            }}
+          >
+            Overview
+          </Box>
+
+          <Box
+            component="button"
+            type="button"
+            onClick={() => setActiveTab('files')}
+            sx={{
+              flex: 1,
+              py: '6px',
+              px: 1,
+              border: 'none',
+              borderRadius: '7px',
+              fontSize: '12px',
+              fontWeight: activeTab === 'files' ? 700 : 550,
+              color: activeTab === 'files' ? '#1D1D1F' : '#6E6E73',
+              bgcolor: activeTab === 'files' ? '#FFFFFF' : 'transparent',
+              boxShadow: activeTab === 'files' ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.6,
+              outline: 'none',
+              '&:hover': {
+                color: '#1D1D1F',
+              },
+            }}
+          >
+            Files
+            <Box
+              component="span"
+              sx={{
+                fontSize: '10px',
+                fontWeight: 700,
+                px: '6px',
+                py: '1px',
+                borderRadius: '10px',
+                bgcolor: activeTab === 'files' ? '#F1F3F5' : '#E5E7EB',
+                color: activeTab === 'files' ? '#1D1D1F' : '#6E6E73',
+                lineHeight: 1.3,
+              }}
+            >
+              {isCompanyView ? companyData?.attachments?.length || 0 : callAttachments.length}
+            </Box>
+          </Box>
+
+          {isCompanyView && (
+            <Box
+              component="button"
+              type="button"
+              onClick={() => setActiveTab('history')}
+              sx={{
+                flex: 1,
+                py: '6px',
+                px: 1,
+                border: 'none',
+                borderRadius: '7px',
+                fontSize: '12px',
+                fontWeight: activeTab === 'history' ? 700 : 550,
+                color: activeTab === 'history' ? '#1D1D1F' : '#6E6E73',
+                bgcolor: activeTab === 'history' ? '#FFFFFF' : 'transparent',
+                boxShadow: activeTab === 'history' ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                outline: 'none',
+                '&:hover': {
+                  color: '#1D1D1F',
+                },
+              }}
+            >
+              Calls Feed
+            </Box>
+          )}
+        </Box>
       </Box>
 
-      {/* 2. Scrollable Body Content */}
+      {/* 3. Scrollable Body Content */}
       <Box sx={{ flex: 1, overflow: 'hidden', bgcolor: '#FFFFFF' }}>
         <SimpleBar style={{ height: '100%', maxHeight: '100%' }}>
           {/* ============================================================== */}
           {/* A. COMPANY VIEW MODE                                           */}
           {/* ============================================================== */}
           {isCompanyView && companyData ? (
-            <Box sx={{ p: 2.2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               {activeTab === 'overview' && (
                 <>
                   {/* Hero Company Card */}
                   <Box
                     sx={{
-                      p: 2.2,
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
-                      border: '1px solid #DDD6FE',
+                      p: 2,
+                      borderRadius: '14px',
+                      background: 'linear-gradient(180deg, #FAF5FF 0%, #F5EEFD 100%)',
+                      border: '1px solid #E9D5FF',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -305,13 +479,13 @@ export default function RightDetailInspector({
                   >
                     <Avatar
                       sx={{
-                        width: 58,
-                        height: 58,
+                        width: 54,
+                        height: 54,
                         bgcolor: companyData.avatarColor,
-                        fontSize: 22,
-                        fontWeight: 800,
+                        fontSize: 20,
+                        fontWeight: 750,
                         color: '#FFFFFF',
-                        boxShadow: '0 4px 14px rgba(105, 0, 198, 0.25)',
+                        boxShadow: '0 4px 14px rgba(105, 0, 198, 0.22)',
                         border: '2px solid #FFFFFF',
                       }}
                     >
@@ -319,10 +493,10 @@ export default function RightDetailInspector({
                     </Avatar>
 
                     <Box>
-                      <Typography sx={{ fontSize: 17, fontWeight: 850, color: '#0F172A', lineHeight: 1.2 }}>
+                      <Typography sx={{ fontSize: 16, fontWeight: 750, color: '#1D1D1F', lineHeight: 1.25 }}>
                         {String(companyData?.name || 'Company')}
                       </Typography>
-                      <Typography variant="caption" sx={{ fontSize: 11.5, color: '#6B21A8', fontWeight: 650, mt: 0.3, display: 'block' }}>
+                      <Typography sx={{ fontSize: 11.5, color: '#6900C6', fontWeight: 600, mt: 0.3 }}>
                         Enterprise Client Account
                       </Typography>
                     </Box>
@@ -333,24 +507,25 @@ export default function RightDetailInspector({
                       sx={{
                         bgcolor: '#6900C6',
                         color: '#FFFFFF',
-                        fontWeight: 750,
+                        fontWeight: 700,
                         fontSize: 11,
                         height: 22,
-                        boxShadow: '0 2px 6px rgba(105, 0, 198, 0.2)',
+                        borderRadius: '6px',
+                        boxShadow: '0 2px 6px rgba(105, 0, 198, 0.18)',
                       }}
                     />
                   </Box>
 
                   {/* Resolution Performance Card */}
-                  <Box sx={{ p: 1.8, bgcolor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                  <Box sx={{ p: 1.6, bgcolor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                        <TrendUp size={16} weight="bold" color="#16A34A" />
-                        <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>
+                        <TrendUp size={16} weight="bold" color="#34C759" />
+                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#1D1D1F' }}>
                           Resolution Rate
                         </Typography>
                       </Box>
-                      <Typography sx={{ fontSize: 13, fontWeight: 850, color: '#16A34A' }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#34C759' }}>
                         {companyData.resolutionRate}%
                       </Typography>
                     </Box>
@@ -360,15 +535,15 @@ export default function RightDetailInspector({
                       sx={{
                         height: 6,
                         borderRadius: 3,
-                        bgcolor: '#E2E8F0',
-                        '& .MuiLinearProgress-bar': { bgcolor: '#16A34A', borderRadius: 3 },
+                        bgcolor: '#F1F3F5',
+                        '& .MuiLinearProgress-bar': { bgcolor: '#34C759', borderRadius: 3 },
                       }}
                     />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.2, fontSize: 11 }}>
-                      <Typography variant="caption" sx={{ color: '#15803D', fontWeight: 700 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.2 }}>
+                      <Typography sx={{ fontSize: 11, color: '#0E7043', fontWeight: 650 }}>
                         ✓ {companyData.solvedCount} Solved
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#B91C1C', fontWeight: 700 }}>
+                      <Typography sx={{ fontSize: 11, color: '#B91C1C', fontWeight: 650 }}>
                         ⏳ {companyData.runningCount + companyData.pendingCount} Active
                       </Typography>
                     </Box>
@@ -376,10 +551,19 @@ export default function RightDetailInspector({
 
                   {/* Frequent Callers Breakdown */}
                   <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#475569', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#86868B',
+                        mb: 0.8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
                       Frequent Callers ({companyData.callers.length})
                     </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+                    <Box sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', overflow: 'hidden' }}>
                       {companyData.callers.slice(0, 6).map(([callerName, count], idx) => (
                         <Box
                           key={idx}
@@ -387,27 +571,35 @@ export default function RightDetailInspector({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            p: 1,
-                            px: 1.2,
-                            bgcolor: '#FFFFFF',
-                            borderRadius: '8px',
-                            border: '1px solid #E2E8F0',
-                            transition: 'all 0.15s ease',
-                            '&:hover': { bgcolor: '#F8FAFC', borderColor: '#CBD5E1' },
+                            p: 1.1,
+                            px: 1.4,
+                            borderBottom: idx < Math.min(companyData.callers.length, 6) - 1 ? '1px solid #F1F3F5' : 'none',
+                            transition: 'background 0.15s ease',
+                            '&:hover': { bgcolor: '#FBFBFD' },
                           }}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                            <Avatar sx={{ width: 26, height: 26, fontSize: 10.5, bgcolor: '#EDE9FE', color: '#6900C6', fontWeight: 800 }}>
+                            <Avatar
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                fontSize: 11,
+                                bgcolor: '#FAF5FF',
+                                color: '#6900C6',
+                                fontWeight: 750,
+                                border: '1px solid #E9D5FF',
+                              }}
+                            >
                               {callerName.charAt(0).toUpperCase()}
                             </Avatar>
-                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>
+                            <Typography sx={{ fontSize: 12.5, fontWeight: 650, color: '#1D1D1F' }}>
                               {callerName}
                             </Typography>
                           </Box>
                           <Chip
                             label={`${count} calls`}
                             size="small"
-                            sx={{ height: 18, fontSize: 9.5, fontWeight: 750, bgcolor: '#F1F5F9', color: '#475569' }}
+                            sx={{ height: 18, fontSize: 9.5, fontWeight: 700, bgcolor: '#F1F3F5', color: '#6E6E73', borderRadius: '5px' }}
                           />
                         </Box>
                       ))}
@@ -416,10 +608,19 @@ export default function RightDetailInspector({
 
                   {/* Assigned Support Leads */}
                   <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#475569', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#86868B',
+                        mb: 0.8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
                       Assigned Support Desk
                     </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+                    <Box sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', overflow: 'hidden' }}>
                       {companyData.agents.slice(0, 4).map(([agentName, count], idx) => (
                         <Box
                           key={idx}
@@ -427,23 +628,33 @@ export default function RightDetailInspector({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            p: 1,
-                            px: 1.2,
-                            bgcolor: '#F8FAFC',
-                            borderRadius: '8px',
-                            border: '1px solid #E2E8F0',
+                            p: 1.1,
+                            px: 1.4,
+                            borderBottom: idx < Math.min(companyData.agents.length, 4) - 1 ? '1px solid #F1F3F5' : 'none',
+                            transition: 'background 0.15s ease',
+                            '&:hover': { bgcolor: '#FBFBFD' },
                           }}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                            <Avatar sx={{ width: 26, height: 26, fontSize: 10.5, bgcolor: '#0284C7', color: '#FFFFFF', fontWeight: 800 }}>
+                            <Avatar
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                fontSize: 11,
+                                bgcolor: '#EFF6FF',
+                                color: '#0071E3',
+                                fontWeight: 750,
+                                border: '1px solid #BFDBFE',
+                              }}
+                            >
                               {agentName.charAt(0).toUpperCase()}
                             </Avatar>
-                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>
+                            <Typography sx={{ fontSize: 12.5, fontWeight: 650, color: '#1D1D1F' }}>
                               {agentName}
                             </Typography>
                           </Box>
-                          <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>
-                            {count} tickets
+                          <Typography sx={{ fontSize: 11, color: '#86868B', fontWeight: 600 }}>
+                            {count} calls
                           </Typography>
                         </Box>
                       ))}
@@ -456,10 +667,28 @@ export default function RightDetailInspector({
               {activeTab === 'files' && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                   {companyData.attachments.length === 0 ? (
-                    <Box sx={{ textAlign: 'center', py: 4, color: '#94A3B8' }}>
-                      <FileImage size={36} weight="duotone" />
-                      <Typography sx={{ fontSize: 13, fontWeight: 600, mt: 1 }}>No files found</Typography>
-                      <Typography variant="caption">Attachments from calls appear here</Typography>
+                    <Box sx={{ textAlign: 'center', py: 5, color: '#86868B' }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '12px',
+                          bgcolor: '#F1F3F5',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#86868B',
+                          mb: 1.2,
+                        }}
+                      >
+                        <FileImage size={24} weight="duotone" />
+                      </Box>
+                      <Typography sx={{ fontSize: 13, fontWeight: 650, color: '#1D1D1F' }}>
+                        No files found
+                      </Typography>
+                      <Typography sx={{ fontSize: 11.5, color: '#86868B', mt: 0.3 }}>
+                        Attachments shared across calls will appear here
+                      </Typography>
                     </Box>
                   ) : (
                     companyData.attachments.map((att, idx) => (
@@ -468,17 +697,18 @@ export default function RightDetailInspector({
                         sx={{
                           p: 1.2,
                           bgcolor: '#FFFFFF',
-                          borderRadius: '8px',
-                          border: '1px solid #E2E8F0',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                          borderRadius: '10px',
+                          border: '1px solid #E5E7EB',
+                          transition: 'border-color 0.15s ease',
+                          '&:hover': { borderColor: '#CBD5E1' },
                         }}
                       >
                         <AttachmentPill attachment={att} />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.6, px: 0.4 }}>
-                          <Typography variant="caption" sx={{ fontSize: 10.5, color: '#64748B', fontWeight: 600 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.8, px: 0.4 }}>
+                          <Typography sx={{ fontSize: 10.5, color: '#0071E3', fontWeight: 650 }}>
                             Call #{att.callSr}
                           </Typography>
-                          <Typography variant="caption" sx={{ fontSize: 10, color: '#94A3B8' }}>
+                          <Typography sx={{ fontSize: 10.5, color: '#86868B' }}>
                             By {att.author}
                           </Typography>
                         </Box>
@@ -490,7 +720,7 @@ export default function RightDetailInspector({
 
               {/* Calls History Feed Tab */}
               {activeTab === 'history' && (
-                <Box onClick={handleTimelineClick} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box onClick={handleTimelineClick} sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
                   {companyData.calls.map((c) => {
                     const isSelected = c.id === activeThread?.id;
 
@@ -499,25 +729,25 @@ export default function RightDetailInspector({
                         key={c.id}
                         data-call-id={c.id}
                         sx={{
-                          p: 1.2,
+                          p: 1.3,
                           px: 1.4,
-                          bgcolor: isSelected ? '#EDE9FE' : '#FFFFFF',
-                          border: isSelected ? '1px solid #C4B5FD' : '1px solid #E2E8F0',
-                          borderRadius: '8px',
+                          bgcolor: isSelected ? '#EFF6FF' : '#FFFFFF',
+                          border: isSelected ? '1px solid #BFDBFE' : '1px solid #E5E7EB',
+                          borderRadius: '10px',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
-                          '&:hover': { bgcolor: isSelected ? '#EDE9FE' : '#F8FAFC' },
+                          '&:hover': { bgcolor: isSelected ? '#EFF6FF' : '#FBFBFD', borderColor: '#CBD5E1' },
                         }}
                       >
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography sx={{ fontSize: 12.5, fontWeight: 750, color: '#0F172A' }}>
+                          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1D1D1F' }}>
                             Call #{c.sr} • {c.callBy || c.name}
                           </Typography>
-                          <Typography sx={{ fontSize: 10.5, color: '#64748B', fontWeight: 600 }}>
+                          <Typography sx={{ fontSize: 10.5, color: '#86868B', fontWeight: 550, fontVariantNumeric: 'tabular-nums' }}>
                             {c.timestamp}
                           </Typography>
                         </Box>
-                        <Typography sx={{ fontSize: 11.5, color: '#475569', mt: 0.4 }} noWrap>
+                        <Typography sx={{ fontSize: 11.5, color: '#6E6E73', mt: 0.4 }} noWrap>
                           {c.lastMessage}
                         </Typography>
                       </Box>
@@ -528,95 +758,142 @@ export default function RightDetailInspector({
             </Box>
           ) : (
             /* ============================================================== */
-            /* B. INDIVIDUAL CALL TICKET VIEW MODE                            */
+            /* B. INDIVIDUAL CALL VIEW MODE (CALL INSPECTOR)                  */
             /* ============================================================== */
-            <Box sx={{ p: 2.2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              {activeTab === 'overview' && (
-                <>
-                  {/* Call Ticket Header Card */}
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {!activeThread ? (
+                <Box sx={{ textAlign: 'center', py: 6, color: '#86868B' }}>
                   <Box
                     sx={{
-                      p: 2,
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
-                      border: '1px solid #BBF7D0',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 1,
+                      width: 52,
+                      height: 52,
+                      borderRadius: '14px',
+                      bgcolor: '#F1F3F5',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#86868B',
+                      mb: 1.5,
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography sx={{ fontSize: 10.5, color: '#166534', fontWeight: 750, letterSpacing: '0.04em' }}>
-                            VOICE TICKET #{rec.sr || '22861'}
-                          </Typography>
-                          <Button
-                            size="small"
-                            onClick={() => openEditCallModal(activeThread)}
-                            startIcon={<PencilSimpleLine size={12} weight="bold" />}
-                            sx={{
-                              p: '1px 6px',
-                              minWidth: 0,
-                              fontSize: 10,
-                              fontWeight: 750,
-                              color: '#166534',
-                              bgcolor: 'rgba(22, 101, 52, 0.1)',
-                              borderRadius: '4px',
-                              textTransform: 'none',
-                              '&:hover': { bgcolor: 'rgba(22, 101, 52, 0.2)' },
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        </Box>
-                        <Typography sx={{ fontSize: 16, fontWeight: 850, color: '#0F172A', mt: 0.2 }}>
-                          {rec.company || 'Client Account'}
-                        </Typography>
+                    <PhoneCall size={26} weight="duotone" />
+                  </Box>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1D1D1F' }}>
+                    No Call Selected
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#86868B', mt: 0.5, maxWidth: 220, mx: 'auto' }}>
+                    Select a call conversation from the left to inspect call telemetry, participants, and files.
+                  </Typography>
+                </Box>
+              ) : activeTab === 'overview' ? (
+                <>
+                  {/* Hero Call Card */}
+                  <Box
+                    sx={{
+                      p: 1.8,
+                      borderRadius: '14px',
+                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FAFAFC 100%)',
+                      border: '1px solid #E5E7EB',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.4,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                    }}
+                  >
+                    {/* Top Row: Call ID Pill & Action Buttons */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          px: '8px',
+                          py: '3px',
+                          borderRadius: '6px',
+                          bgcolor: '#EFF6FF',
+                          color: '#0071E3',
+                          border: '1px solid #BFDBFE',
+                          fontSize: '11px',
+                          fontWeight: 750,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        VOICE CALL #{rec.sr || activeThread?.sr || '22861'}
                       </Box>
 
-                      {/* Dual Status Chips */}
-                      {(() => {
-                        const extName = rec.Estatus || activeThread?.estatus || 'Completed';
-                        const intName = rec.status || activeThread?.status || 'Solved';
-                        const extSt = getStatusStyle(extName);
-                        const intSt = getStatusStyle(intName);
-                        return (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, alignItems: 'flex-end' }}>
-                            <Chip
-                              label={`Ext: ${extName}`}
-                              size="small"
-                              sx={{
-                                height: 20,
-                                fontSize: 10,
-                                fontWeight: 750,
-                                bgcolor: extSt.bg,
-                                color: extSt.text,
-                                border: `1px solid ${extSt.border}`,
-                              }}
-                            />
-                            <Chip
-                              label={`Int: ${intName}`}
-                              size="small"
-                              sx={{
-                                height: 20,
-                                fontSize: 10,
-                                fontWeight: 750,
-                                bgcolor: intSt.bg,
-                                color: intSt.text,
-                                border: `1px solid ${intSt.border}`,
-                              }}
-                            />
-                          </Box>
-                        );
-                      })()}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                        <Tooltip title={copied ? 'Copied!' : 'Copy Summary'}>
+                          <IconButton
+                            size="small"
+                            onClick={handleCopyCallSummary}
+                            sx={{
+                              width: 26,
+                              height: 26,
+                              color: copied ? '#10B981' : '#86868B',
+                              bgcolor: copied ? '#EBF9F1' : 'transparent',
+                              borderRadius: '6px',
+                              transition: 'all 0.15s ease',
+                              '&:hover': { bgcolor: '#F1F3F5', color: '#1D1D1F' },
+                            }}
+                          >
+                            {copied ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
+                          </IconButton>
+                        </Tooltip>
+
+                        <Button
+                          size="small"
+                          onClick={() => openEditCallModal(activeThread)}
+                          startIcon={<PencilSimpleLine size={13} weight="bold" />}
+                          sx={{
+                            p: '2px 8px',
+                            minWidth: 0,
+                            fontSize: 11,
+                            fontWeight: 650,
+                            color: '#0071E3',
+                            bgcolor: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            borderRadius: '6px',
+                            textTransform: 'none',
+                            transition: 'all 0.15s ease',
+                            '&:hover': { bgcolor: '#DBEAFE' },
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      </Box>
                     </Box>
 
-                    {/* Escalation or Rating Bar */}
+                    {/* Company Account Name */}
+                    <Box>
+                      <Typography sx={{ fontSize: 16, fontWeight: 750, color: '#1D1D1F', letterSpacing: '-0.015em', lineHeight: 1.25 }}>
+                        {rec.company || activeThread?.company || 'Client Account'}
+                      </Typography>
+                    </Box>
+
+                    {/* Dual Status Badges */}
+                    {(() => {
+                      const extName = rec.Estatus || activeThread?.estatus || 'Completed';
+                      const intName = rec.status || activeThread?.status || 'Solved';
+                      return (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center' }}>
+                          <AppleStatusPill prefix="Ext" statusName={extName} />
+                          <AppleStatusPill prefix="Int" statusName={intName} />
+                        </Box>
+                      );
+                    })()}
+
+                    {/* Customer Rating or Forwarded Status */}
                     {(rec.CallType === 'Forwarded' || rec.ForwardedEmp || rec.rating > 0) && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 0.8, borderTop: '1px dashed #BBF7D0' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          pt: 1,
+                          borderTop: '1px solid #F1F3F5',
+                        }}
+                      >
                         {rec.rating > 0 ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, color: '#D97706', fontSize: 11, fontWeight: 750 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#D97706', fontSize: 11.5, fontWeight: 700 }}>
                             <Star size={13} weight="fill" />
                             <span>{rec.rating}.0 Customer Rating</span>
                           </Box>
@@ -626,114 +903,248 @@ export default function RightDetailInspector({
                           <Chip
                             label={`↗ Forwarded: ${rec.ForwardedEmp || 'Specialist'}`}
                             size="small"
-                            sx={{ height: 18, fontSize: 9.5, fontWeight: 750, bgcolor: '#F3E8FF', color: '#6900C6' }}
+                            sx={{
+                              height: 20,
+                              fontSize: 10,
+                              fontWeight: 650,
+                              bgcolor: '#FAF5FF',
+                              color: '#6900C6',
+                              border: '1px solid #E9D5FF',
+                              borderRadius: '6px',
+                            }}
                           />
                         )}
                       </Box>
                     )}
 
-                    <Typography sx={{ fontSize: 12.5, fontWeight: 650, color: '#1E293B', mt: 0.2 }}>
-                      {rec.description || 'Voice Support Session'}
-                    </Typography>
+                    {/* Description Note */}
+                    {(rec.description || activeThread?.description) && (
+                      <Box
+                        sx={{
+                          p: 1.2,
+                          bgcolor: '#F8FAFC',
+                          borderRadius: '8px',
+                          border: '1px solid #E2E8F0',
+                        }}
+                      >
+                        <Typography sx={{ fontSize: 12, color: '#334155', lineHeight: 1.45 }}>
+                          {rec.description || activeThread?.description}
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
 
-                  {/* Persons In This Call */}
+                  {/* Participants Section */}
                   <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#475569', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Persons In This Call
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#86868B',
+                        mb: 0.8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      Participants
                     </Typography>
 
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', overflow: 'hidden' }}>
                       {/* Client Caller */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, p: 1.2, bgcolor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
-                        <Avatar sx={{ width: 34, height: 34, bgcolor: '#EDE9FE', color: '#6900C6', fontWeight: 800, fontSize: 12 }}>
-                          {(rec.callBy || 'C').charAt(0).toUpperCase()}
-                        </Avatar>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A' }}>
-                            {rec.callBy || activeThread?.name || 'Client Caller'}
-                          </Typography>
-                          <Typography variant="caption" sx={{ fontSize: 10.5, color: '#64748B' }}>
-                            Client • {rec.company || 'Company Rep'}
-                          </Typography>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1.2,
+                          px: 1.4,
+                          borderBottom: '1px solid #F1F3F5',
+                          transition: 'background 0.15s ease',
+                          '&:hover': { bgcolor: '#FBFBFD' },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              bgcolor: '#FAF5FF',
+                              color: '#6900C6',
+                              fontWeight: 750,
+                              fontSize: 12,
+                              border: '1px solid #E9D5FF',
+                            }}
+                          >
+                            {(rec.callBy || activeThread?.name || 'C').charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1D1D1F', lineHeight: 1.2 }} noWrap>
+                              {rec.callBy || activeThread?.name || 'Client Caller'}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: '#86868B', mt: 0.2 }} noWrap>
+                              Client Contact • {rec.company || 'Client'}
+                            </Typography>
+                          </Box>
                         </Box>
+                        <Chip
+                          label="Caller"
+                          size="small"
+                          sx={{ height: 19, fontSize: 10, fontWeight: 650, bgcolor: '#F1F3F5', color: '#6E6E73', borderRadius: '5px', ml: 1 }}
+                        />
                       </Box>
 
-                      {/* Handling Support Executive */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, p: 1.2, bgcolor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
-                        <Avatar sx={{ width: 34, height: 34, bgcolor: '#0284C7', color: '#FFFFFF', fontWeight: 800, fontSize: 12 }}>
-                          {(rec.receivedBy || 'A').charAt(0).toUpperCase()}
-                        </Avatar>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A' }}>
-                            {rec.receivedBy || rec.AssignedEmpName || 'Support Agent'}
-                          </Typography>
-                          <Typography variant="caption" sx={{ fontSize: 10.5, color: '#64748B' }}>
-                            Assigned Agent • {rec.DeptName || 'Support Team'}
-                          </Typography>
+                      {/* Handling Support Specialist */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1.2,
+                          px: 1.4,
+                          transition: 'background 0.15s ease',
+                          '&:hover': { bgcolor: '#FBFBFD' },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              bgcolor: '#EFF6FF',
+                              color: '#0071E3',
+                              fontWeight: 750,
+                              fontSize: 12,
+                              border: '1px solid #BFDBFE',
+                            }}
+                          >
+                            {(rec.receivedBy || rec.AssignedEmpName || 'A').charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1D1D1F', lineHeight: 1.2 }} noWrap>
+                              {rec.receivedBy || rec.AssignedEmpName || 'Support Specialist'}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: '#86868B', mt: 0.2 }} noWrap>
+                              Assigned Agent • {rec.DeptName || 'Support Team'}
+                            </Typography>
+                          </Box>
                         </Box>
+                        <Chip
+                          label="Assignee"
+                          size="small"
+                          sx={{ height: 19, fontSize: 10, fontWeight: 650, bgcolor: '#EFF6FF', color: '#0071E3', borderRadius: '5px', ml: 1 }}
+                        />
                       </Box>
                     </Box>
                   </Box>
 
-                  {/* Call Timing & Telemetry */}
+                  {/* Call Telemetry Section */}
                   <Box>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#475569', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#86868B',
+                        mb: 0.8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
                       Call Telemetry
                     </Typography>
-                    <Box sx={{ p: 1.4, bgcolor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography sx={{ fontSize: 11.5, color: '#64748B' }}>Call Start:</Typography>
-                        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#0F172A' }}>
+
+                    <Box sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', overflow: 'hidden' }}>
+                      {/* Call Start */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.1, px: 1.4, borderBottom: '1px solid #F1F3F5' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: '#86868B' }}>
+                          <CalendarBlank size={14} weight="bold" />
+                          <Typography sx={{ fontSize: 11.5, color: '#6E6E73', fontWeight: 550 }}>
+                            Call Start
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#1D1D1F', fontVariantNumeric: 'tabular-nums' }}>
                           {formatCallDateTime(rec.callStart || rec.CallStart)}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography sx={{ fontSize: 11.5, color: '#64748B' }}>Call Closed:</Typography>
-                        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#0F172A' }}>
+
+                      {/* Call Closed */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.1, px: 1.4, borderBottom: '1px solid #F1F3F5' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: '#86868B' }}>
+                          <CalendarBlank size={14} weight="bold" />
+                          <Typography sx={{ fontSize: 11.5, color: '#6E6E73', fontWeight: 550 }}>
+                            Call Closed
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#1D1D1F', fontVariantNumeric: 'tabular-nums' }}>
                           {formatCallDateTime(rec.callClosed || rec.CallClosed)}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography sx={{ fontSize: 11.5, color: '#64748B' }}>Duration:</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#6900C6' }}>
+
+                      {/* Duration with Modal Trigger */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.1, px: 1.4, borderBottom: '1px solid #F1F3F5' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: '#86868B' }}>
+                          <Clock size={14} weight="bold" />
+                          <Typography sx={{ fontSize: 11.5, color: '#6E6E73', fontWeight: 550 }}>
+                            Duration
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          <Typography sx={{ fontSize: 12, fontWeight: 750, color: '#0071E3', fontVariantNumeric: 'tabular-nums' }}>
                             {rec.CallDuration || rec.callDuration || '—'}
                           </Typography>
-                          {Boolean(
-                            (rec.callStart || rec.CallStart) &&
-                            (rec.callStart || rec.CallStart) !== '1900-01-01T00:00:00' &&
-                            (rec.callClosed || rec.CallClosed) &&
-                            (rec.callClosed || rec.CallClosed) !== '1900-01-01T00:00:00'
-                          ) && (
+                          {hasValidDurationEdit && (
                             <Tooltip title="Edit Call Duration">
                               <IconButton
                                 size="small"
                                 onClick={() => openDurationModal(rec)}
-                                sx={{ p: 0.3, color: '#64748B', '&:hover': { color: '#0284C7', bgcolor: '#E0F2FE' } }}
+                                sx={{
+                                  width: 22,
+                                  height: 22,
+                                  p: 0,
+                                  color: '#0071E3',
+                                  bgcolor: '#EFF6FF',
+                                  borderRadius: '5px',
+                                  transition: 'all 0.15s ease',
+                                  '&:hover': { bgcolor: '#DBEAFE' },
+                                }}
                               >
-                                <PencilSimpleLine size={13} weight="bold" />
+                                <PencilSimpleLine size={12} weight="bold" />
                               </IconButton>
                             </Tooltip>
                           )}
                         </Box>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography sx={{ fontSize: 11.5, color: '#64748B' }}>Channel:</Typography>
-                        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#0F172A' }}>
+
+                      {/* Channel / Source */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.1, px: 1.4 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: '#86868B' }}>
+                          <PhoneCall size={14} weight="bold" />
+                          <Typography sx={{ fontSize: 11.5, color: '#6E6E73', fontWeight: 550 }}>
+                            Channel
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#1D1D1F' }}>
                           {rec.callSourceLabel || 'VoIP Entry'}
                         </Typography>
                       </Box>
                     </Box>
                   </Box>
 
-                  {/* Follow-Up Calls in this Ticket */}
+                  {/* Follow-Up Calls in this Conversation */}
                   {followupsList.length > 0 && (
                     <Box>
-                      <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#475569', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <Typography
+                        sx={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#86868B',
+                          mb: 0.8,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                        }}
+                      >
                         Follow-Up Calls ({followupsList.length})
                       </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {followupsList.map((fu, idx) => {
                           const startStr = formatCallDateTime(fu.CallStart || fu.callStart);
                           const endStr = formatCallDateTime(fu.CallClosed || fu.callClosed);
@@ -741,35 +1152,63 @@ export default function RightDetailInspector({
                           const descr = (fu.Description || fu.description || fu.Descr || fu.descr || '').trim();
 
                           return (
-                            <Box key={idx} sx={{ p: 1.2, bgcolor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.4 }}>
-                                <Typography sx={{ fontSize: 12, fontWeight: 750, color: '#6900C6' }}>
+                            <Box
+                              key={idx}
+                              sx={{
+                                p: 1.3,
+                                bgcolor: '#FFFFFF',
+                                borderRadius: '10px',
+                                border: '1px solid #E5E7EB',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 0.6,
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 750, color: '#0071E3' }}>
                                   Follow-up #{fu.Id || idx + 1}
                                 </Typography>
-                                <Typography sx={{ fontSize: 10.5, color: '#64748B' }}>
+                                <Typography sx={{ fontSize: 10.5, color: '#86868B', fontWeight: 550 }}>
                                   {fu.CreatedBy || fu.ReceivedBy || 'Agent'}
                                 </Typography>
                               </Box>
 
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, fontSize: 10.5 }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3, fontSize: 10.5 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <Typography sx={{ fontSize: 10.5, color: '#64748B' }}>Start:</Typography>
-                                  <Typography sx={{ fontSize: 10.5, fontWeight: 650, color: '#1E293B' }}>{startStr}</Typography>
+                                  <Typography sx={{ fontSize: 11, color: '#86868B' }}>Start:</Typography>
+                                  <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#1D1D1F', fontVariantNumeric: 'tabular-nums' }}>
+                                    {startStr}
+                                  </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <Typography sx={{ fontSize: 10.5, color: '#64748B' }}>End:</Typography>
-                                  <Typography sx={{ fontSize: 10.5, fontWeight: 650, color: '#1E293B' }}>{endStr}</Typography>
+                                  <Typography sx={{ fontSize: 11, color: '#86868B' }}>End:</Typography>
+                                  <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#1D1D1F', fontVariantNumeric: 'tabular-nums' }}>
+                                    {endStr}
+                                  </Typography>
                                 </Box>
                                 {durationStr && durationStr !== '00:00:00' && (
                                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography sx={{ fontSize: 10.5, color: '#64748B' }}>Duration:</Typography>
-                                    <Typography sx={{ fontSize: 10.5, fontWeight: 750, color: '#0F172A' }}>{durationStr}</Typography>
+                                    <Typography sx={{ fontSize: 11, color: '#86868B' }}>Duration:</Typography>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 750, color: '#0071E3', fontVariantNumeric: 'tabular-nums' }}>
+                                      {durationStr}
+                                    </Typography>
                                   </Box>
                                 )}
                               </Box>
 
                               {descr && (
-                                <Typography sx={{ fontSize: 11, color: '#334155', mt: 0.5, bgcolor: '#FFFFFF', p: 0.6, borderRadius: '4px', border: '1px solid #F1F5F9' }}>
+                                <Typography
+                                  sx={{
+                                    fontSize: 11,
+                                    color: '#334155',
+                                    mt: 0.2,
+                                    bgcolor: '#F8FAFC',
+                                    p: 0.8,
+                                    borderRadius: '6px',
+                                    border: '1px solid #F1F5F9',
+                                    lineHeight: 1.35,
+                                  }}
+                                >
                                   {descr}
                                 </Typography>
                               )}
@@ -780,22 +1219,48 @@ export default function RightDetailInspector({
                     </Box>
                   )}
                 </>
-              )}
-
-              {/* Files Tab in Call Mode */}
-              {activeTab === 'files' && (
+              ) : (
+                /* Files Tab in Call Mode */
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                   {callAttachments.length === 0 ? (
-                    <Box sx={{ textAlign: 'center', py: 4, color: '#94A3B8' }}>
-                      <FileImage size={36} weight="duotone" />
-                      <Typography sx={{ fontSize: 13, fontWeight: 600, mt: 1 }}>No attachments</Typography>
-                      <Typography variant="caption">Screenshots or files in this ticket appear here</Typography>
+                    <Box sx={{ textAlign: 'center', py: 5, color: '#86868B' }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '12px',
+                          bgcolor: '#F1F3F5',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#86868B',
+                          mb: 1.2,
+                        }}
+                      >
+                        <FileImage size={24} weight="duotone" />
+                      </Box>
+                      <Typography sx={{ fontSize: 13, fontWeight: 650, color: '#1D1D1F' }}>
+                        No attachments
+                      </Typography>
+                      <Typography sx={{ fontSize: 11.5, color: '#86868B', mt: 0.3 }}>
+                        Screenshots and media uploaded during this call appear here
+                      </Typography>
                     </Box>
                   ) : (
                     callAttachments.map((att, idx) => (
-                      <Box key={idx} sx={{ p: 1.2, bgcolor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                      <Box
+                        key={idx}
+                        sx={{
+                          p: 1.2,
+                          bgcolor: '#FFFFFF',
+                          borderRadius: '10px',
+                          border: '1px solid #E5E7EB',
+                          transition: 'border-color 0.15s ease',
+                          '&:hover': { borderColor: '#CBD5E1' },
+                        }}
+                      >
                         <AttachmentPill attachment={att} />
-                        <Typography variant="caption" sx={{ fontSize: 10.5, color: '#64748B', display: 'block', mt: 0.6, px: 0.4 }}>
+                        <Typography sx={{ fontSize: 10.5, color: '#86868B', display: 'block', mt: 0.8, px: 0.4 }}>
                           Uploaded by {att.author || 'Agent'}
                         </Typography>
                       </Box>

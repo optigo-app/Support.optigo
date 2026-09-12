@@ -432,7 +432,8 @@ export default function ChatHeader({
               </Box>
             </Box>
 
-            {/* View Mode Toggle: Timeline vs Single Ticket */}
+            {/* View Mode Toggle: Timeline vs Single Ticket (Commented out per user request - do not remove) */}
+            {/*
             <Box
               sx={{
                 display: 'flex',
@@ -491,6 +492,7 @@ export default function ChatHeader({
                 </Box>
               </Tooltip>
             </Box>
+            */}
 
             {/* Sleek Slack-Style Status Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 0.5 }}>

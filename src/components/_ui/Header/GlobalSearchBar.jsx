@@ -17,6 +17,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
 import CallRoundedIcon from "@mui/icons-material/CallRounded";
+import PhoneInTalkRoundedIcon from "@mui/icons-material/PhoneInTalkRounded";
 import ArchiveRoundedIcon from "@mui/icons-material/ArchiveRounded";
 import AllInboxRoundedIcon from "@mui/icons-material/AllInboxRounded";
 import CloudSyncRoundedIcon from "@mui/icons-material/CloudSyncRounded";
@@ -41,6 +42,8 @@ const getModuleIcon = (iconName, color = "#64748B") => {
       return <InsertDriveFileRoundedIcon sx={sx} />;
     case "call":
       return <CallRoundedIcon sx={sx} />;
+    case "newcall":
+      return <PhoneInTalkRoundedIcon sx={sx} />;
     case "archive":
       return <ArchiveRoundedIcon sx={sx} />;
     case "orders":

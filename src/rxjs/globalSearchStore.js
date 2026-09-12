@@ -25,6 +25,17 @@ export const MODULE_PREFIXES = [
     chipBorder: "#A7F3D0",
   },
   {
+    key: "newcall",
+    label: "New Call",
+    path: "/newCall",
+    aliases: ["newcall", "new", "nc", "newcalls", "new_call"],
+    iconName: "newcall",
+    description: "Search in New Call module",
+    chipColor: "#6366F1",
+    chipBg: "#EEF2FF",
+    chipBorder: "#C7D2FE",
+  },
+  {
     key: "archive",
     label: "Archive Calllog",
     path: "/Archive",
@@ -72,6 +83,9 @@ export const MODULE_PREFIXES = [
 
 export function getModuleByPath(pathname = "/") {
   const normalized = pathname.toLowerCase();
+  if (normalized.startsWith("/newcall")) {
+    return MODULE_PREFIXES.find((m) => m.key === "newcall");
+  }
   if (normalized === "/" || normalized.startsWith("/calllog")) {
     return MODULE_PREFIXES.find((m) => m.key === "call");
   }
@@ -135,7 +149,11 @@ export const setGlobalSearchQuery = (query) => {
 
 export function dispatchGlobalSearch({ query, targetModule, navigate, currentPath }) {
   const trimmed = (query || "").trim();
-  const destModule = targetModule || getModuleByPath(currentPath) || MODULE_PREFIXES[1];
+  const destModule =
+    targetModule ||
+    getModuleByPath(currentPath) ||
+    MODULE_PREFIXES.find((m) => m.key === "call") ||
+    MODULE_PREFIXES[0];
   const targetPath = destModule ? destModule.path : "/";
 
   const searchParams = new URLSearchParams();
