@@ -11,12 +11,13 @@ import TicketApi from "../apis/TicketApiController";
 import { useSocketEvent } from "../hooks/useSocketListener";
 import { notify } from "../libs/NOTIFICATION_TEMPLATES";
 import { useNavigate } from "react-router-dom";
+import { patchTicketInMap, addTicketToMap, setSelectedTicketNo, setCurrentView, setSelectedTicketInStore } from "../rxjs/ticketStore";
 
 export const TicketContext = React.createContext();
 
 export const TicketProvider = ({ children }) => {
   const [tickets, setTickets] = useState([]);
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTicket, setSelectedTicketState] = useState(null);
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(false);
@@ -30,6 +31,27 @@ export const TicketProvider = ({ children }) => {
   const notificationRef = useRef(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isTicketDirty, setIsTicketDirty] = useState(false);
+
+  // Refs to break stale closures in fetchTicketList — the callback reads from
+  // these refs instead of closed-over state, so it never needs to be recreated.
+  const selectedTicketRef = useRef(null);
+  const lastUpdatedTicketNoRef = useRef(sessionStorage.getItem("LastUpdatedticket") || null);
+
+  // Stable wrapper that drives both React state and the RxJS selectedTicketNo$.
+  // Everything in the app that calls setSelectedTicket continues to work unchanged;
+  // TicketItem now additionally gets the update through the RxJS observable.
+  const setSelectedTicket = useCallback((ticketOrUpdater) => {
+    setSelectedTicketState((prev) => {
+      const next = typeof ticketOrUpdater === "function" ? ticketOrUpdater(prev) : ticketOrUpdater;
+      selectedTicketRef.current = next;
+      // Drive the RxJS highlight — only 2 rows re-render (old + new selected)
+      setSelectedTicketNo(next?.TicketNo ?? null);
+      // Drive selectedTicket$ — RightPanel reads from here, not from context
+      // This means setSelectedTicket no longer forces ALL context consumers to re-render
+      setSelectedTicketInStore(next);
+      return next;
+    });
+  }, []);
 
   const setNotificationInstance = useCallback((fn) => {
     notificationRef.current = fn;
@@ -109,20 +131,25 @@ export const TicketProvider = ({ children }) => {
       }
 
       setTickets(response?.rd);
-      if (lastUpdatedTicketNo) {
+
+      // Read from refs — no stale closure, no need to recreate this callback
+      const currentLastUpdated = lastUpdatedTicketNoRef.current;
+      const currentSelected = selectedTicketRef.current;
+
+      if (currentLastUpdated) {
         const updatedTicket = response.rd.find(
-          (ticket) => ticket?.TicketNo === lastUpdatedTicketNo,
+          (ticket) => ticket?.TicketNo === currentLastUpdated,
         );
         if (updatedTicket) {
           setSelectedTicket(updatedTicket);
         }
+        lastUpdatedTicketNoRef.current = null;
         setLastUpdatedTicketNo(null);
         sessionStorage.removeItem("LastUpdatedticket");
-      } else if (selectedTicket) {
+      } else if (currentSelected) {
         const currentTicket = response.rd.find(
-          (ticket) => ticket?.TicketNo === selectedTicket.TicketNo,
+          (ticket) => ticket?.TicketNo === currentSelected.TicketNo,
         );
-
         if (currentTicket) {
           setSelectedTicket(currentTicket);
         }
@@ -133,7 +160,8 @@ export const TicketProvider = ({ children }) => {
       setLoading(false);
       setIsInitialLoading(false); // ✅ ONLY after first API resolves
     }
-  }, [lastUpdatedTicketNo, selectedTicket]);
+  // No state deps — reads from refs; recreated only if setSelectedTicket changes (stable)
+  }, [setSelectedTicket]);
 
   const fetchSingleTicket = useCallback(async (ticketId) => {
     try {
@@ -181,31 +209,19 @@ export const TicketProvider = ({ children }) => {
           appId: ticketData?.appname,
           cateId: ticketData?.category,
           custId: ticketData?.userName,
-          description: ticketData?.instruction, //
-          projectId: ticketData?.projectCode, //
-          subject: ticketData?.subject, //
+          description: ticketData?.instruction,
+          projectId: ticketData?.projectCode,
+          subject: ticketData?.subject,
           filePath:
             ticketData?.attachment !== null ? ticketData?.attachment : "",
           callLogId: ticketData?.CallId || "",
         });
-        // if (res?.rd1[0]?.stat == 1 && res?.rd1[0]?.stat_code == 1000) {
-        // 	await TicketApi.addComment({
-        // 		createdBy: user?.id,
-        // 		comment: ticketData?.instruction ?? "",
-        // 		filePath: ticketData?.attachment !== null ? ticketData?.attachment : "",
-        // 		callLogId: "",
-        // 		isOfficeUseOnly: 0,
-        // 		ticketNo: res?.rd1[0]?.TicketNo,
-        // 		Role: 1,
-        // 	});
-        // }
-
         setRefresh(!refresh);
       } catch (error) {
         console.log("Error adding ticket:", error);
       }
     },
-    [tickets, setTickets],
+    [refresh],
   );
 
   const updateTicket = useCallback(
@@ -217,6 +233,8 @@ export const TicketProvider = ({ children }) => {
             ? updatedFields?.tags
             : updatedFields?.keywords;
         if (keywordsPayload !== undefined) {
+          // Patch only the affected ticket in RxJS map — zero cost for all other rows
+          patchTicketInMap(TicketId, { Keywords: keywordsPayload, keywords: keywordsPayload });
           setSelectedTicket((prev) => {
             if (!prev || prev.TicketNo !== TicketId) return prev;
             return {
@@ -249,6 +267,7 @@ export const TicketProvider = ({ children }) => {
           star: updatedFields?.Star,
           mainSubject: updatedFields?.MainSubject,
         });
+        lastUpdatedTicketNoRef.current = TicketId;
         setLastUpdatedTicketNo(TicketId);
         sessionStorage.setItem("LastUpdatedticket", TicketId);
         setRefresh((prev) => !prev);
@@ -259,7 +278,7 @@ export const TicketProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [tickets, setTickets, selectedTicket, setSelectedTicket, user?.id],
+    [user?.id, setSelectedTicket],
   );
 
   // Api Done ✅
@@ -278,6 +297,7 @@ export const TicketProvider = ({ children }) => {
           ticketNo: commentData?.TicketNo,
           Role: commentData?.Role,
         });
+        lastUpdatedTicketNoRef.current = commentData?.TicketNo;
         setLastUpdatedTicketNo(commentData?.TicketNo);
         sessionStorage.setItem("LastUpdatedticket", commentData?.TicketNo);
         setRefresh(!refresh);
@@ -285,7 +305,7 @@ export const TicketProvider = ({ children }) => {
         console.log("Error adding comment:", error);
       }
     },
-    [tickets, setTickets, selectedTicket],
+    [refresh, user?.id],
   );
 
   // Api Done ✅
@@ -297,12 +317,14 @@ export const TicketProvider = ({ children }) => {
           ticketNo: TicketNo,
           reopen: openTicket,
         });
+        lastUpdatedTicketNoRef.current = TicketNo;
         setLastUpdatedTicketNo(TicketNo);
         sessionStorage.setItem("LastUpdatedticket", TicketNo);
         console.log(res, "Ticket closed successfully!");
 
-        // Optimistic update instead of expensive full refetch
+        // Optimistic update — patch only the affected row in RxJS map
         const newStatus = openTicket ? "Open" : "Closed";
+        patchTicketInMap(TicketNo, { Status: newStatus });
         setTickets((prev) =>
           prev.map((t) =>
             t.TicketNo === TicketNo ? { ...t, Status: newStatus } : t,
@@ -312,10 +334,10 @@ export const TicketProvider = ({ children }) => {
           prev?.TicketNo === TicketNo ? { ...prev, Status: newStatus } : prev,
         );
       } catch (error) {
-        console.log("Error adding comment:", error);
+        console.log("Error closing ticket:", error);
       }
     },
-    [tickets, setTickets, selectedTicket],
+    [user?.id, setSelectedTicket],
   );
 
   const EditComment = useCallback(
@@ -338,7 +360,7 @@ export const TicketProvider = ({ children }) => {
         console.log("Error adding comment:", error);
       }
     },
-    [tickets, setTickets, selectedTicket],
+    [refresh, user?.id],
   );
 
   useEffect(() => {
@@ -351,6 +373,8 @@ export const TicketProvider = ({ children }) => {
           navigate("/ticket");
         }
         setSelectedTicket(payload);
+        // Drive detail panel via RxJS — instant, no parent re-render
+        setCurrentView("detail");
       }
     };
     return () => channel.close();
@@ -360,6 +384,8 @@ export const TicketProvider = ({ children }) => {
   useSocketEvent("CreateTicket", (data) => {
     if (data?.CreatedBy == user?.fullName) return;
     notify(data, "CREATE_TICKET");
+    // Add to RxJS map first — TicketItem for this ticket will subscribe on mount
+    addTicketToMap(data);
     setTickets((prev) => {
       const exists = prev.some((t) => t.TicketNo === data.TicketNo);
       if (exists) return prev;
@@ -370,6 +396,8 @@ export const TicketProvider = ({ children }) => {
   useSocketEvent("TicketComment", (data) => {
     console.log(data, "TicketComment");
     notify(data, "TICKET_COMMENT");
+    // Patch only the affected row in RxJS — zero re-renders for the other 799 rows
+    patchTicketInMap(data?.TicketNo, data);
     setTickets((prev) =>
       prev.map((t) => (t.TicketNo === data?.TicketNo ? { ...t, ...data } : t)),
     );
@@ -384,7 +412,8 @@ export const TicketProvider = ({ children }) => {
 
   useSocketEvent("CloseTicket", (data) => {
     notify(data, "CLOSE_TICKET", user);
-
+    // Patch only the affected row in RxJS
+    patchTicketInMap(data?.TicketNo, data);
     setTickets((prev) =>
       prev.map((t) => (t.TicketNo === data.TicketNo ? { ...t, ...data } : t)),
     );
@@ -398,6 +427,8 @@ export const TicketProvider = ({ children }) => {
 
   useSocketEvent("UpdateTicket", (data) => {
     notify(data, "UPDATE_TICKET", user);
+    // Patch only the affected row in RxJS — zero re-renders for all other rows
+    patchTicketInMap(data?.TicketNo, data);
     setTickets((prev) => {
       const idx = prev.findIndex((t) => t?.TicketNo === data?.TicketNo);
       if (idx === -1) return [data, ...prev];
@@ -415,39 +446,46 @@ export const TicketProvider = ({ children }) => {
     setRefreshComment((prev) => !prev);
   });
 
+  // Memoize the context value — prevents ALL consumers from re-rendering
+  // when only one piece of state (e.g. loading) changes.
+  const contextValue = useMemo(() => ({
+    tickets,
+    setTickets,
+    addTicket,
+    updateTicket,
+    selectedTicket,
+    setSelectedTicket,
+    TicketMaster,
+    APPNAME_LIST,
+    COMPANY_LIST,
+    CATEGORY_LIST,
+    STATUS_LIST,
+    PRIORITY_LIST,
+    USERNAME_LIST,
+    AddComment,
+    CloseTicket,
+    loading,
+    refreshComment,
+    handleRefresh,
+    CORPORATE_LOGIN_MASTER,
+    setRefresh,
+    EditComment,
+    // 🔔 notification handlers
+    setNotificationInstance,
+    showNotify,
+    isInitialLoading,
+    isTicketDirty,
+    setIsTicketDirty,
+    fetchSingleTicket,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [
+    tickets, addTicket, updateTicket, selectedTicket, setSelectedTicket,
+    TicketMaster, AddComment, CloseTicket, loading, refreshComment,
+    CORPORATE_LOGIN_MASTER, EditComment, isInitialLoading, isTicketDirty,
+  ]);
+
   return (
-    <TicketContext.Provider
-      value={{
-        tickets,
-        setTickets,
-        addTicket,
-        updateTicket,
-        selectedTicket,
-        setSelectedTicket,
-        TicketMaster,
-        APPNAME_LIST,
-        COMPANY_LIST,
-        CATEGORY_LIST,
-        STATUS_LIST,
-        PRIORITY_LIST,
-        USERNAME_LIST,
-        AddComment,
-        CloseTicket,
-        loading,
-        refreshComment,
-        handleRefresh,
-        CORPORATE_LOGIN_MASTER,
-        setRefresh,
-        EditComment,
-        // 🔔 notification handlers
-        setNotificationInstance,
-        showNotify,
-        isInitialLoading,
-        isTicketDirty,
-        setIsTicketDirty,
-		fetchSingleTicket
-      }}
-    >
+    <TicketContext.Provider value={contextValue}>
       {children}
     </TicketContext.Provider>
   );

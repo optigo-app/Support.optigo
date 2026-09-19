@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Box from "@mui/material/Box";
@@ -6,7 +6,6 @@ import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import TicketList from "./components/Tickets";
 import TicketDetail from "./components/Details";
-import { appBarHeight } from "../../libs/data";
 import BlankPage from "./components/BlankPage";
 import { useTicket } from "../../context/useTicket";
 import { TicketTheme } from "../../styles/MuiStyles";
@@ -25,24 +24,59 @@ import {
 	ticketDisplayList$,
 	ticketAgesFilter$,
 	useSubjectValue,
+	currentView$,
+	setCurrentView,
+	selectedTicket$,
 } from "../../rxjs/ticketStore";
 
+// ─── RightPanel ───────────────────────────────────────────────────────────────
+// Isolated memo component driven by currentView$ (RxJS BehaviorSubject).
+// Clicking a ticket emits to currentView$ → ONLY this component re-renders.
+// The TicketUi parent and TicketList are completely untouched.
+const RightPanel = React.memo(({ showNotification, handleCloseDetail, effectivePrefilled, handleCreateTicket }) => {
+	const currentView = useSubjectValue(currentView$);
+	// Read from selectedTicket$ (RxJS) instead of context — avoids re-rendering
+	// TicketUi parent and all other context consumers when selection changes.
+	const selectedTicket = useSubjectValue(selectedTicket$);
+
+	if (currentView === "detail") {
+		return (
+			<TicketDetail
+				key={selectedTicket?.TicketNo || selectedTicket?.TicketId}
+				showNotification={showNotification}
+				onClose={handleCloseDetail}
+				ticket={selectedTicket}
+			/>
+		);
+	}
+	if (currentView === "create") {
+		return (
+			<CreateTicketForm
+				prefilledData={effectivePrefilled}
+				showNotification={showNotification}
+				handleCloseDetail={handleCloseDetail}
+			/>
+		);
+	}
+	return <BlankPage handleCreateTicket={handleCreateTicket} />;
+});
+
+// ─── TicketUi ─────────────────────────────────────────────────────────────────
 function TicketUi({ showNotification }) {
-	const [currentView, setCurrentView] = useState("blank");
 	const [activeItem, setActiveItem] = useState(() => {
-		const SelectedMenu = window.localStorage.getItem("activeItem");
-		if (SelectedMenu) {
-			return JSON.parse(SelectedMenu);
-		} else {
+		try {
+			return JSON.parse(window.localStorage.getItem("activeItem")) || "new_ticket";
+		} catch {
 			return "new_ticket";
 		}
 	});
+
 	const { tickets, selectedTicket, setSelectedTicket, setNotificationInstance, isTicketDirty, setIsTicketDirty } = useTicket();
 	const [discardModalOpen, setDiscardModalOpen] = useState(false);
 	const [pendingAction, setPendingAction] = useState(null);
 	const location = useLocation();
 	const queryParams = new URLSearchParams(location.search);
-	const contentHeight = `calc(100vh - ${HeaderHeight+2}px)`;
+	const contentHeight = `calc(100vh - ${HeaderHeight + 2}px)`;
 	const id = queryParams.get("TicketId") ? atob(queryParams.get("TicketId")) : null;
 	const appname = queryParams.get("Appname") ? atob(queryParams.get("Appname")) : null;
 	const TicketPreviewId = queryParams.get("TicketPreviewId") ? atob(queryParams.get("TicketPreviewId")) : null;
@@ -73,7 +107,7 @@ function TicketUi({ showNotification }) {
 
 	// AgesBasedFilter — read from RxJS store, writes back through action
 	const AgesBasedFilter = useSubjectValue(ticketAgesFilter$);
-	const setAgesBasedFilter = (val) => setTicketAgesFilter(val);
+	const setAgesBasedFilter = useCallback((val) => setTicketAgesFilter(val), []);
 
 	// Sync raw tickets into RxJS store whenever tickets update
 	useEffect(() => {
@@ -90,72 +124,103 @@ function TicketUi({ showNotification }) {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [filters]);
 
-	const executeWithDirtyCheck = (action) => {
+	// Stable scroll key: only changes when user navigates (tabs, age sort, search, filters).
+	// Adding comments or updating ticket data does NOT change this key, preserving scroll position.
+	const scrollKey = useMemo(() => {
+		const f = filters || {};
+		return `${activeItem}|${AgesBasedFilter}|${f.searchQuery || ""}|${(f.status || []).join(",")}|${f.priority || ""}|${f.category || ""}|${f.projectCode || ""}|${f.appname || ""}|${f.isStarred || ""}`;
+	}, [activeItem, AgesBasedFilter, filters]);
+
+	// ─── Dirty-check guard ─────────────────────────────────────────────────────
+	const executeWithDirtyCheck = useCallback((action) => {
 		if (isTicketDirty) {
 			setPendingAction(() => action);
 			setDiscardModalOpen(true);
 		} else {
 			action();
 		}
-	};
+	}, [isTicketDirty]);
 
-	const handleConfirmDiscard = () => {
+	const handleConfirmDiscard = useCallback(() => {
 		setIsTicketDirty(false);
 		setDiscardModalOpen(false);
 		if (pendingAction) {
 			pendingAction();
 			setPendingAction(null);
 		}
-	};
+	}, [pendingAction]);
 
-	const handleCancelDiscard = () => {
+	const handleCancelDiscard = useCallback(() => {
 		setDiscardModalOpen(false);
 		setPendingAction(null);
-	};
+	}, []);
 
-	const handleTicketSelect = (ticket) => {
-		if (selectedTicket?.TicketNo === ticket?.TicketNo && currentView === "detail") {
+	// ─── Handlers — all event-driven via RxJS, no intermediate React state ─────
+
+	const handleTicketSelect = useCallback((ticket) => {
+		// Early exit — already selected and showing detail
+		if (selectedTicket?.TicketNo === ticket?.TicketNo && currentView$.getValue() === "detail") {
 			return;
 		}
 		executeWithDirtyCheck(() => {
 			setSelectedTicket(ticket);
+			// Emit to RxJS → only RightPanel re-renders (not TicketUi, not TicketList)
 			setCurrentView("detail");
 		});
-	};
+	}, [selectedTicket?.TicketNo, executeWithDirtyCheck]);
 
-	const handleCreateTicket = () => {
+	const handleCreateTicket = useCallback(() => {
 		executeWithDirtyCheck(() => {
-			setCurrentView("create");
 			setSelectedTicket(null);
+			setCurrentView("create");
 		});
-	};
+	}, [executeWithDirtyCheck]);
 
-	const handleCloseDetail = () => {
+	const handleCloseDetail = useCallback(() => {
 		executeWithDirtyCheck(() => {
 			setSelectedTicket(null);
 			setCurrentView("blank");
 		});
-	};
+	}, [executeWithDirtyCheck]);
 
-	const handleSetActiveItem = (item) => {
+	const handleSetActiveItem = useCallback((item) => {
 		if (activeItem === item) return;
 		executeWithDirtyCheck(() => {
+			// ✅ Call setTicketActiveTab SYNCHRONOUSLY here — not in a useEffect.
+			// Previously it ran inside useEffect which fired AFTER a full render cycle,
+			// meaning the list didn't update until render #2. Now it's instant.
+			setTicketActiveTab(item);
+			window.localStorage.setItem("activeItem", JSON.stringify(item));
 			setActiveItem(item);
+			if (!isNavigated && !isPreviewNavigated) {
+				setSelectedTicket(null);
+				setCurrentView("blank");
+			}
 		});
-	};
+	}, [activeItem, isNavigated, isPreviewNavigated, executeWithDirtyCheck]);
+
+	// ─── Effects ───────────────────────────────────────────────────────────────
 
 	useEffect(() => {
 		setNotificationInstance(showNotification);
 	}, [showNotification]);
 
+	// Sync activeItem to RxJS on first mount (localStorage restore)
 	useEffect(() => {
-		window.localStorage.setItem("activeItem", JSON.stringify(activeItem));
 		setTicketActiveTab(activeItem);
+		window.localStorage.setItem("activeItem", JSON.stringify(activeItem));
+	// Only run once on mount — handleSetActiveItem handles subsequent changes synchronously
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Navigate to blank view when tab changes (only if not navigated from external link)
+	useEffect(() => {
 		if (!isNavigated && !isPreviewNavigated) {
 			setSelectedTicket(null);
 			setCurrentView("blank");
 		}
-	}, [activeItem, isNavigated, isPreviewNavigated]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeItem]);
 
 	useEffect(() => {
 		if (TicketPreviewId) {
@@ -191,8 +256,6 @@ function TicketUi({ showNotification }) {
 		}
 	}, [stateData, appname, id]);
 
-
-
 	return (
 		<ThemeProvider theme={TicketTheme}>
 			<MetaWrapper page="TicketManagement" />
@@ -216,10 +279,15 @@ function TicketUi({ showNotification }) {
 							borderLeft: "1px solid #e0e0e0",
 						}}
 					>
-						<TicketList key={activeItem} tickets={data} selectedTicket={selectedTicket} onTicketSelect={handleTicketSelect} />
-						{currentView === "detail" && <TicketDetail key={selectedTicket?.TicketNo || selectedTicket?.TicketId} showNotification={showNotification} onClose={handleCloseDetail} ticket={selectedTicket} />}
-						{currentView === "create" && <CreateTicketForm prefilledData={effectivePrefilled} showNotification={showNotification} handleCloseDetail={handleCloseDetail} />}
-						{currentView === "blank" && <BlankPage handleCreateTicket={handleCreateTicket} />}
+						{/* scrollKey drives scroll-to-top on intentional tab/filter switch; data updates preserve position */}
+						<TicketList tickets={data} onTicketSelect={handleTicketSelect} scrollKey={scrollKey} />
+						{/* RightPanel subscribes to currentView$ directly — only it re-renders on view change */}
+						<RightPanel
+							showNotification={showNotification}
+							handleCloseDetail={handleCloseDetail}
+							effectivePrefilled={effectivePrefilled}
+							handleCreateTicket={handleCreateTicket}
+						/>
 					</Box>
 				</Box>
 			</Box>

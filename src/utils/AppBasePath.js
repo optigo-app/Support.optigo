@@ -55,6 +55,7 @@ export function getAppBasePath() {
 }
 
 export function isArchiveDomain() {
+  return true
   const host = typeof window !== "undefined" ? window?.location?.hostname || "" : "";
   return (
     host.includes("localhost") ||

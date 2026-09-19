@@ -10,15 +10,21 @@ import Previewer from "../Previewer";
 
 const AttachmentCard = ({ comment, openAttachmentId, handleToggleCollapse }) => {
   const [open, setOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
   if (!comment?.attachment) return null;
   const { isMultiple, attachments } = ValidateAttachment(comment);
+
+  const handleOpenPreview = (index = 0) => {
+    setPreviewIndex(typeof index === "number" ? index : 0);
+    setOpen(true);
+  };
 
   return (
     <>
       <Box sx={{ mb: 1.5 }}>
         {isMultiple ? (
           <MultipleAttachmentCard 
-            HandleOpen={() => setOpen(true)} 
+            HandleOpen={handleOpenPreview} 
             attachments={attachments} 
             comment={comment} 
             openAttachmentId={openAttachmentId} 
@@ -26,7 +32,7 @@ const AttachmentCard = ({ comment, openAttachmentId, handleToggleCollapse }) => 
           />
         ) : (
           <SingleAttachmentCard 
-            HandleOpen={() => setOpen(true)} 
+            HandleOpen={() => handleOpenPreview(0)} 
             attachment={attachments[0]} 
             comment={comment} 
             openAttachmentId={openAttachmentId} 
@@ -34,7 +40,13 @@ const AttachmentCard = ({ comment, openAttachmentId, handleToggleCollapse }) => 
           />
         )}
       </Box>
-      <Previewer open={open} setOpen={setOpen} attachments={attachments} />
+      <Previewer
+        open={open}
+        setOpen={setOpen}
+        attachments={attachments}
+        currentIndex={previewIndex}
+        onNavigate={setPreviewIndex}
+      />
     </>
   );
 };
@@ -85,14 +97,6 @@ const handleDownload = async (fileUrl, e) => {
   }
 };
 
-// --- Open file in new tab utility ---
-const handleOpenFile = (fileUrl, e) => {
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-  window.open(fileUrl, "_blank", "noopener,noreferrer");
-};
 
 // --- SINGLE ATTACHMENT CARD ---
 const SingleAttachmentCard = ({ HandleOpen, attachment, comment, openAttachmentId, handleToggleCollapse }) => {
@@ -300,7 +304,7 @@ const MultipleAttachmentCard = ({ HandleOpen, attachments, comment, openAttachme
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                HandleOpen();
+                HandleOpen(selectedIndex);
               }}
             >
               <OpenInNewIcon fontSize="small" />
@@ -341,6 +345,10 @@ const MultipleAttachmentCard = ({ HandleOpen, attachments, comment, openAttachme
                     e.stopPropagation();
                     setSelectedIndex(index);
                   }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    HandleOpen(index);
+                  }}
                   sx={{ cursor: "pointer" }}
                 />
               );
@@ -351,7 +359,7 @@ const MultipleAttachmentCard = ({ HandleOpen, attachments, comment, openAttachme
         <Box sx={{ px: 1.5, pb: 1.5 }}>
           <AttachmentPreview
             attachment={selectedAttachment}
-            onOpen={HandleOpen}
+            onOpen={() => HandleOpen(selectedIndex)}
           />
         </Box>
       </Collapse>

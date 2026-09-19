@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -28,6 +28,7 @@ import { CheckCircleIcon } from "lucide-react";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import { PremiumTooltip } from "../../../_ui/CustomUI";
 import dayjs from "dayjs";
+import { useTicketFromMap, useIsTicketSelected } from "../../../../rxjs/ticketStore";
 
 const PriorityChip = styled(Box)(({ color }) => ({
   display: "flex",
@@ -65,39 +66,54 @@ const CommentPreviewTooltip = styled(({ className, ...props }) => (
   },
 }));
 
-const TicketItem = ({ selectedTicket, onTicketSelect, ticket }) => {
+const TicketItem = ({ ticketNo, onTicketSelect }) => {
+  // ⬇️ Subscribe to this ticket's own BehaviorSubject.
+  // Only THIS component re-renders when this specific ticket changes.
+  // All other 799 rows are completely unaffected.
+  const ticket = useTicketFromMap(ticketNo);
+
+  // Subscribe to selectedTicketNo$ — only 2 rows re-render on a click (old + new selected)
+  const isSelected = useIsTicketSelected(ticketNo);
+
   const [Star, setStar] = useState(
     ticket?.star === true || ticket?.star === "true",
   );
   const { updateTicket } = useTicket();
   const { user } = useAuth();
 
-  //   "OrderId": 31,
-  // "Order_CreatedDate": "2025-10-10 16:30:29",
+  // Memoize status style — only recomputes when Status changes, not on every render
+  const { bgColor, textColor } = useMemo(
+    () => GetTicketStatusStyle(ticket?.Status),
+    [ticket?.Status],
+  );
 
-  const { bgColor, textColor } = GetTicketStatusStyle(ticket?.Status);
-
-  const handleStarChange = (data, id) => {
+  const handleStarChange = useCallback((data, id) => {
     const isStarred = data === true || data === "true";
     setStar(isStarred);
     updateTicket(id, { Star: isStarred });
-  };
+  }, [updateTicket]);
 
+  // Only update Star local state when the server value actually changes
+  // (guards against the double re-render caused by the unconditional setState)
   useEffect(() => {
-    setStar(ticket?.star === true || ticket?.star === "true");
-  }, [ticket]);
+    const newVal = ticket?.star === true || ticket?.star === "true";
+    if (newVal !== Star) setStar(newVal);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket?.star]);
 
-  const CommentCount = DataParser(ticket?.comments).length;
-
-  const parsedComments = DataParser(ticket?.comments || "").data || [];
-  const sortedComments = [...parsedComments].sort(
-    (a, b) => new Date(b?.time) - new Date(a?.time),
-  );
-  // Find the latest comment that has a non-empty message, defaulting to the newest if none found
-  const latestComment =
-    sortedComments.find((c) => c?.message && c.message.trim() !== "") ||
-    sortedComments[0] ||
-    null;
+  // Memoize comment parsing + sorting — only recomputes when comments string changes.
+  // Avoids JSON.parse + array sort on every render (was the single biggest offender).
+  const { CommentCount, latestComment } = useMemo(() => {
+    const parsed = DataParser(ticket?.comments || "").data || [];
+    const sorted = [...parsed].sort((a, b) => new Date(b?.time) - new Date(a?.time));
+    return {
+      CommentCount: DataParser(ticket?.comments).length,
+      latestComment:
+        sorted.find((c) => c?.message && c.message.trim() !== "") ||
+        sorted[0] ||
+        null,
+    };
+  }, [ticket?.comments]);
 
   const formatCommenterName = (name) => {
     if (!name) return "";
@@ -279,18 +295,21 @@ const TicketItem = ({ selectedTicket, onTicketSelect, ticket }) => {
         disablePadding
         sx={{
           display: "flex",
-          alignItems: "stretch", // make children stretch vertically
+          alignItems: "stretch",
+          height: "100%",
+          width: "100%",
+          boxSizing: "border-box",
           backgroundImage:
-            selectedTicket?.TicketNo === ticket?.TicketNo
+            isSelected
               ? "linear-gradient(135deg, rgba(178,6,155,0.1), rgba(57,9,194,0.1))"
               : "none",
           borderRight:
-            selectedTicket?.TicketNo === ticket?.TicketNo
+            isSelected
               ? "4px solid #7808AE"
               : "4px solid transparent",
           "&:hover": {
             backgroundImage:
-              selectedTicket?.TicketNo === ticket?.TicketNo
+              isSelected
                 ? "linear-gradient(135deg, rgba(178,6,155,0.1), rgba(57,9,194,0.1))"
                 : "linear-gradient(135deg, rgba(178,6,155,0.05), rgba(57,9,194,0.05))",
           },
@@ -329,7 +348,18 @@ const TicketItem = ({ selectedTicket, onTicketSelect, ticket }) => {
           </Box>
         )}
 
-        <Box sx={{ flex: 1, p: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            p: 2,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            minHeight: 0,
+            overflow: "hidden",
+            boxSizing: "border-box",
+          }}
+        >
           <Box
             sx={{
               display: "flex",
@@ -598,12 +628,10 @@ const TicketItem = ({ selectedTicket, onTicketSelect, ticket }) => {
                 fontSize={13}
                 sx={{
                   display: "-webkit-box",
-                  WebkitLineClamp: 3,
+                  WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-
-                  // ✅ these fix long unbroken strings
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
                   whiteSpace: "normal",

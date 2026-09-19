@@ -57,11 +57,7 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 				flexGrow: 1,
 				display: "flex",
 				overflow: "hidden",
-				// bgcolor: "#ffffff",
 				width: "100%",
-					backdropFilter: "blur(10px)",                   // blur behind the element
-						WebkitBackdropFilter: "blur(10px)",             // for Safari support
-						boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",     // subtle shadow for depth
 			}}
 		>
 			<Box

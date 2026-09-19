@@ -1,6 +1,6 @@
 import { BehaviorSubject, combineLatest } from "rxjs";
 import { map, distinctUntilChanged, debounceTime } from "rxjs/operators";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useRef, useEffect, useState } from "react";
 import { getFilteredTickets, getDateFieldByType, getTicketAgeCategory } from "../utils/TicketListUtils";
 import { filterTickets } from "../utils/TicketFilter";
 
@@ -141,7 +141,14 @@ combineLatest([ticketRawList$, ticketAgesFilter$])
 
 			return counts;
 		}),
-		distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+		distinctUntilChanged((a, b) => {
+			// Fast shallow key compare — avoids serialising 800 tickets on every tick
+			const keys = Object.keys(a);
+			for (let i = 0; i < keys.length; i++) {
+				if (a[keys[i]] !== b[keys[i]]) return false;
+			}
+			return true;
+		})
 	)
 	.subscribe((counts) => ticketSidebarCounts$.next(counts));
 
@@ -156,7 +163,6 @@ export const ticketDisplayList$ = new BehaviorSubject([]);
 
 combineLatest([ticketRawList$, ticketActiveTab$, ticketAgesFilter$, ticketFilters$])
 	.pipe(
-		debounceTime(0),
 		map(([tickets, activeTab, agesFilter, filters]) => {
 			// When searching: bypass tab filter, search all tickets
 			const baseList = filters?.searchQuery?.trim()
@@ -168,9 +174,121 @@ combineLatest([ticketRawList$, ticketActiveTab$, ticketAgesFilter$, ticketFilter
 	)
 	.subscribe((list) => ticketDisplayList$.next(list));
 
+// ─── Per-Ticket BehaviorSubject Map ──────────────────────────────────────────
+//
+// Each ticket gets its own BehaviorSubject keyed by TicketNo.
+// When a socket patches one ticket, only that subject emits → only that row re-renders.
+// The outer ticketMap$ holds the Map reference itself (changes only when tickets are
+// added or removed — not on every single-ticket update).
+
+/** @type {BehaviorSubject<Map<string, BehaviorSubject<Object>>>} */
+export const ticketMap$ = new BehaviorSubject(new Map());
+
+/**
+ * Rebuild / update the per-ticket map from a fresh ticket list.
+ * Existing subjects are reused (only .next() is called on them) so subscribers
+ * that are already mounted don't get a new subscription object.
+ * @param {Array} tickets
+ */
+function syncTicketMap(tickets) {
+	const current = ticketMap$.getValue();
+	const next = new Map(current);
+	const incomingNos = new Set();
+
+	(tickets || []).forEach((t) => {
+		if (!t?.TicketNo) return;
+		const key = String(t.TicketNo);
+		incomingNos.add(key);
+		if (next.has(key)) {
+			// Reuse existing subject — only push new value
+			next.get(key).next(t);
+		} else {
+			// New ticket — create a subject for it
+			next.set(key, new BehaviorSubject(t));
+		}
+	});
+
+	// Remove subjects for tickets that are no longer in the list
+	for (const key of current.keys()) {
+		if (!incomingNos.has(key)) {
+			next.delete(key);
+		}
+	}
+
+	ticketMap$.next(next);
+}
+
+/**
+ * Patch a single ticket in the map without touching any other subject.
+ * Call this from socket event handlers for zero-cost single-row updates.
+ * @param {string} ticketNo
+ * @param {Object} updates  — partial ticket fields to merge
+ */
+export const patchTicketInMap = (ticketNo, updates) => {
+	if (!ticketNo) return;
+	const key = String(ticketNo);
+	const subject = ticketMap$.getValue().get(key);
+	if (subject) {
+		subject.next({ ...subject.getValue(), ...updates });
+	}
+};
+
+/**
+ * Add a single new ticket to the map (used by CreateTicket socket event).
+ * @param {Object} ticket
+ */
+export const addTicketToMap = (ticket) => {
+	if (!ticket?.TicketNo) return;
+	const key = String(ticket.TicketNo);
+	const current = ticketMap$.getValue();
+	if (current.has(key)) {
+		current.get(key).next(ticket);
+	} else {
+		const next = new Map(current);
+		next.set(key, new BehaviorSubject(ticket));
+		ticketMap$.next(next);
+	}
+};
+
+// ─── Current View (RxJS-driven) ───────────────────────────────────────────────
+//
+// Tracks which panel is visible: "blank" | "detail" | "create"
+// Moved out of React state so clicking a ticket only re-renders the isolated
+// RightPanel component — not the entire TicketUi parent.
+
+/** @type {BehaviorSubject<"blank"|"detail"|"create">} */
+export const currentView$ = new BehaviorSubject("blank");
+
+export const setCurrentView = (view) => currentView$.next(view);
+
+// ─── Selected Ticket (RxJS-driven) ───────────────────────────────────────────
+//
+// Tracks only the TicketNo of the currently selected ticket.
+// TicketItem subscribes to this to know if it is highlighted.
+// Changing selection emits to exactly 2 items (old + new) — not all 800.
+
+/** @type {BehaviorSubject<string|null>} */
+export const selectedTicketNo$ = new BehaviorSubject(null);
+
+export const setSelectedTicketNo = (ticketNo) =>
+	selectedTicketNo$.next(ticketNo ? String(ticketNo) : null);
+
+/** @type {BehaviorSubject<Object|null>} */
+export const selectedTicket$ = new BehaviorSubject(null);
+
+export const setSelectedTicketInStore = (ticket) => {
+	selectedTicket$.next(ticket ?? null);
+};
+
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
-export const setTicketRawList = (tickets) => ticketRawList$.next(tickets);
+/**
+ * @param {Array} tickets
+ */
+export const setTicketRawList = (tickets) => {
+	ticketRawList$.next(tickets || []);
+	syncTicketMap(tickets);
+};
 export const setTicketActiveTab = (tab) => ticketActiveTab$.next(tab);
 export const setTicketAgesFilter = (filter) => ticketAgesFilter$.next(filter);
 // setTicketFilters replaces the entire filter object (callers from useUrlFilters pass the complete object)
@@ -179,7 +297,7 @@ export const setTicketFilters = (newFilters) => {
 };
 export const clearTicketFilters = () => ticketFilters$.next({ ...DEFAULT_FILTERS });
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ─── Hooks ────────────────────────────────────────────────────────────────────
 
 /**
  * Subscribe to any BehaviorSubject using useSyncExternalStore (React 18 optimised)
@@ -194,5 +312,58 @@ export function useSubjectValue(subject$) {
 			return () => sub.unsubscribe();
 		},
 		() => subject$.getValue()
+	);
+}
+
+/**
+ * Subscribe to a single ticket's BehaviorSubject from ticketMap$.
+ * Only this hook (and therefore only this TicketItem) re-renders when that
+ * specific ticket is patched — all other rows are completely unaffected.
+ *
+ * @param {string} ticketNo
+ * @returns {Object|null} the latest ticket data
+ */
+export function useTicketFromMap(ticketNo) {
+	const key = ticketNo ? String(ticketNo) : null;
+
+	// We need to subscribe to the *inner* BehaviorSubject for the ticket,
+	// but the inner subject reference itself may not exist yet (race on first render).
+	// We fall back gracefully: read from the map, and if the subject isn't there yet,
+	// return null so the item renders nothing (it will re-render once the map populates).
+	return useSyncExternalStore(
+		(callback) => {
+			if (!key) return () => {};
+			// Subscribe to both the map (in case the subject is added later)
+			// and the inner subject (for per-field updates).
+			const mapSub = ticketMap$.subscribe(() => callback());
+			const innerSubject = ticketMap$.getValue().get(key);
+			const innerSub = innerSubject ? innerSubject.subscribe(() => callback()) : null;
+			return () => {
+				mapSub.unsubscribe();
+				if (innerSub) innerSub.unsubscribe();
+			};
+		},
+		() => {
+			if (!key) return null;
+			return ticketMap$.getValue().get(key)?.getValue() ?? null;
+		}
+	);
+}
+
+/**
+ * Returns true only when this ticket is the currently selected one.
+ * Subscribes to selectedTicketNo$ — so on a click, only 2 TicketItems
+ * (old selected + new selected) re-render. The other 798 are untouched.
+ *
+ * @param {string} ticketNo
+ * @returns {boolean}
+ */
+export function useIsTicketSelected(ticketNo) {
+	return useSyncExternalStore(
+		(callback) => {
+			const sub = selectedTicketNo$.subscribe(callback);
+			return () => sub.unsubscribe();
+		},
+		() => selectedTicketNo$.getValue() === (ticketNo ? String(ticketNo) : null)
 	);
 }

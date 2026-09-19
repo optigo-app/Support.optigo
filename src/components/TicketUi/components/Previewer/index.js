@@ -1,8 +1,8 @@
 import React from "react";
 import Preview from "./Preview";
 
-const index = ({ attachments = [], open = false, setOpen = () => {} }) => {
-	return <Preview attachments={attachments} open={open} setOpen={setOpen} />;
+const Previewer = (props) => {
+	return <Preview {...props} />;
 };
 
-export default index;
+export default Previewer;

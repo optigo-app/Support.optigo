@@ -1,7 +1,6 @@
-import React from "react";
-import { Box, Typography, Divider, List, IconButton, Badge, Tooltip, Skeleton, Stack } from "@mui/material";
+import React, { useRef, useEffect, useCallback, useMemo } from "react";
+import { Box, Typography, IconButton, Badge, Tooltip, Skeleton, Stack } from "@mui/material";
 import TicketItem from "./TicketItem";
-import { useState } from "react";
 import FilterAltRoundedIcon from "@mui/icons-material/FilterAltRounded";
 import FilterAltOffRoundedIcon from "@mui/icons-material/FilterAltOffRounded";
 import { useUrlFilters } from "../../../../hooks/useFilters";
@@ -13,17 +12,76 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import { motion, useAnimation } from "framer-motion";
 import { useTicket } from "../../../../context/useTicket";
 import { ticketFilterAnchorEl$, openTicketFilter, closeTicketFilter, useSubject } from "../../../../rxjs/layoutStore";
+import { VariableSizeList } from "react-window";
+import AutoSizer from "react-virtualized-auto-sizer";
 
+// ─── VirtualRow — self-measuring ──────────────────────────────────────────────
+/**
+ * Deterministic height calculation for any ticket card.
+ * Computes exact height synchronously based on content, eliminating the
+ * post-render DOM measurement glitch and layout shifts in react-window.
+ */
+export const calculateTicketRowHeight = (ticket) => {
+  if (!ticket) return 105;
+
+  // Base padding (16px top + 16px bottom = 32px) + borderBottom (1px)
+  let h = 33;
+
+  // Row 1: MainSubject / subject (clamped to 1 line, ~20px)
+  h += 20;
+
+  // Row 2: Star + TicketNo + Company + Priority + Comment + Call (~24px)
+  h += 24;
+
+  // Row 3: Status / Order chips (mt: 4px + chip: 22px = 26px)
+  if (ticket.Status || ticket.OrderId) {
+    h += 26;
+  }
+
+  // Row 4: Instruction (optional)
+  const instruction = ticket.instruction ? String(ticket.instruction).trim() : "";
+  if (instruction) {
+    // Ticket list width is ~480px. Usable content width is ~420px.
+    // In 13px font, ~48 characters fits on 1 line.
+    // If > 48 characters or contains newlines, clamped to 2 lines.
+    if (instruction.length > 48 || instruction.includes("\n")) {
+      h += 40; // 2 lines: 4px mt + 36px (2 lines * 18px)
+    } else {
+      h += 22; // 1 line: 4px mt + 18px (1 line)
+    }
+  }
+
+  return h;
+};
+
+const VirtualRow = React.memo(({ index, style, data }) => {
+  const { tickets, onTicketSelect } = data;
+  const ticket = tickets[index];
+
+  if (!ticket) return null;
+
+  return (
+    <div
+      style={{
+        ...style,
+        borderBottom: "1px solid #DFE1E6",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
+      <TicketItem ticketNo={ticket?.TicketNo} onTicketSelect={onTicketSelect} />
+    </div>
+  );
+});
+
+// ─── FilterIconButton ──────────────────────────────────────────────────────────
 const FilterIconButton = React.memo(({ filterCount }) => {
   const anchorEl = useSubject(ticketFilterAnchorEl$);
   const isOpen = Boolean(anchorEl);
 
   const handleClick = (event) => {
-    if (isOpen) {
-      closeTicketFilter();
-    } else {
-      openTicketFilter(event.currentTarget);
-    }
+    if (isOpen) closeTicketFilter();
+    else openTicketFilter(event.currentTarget);
   };
 
   return (
@@ -39,38 +97,29 @@ const FilterIconButton = React.memo(({ filterCount }) => {
   );
 });
 
-/**
- * Isolated component: owns useUrlFilters so TicketList itself never re-renders from URL filter changes.
- * Only this small header re-renders on filter/search updates.
- */
+// ─── TicketListHeader ─────────────────────────────────────────────────────────
 const TicketListHeader = React.memo(({ filterTicketCount, onDownloadExcel }) => {
   const { filterCount, clearFilters, hasFilters } = useUrlFilters();
   const controls = useAnimation();
-  const [isRotating, setIsRotating] = useState(false);
-  const { setRefresh } = useTicket();
 
-  const handleClickRotate = async () => {
-    if (!isRotating) {
-      setIsRotating(true);
-      await controls.start({
-        rotate: 360,
-        transition: { duration: 0.6, ease: "easeInOut" },
-      });
-      controls.set({ rotate: 0 });
-      setIsRotating(false);
-      setRefresh((prev) => !prev);
-    }
+  const handleClickRotate = () => {
+    controls.start({
+      rotate: 360,
+      transition: { duration: 0.6, ease: "easeInOut" },
+    });
   };
 
   return (
     <Box
       sx={{
-        p: 1.5,
         display: "flex",
+        height: 60,
+        px: 2,
         alignItems: "center",
         borderBottom: "1px solid #DFE1E6",
         justifyContent: "space-between",
         gap: 0.1,
+        flexShrink: 0,
       }}
     >
       <SearchBar filterTicketCount={filterTicketCount} />
@@ -95,12 +144,53 @@ const TicketListHeader = React.memo(({ filterTicketCount, onDownloadExcel }) => 
   );
 });
 
-const TicketList = ({ tickets, selectedTicket, onTicketSelect }) => {
+// ─── TicketList ───────────────────────────────────────────────────────────────
+const TicketList = ({ tickets, onTicketSelect, scrollKey }) => {
   const { isInitialLoading } = useTicket();
   const filterTicketCount = tickets.length;
-  const HandleDownloadExcel = () => {
+
+  // VariableSizeList instance ref
+  const listRef = useRef(null);
+
+  // Synchronous, deterministic height calculation for every ticket
+  const getItemSize = useCallback(
+    (index) => {
+      const ticket = tickets[index];
+      return calculateTicketRowHeight(ticket);
+    },
+    [tickets],
+  );
+
+  // ─── Intentional Navigation (tab or filter switch) ──────────────────────────
+  // scrollKey changes → scroll to top cleanly and recalculate positions
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.resetAfterIndex(0, true);
+      listRef.current.scrollTo(0);
+    }
+  }, [scrollKey]);
+
+  // ─── Item count change (new ticket added or removed) ────────────────────────
+  // If count changes on same tab, update react-window offsets without jumping scroll
+  const prevCountRef = useRef(tickets.length);
+  useEffect(() => {
+    if (prevCountRef.current !== tickets.length) {
+      prevCountRef.current = tickets.length;
+      if (listRef.current) {
+        listRef.current.resetAfterIndex(0, false);
+      }
+    }
+  }, [tickets.length]);
+
+  const HandleDownloadExcel = useCallback(() => {
     ExcelReportDowload(tickets);
-  };
+  }, [tickets]);
+
+  // itemData is stable unless tickets/callbacks change
+  const itemData = useMemo(
+    () => ({ tickets, onTicketSelect }),
+    [tickets, onTicketSelect],
+  );
 
   return (
     <Box
@@ -114,15 +204,10 @@ const TicketList = ({ tickets, selectedTicket, onTicketSelect }) => {
         minWidth: "480px",
       }}
     >
-      {/* Header owns useUrlFilters state \u2014 isolated so TicketList body doesn't re-render on filter/search changes */}
       <TicketListHeader filterTicketCount={filterTicketCount} onDownloadExcel={HandleDownloadExcel} />
-      <List
-        sx={{
-          p: 0,
-          overflow: "auto",
-          flexGrow: 1,
-        }}
-      >
+
+      {/* flex:1 + minHeight:0 → lets AutoSizer measure the exact remaining height */}
+      <Box sx={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
         {isInitialLoading ? (
           <TicketListSkeleton />
         ) : tickets?.length === 0 ? (
@@ -145,14 +230,25 @@ const TicketList = ({ tickets, selectedTicket, onTicketSelect }) => {
             <Typography variant="body2">Try adjusting your filters or check back later.</Typography>
           </Box>
         ) : (
-          tickets?.map((ticket, idx) => (
-            <React.Fragment key={ticket?.TicketNo || ticket?.id || idx}>
-              <TicketItem ticket={ticket} selectedTicket={selectedTicket} onTicketSelect={onTicketSelect} />
-              <Divider />
-            </React.Fragment>
-          ))
+          <AutoSizer>
+            {({ height, width }) => (
+              <VariableSizeList
+                ref={listRef}
+                height={height}
+                width={width}
+                itemCount={tickets.length}
+                itemSize={getItemSize}
+                estimatedItemSize={125}
+                overscanCount={6}
+                itemData={itemData}
+              >
+                {VirtualRow}
+              </VariableSizeList>
+            )}
+          </AutoSizer>
         )}
-      </List>
+      </Box>
+
       <FilterPopOver HandleDownloadExcel={HandleDownloadExcel} />
     </Box>
   );
@@ -161,10 +257,12 @@ const TicketList = ({ tickets, selectedTicket, onTicketSelect }) => {
 export default React.memo(TicketList);
 
 const TicketListSkeleton = () => (
-  <Stack spacing={1} sx={{ p: 1 }}>
+  <Stack spacing={0} sx={{ p: 0 }}>
     {[...Array(8)].map((_, i) => (
-      <Box key={i}>
-        <Skeleton variant="rectangular" height={110} sx={{ borderRadius: 4 }} />
+      <Box key={i} sx={{ borderBottom: "1px solid #DFE1E6", p: 2 }}>
+        <Skeleton variant="text" width="60%" height={20} />
+        <Skeleton variant="text" width="40%" height={16} sx={{ mt: 0.5 }} />
+        <Skeleton variant="rectangular" width="30%" height={22} sx={{ mt: 1, borderRadius: 1 }} />
       </Box>
     ))}
   </Stack>
