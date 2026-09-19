@@ -16,7 +16,15 @@ import { useSocketEvent } from "../hooks/useSocketListener";
 import { notify } from "../libs/NOTIFICATION_TEMPLATES";
 import { useNavigate } from "react-router-dom";
 import { concatMap } from "rxjs/operators";
-import { statusPriorityUpdates$ } from "../rxjs/callUpdateQueue";
+import { statusPriorityUpdates$, commentUpdates$ } from "../rxjs/callUpdateQueue";
+import { callStreamService } from "../services/callStreamService";
+import { parseFollowUpList, isForwardedCall } from "../utils/callLogUtils";
+import {
+  forwardedCalls$,
+  updateRawCalls,
+  updateCurrentUser,
+  useForwardedCalls,
+} from "../rxjs/forwardedCallsStore";
 
 const isValidCallPayload = (data) => {
   if (!data || typeof data !== "object") return false;
@@ -35,6 +43,73 @@ const isValidCallPayload = (data) => {
   return true;
 };
 
+const isValidCommentPayload = (data) => {
+  if (!data || typeof data !== "object") return false;
+  const callId = data.CallLogId ?? data.sr ?? data.callLogId;
+  if (!callId || isNaN(Number(callId)) || Number(callId) <= 0) {
+    return false;
+  }
+  if (
+    data.Comments === undefined &&
+    data.comment === undefined &&
+    data.text === undefined
+  ) {
+    return false;
+  }
+  return true;
+};
+
+const appendCommentToCallRecord = (callRecord, commentPayload) => {
+  if (!callRecord) return callRecord;
+  const rawCommentText =
+    commentPayload.Comments ?? commentPayload.comment ?? commentPayload.text ?? "";
+
+  const commentItem = {
+    id: commentPayload.id || Date.now(),
+    text: rawCommentText,
+    comment: rawCommentText,
+    time: commentPayload.CreatedDate || commentPayload.time || new Date().toISOString(),
+    Name: commentPayload.Name || commentPayload.CreatedByName || "Support User",
+    CreatedBy: commentPayload.CreatedBy,
+    IsClient: commentPayload.IsClient ?? 0,
+    img: commentPayload.FilePath || commentPayload.img || "",
+    FilePath: commentPayload.FilePath || commentPayload.img || "",
+  };
+
+  let existing = [];
+  if (typeof callRecord.comment === "string") {
+    try {
+      existing = JSON.parse(callRecord.comment);
+    } catch (_) {
+      existing = [];
+    }
+  } else if (Array.isArray(callRecord.comment)) {
+    existing = [...callRecord.comment];
+  }
+
+  const exists = existing.some((c) => {
+    if (commentItem.id && c.id && String(c.id) === String(commentItem.id)) {
+      return true;
+    }
+    const sameText = (c.text || c.comment || "").trim() === commentItem.text.trim();
+    const timeDiff = Math.abs(new Date(c.time || 0) - new Date(commentItem.time || 0));
+    if (sameText && (timeDiff < 10000 || !c.time)) {
+      return true;
+    }
+    return false;
+  });
+
+  if (!exists) {
+    existing.push(commentItem);
+  }
+
+  return {
+    ...callRecord,
+    comment: JSON.stringify(existing),
+    comments: existing,
+  };
+};
+
 const CallLogContext = createContext(null);
 
 export function CallLogProvider(props) {
@@ -46,7 +121,12 @@ export function CallLogProvider(props) {
   const callLogRef = useRef(callLog);
   useEffect(() => {
     callLogRef.current = callLog;
+    updateRawCalls(callLog);
   }, [callLog]);
+
+  useEffect(() => {
+    updateCurrentUser(user);
+  }, [user]);
 
   useEffect(() => {
     if (CurrentCall?.sr && Array.isArray(callLog)) {
@@ -151,10 +231,11 @@ export function CallLogProvider(props) {
       setCallLog((prevLog) => {
         let newLog = [...prevLog];
         updateQueue.current.forEach((event) => {
-          if (!isValidCallPayload(event.data)) return;
           if (event.type === "ADD") {
+            if (!isValidCallPayload(event.data)) return;
             newLog = [event.data, ...newLog];
           } else if (event.type === "UPDATE") {
+            if (!isValidCallPayload(event.data)) return;
             const exists = newLog.some((c) => c.sr === event.data.sr);
             if (exists) {
               newLog = newLog.map((c) =>
@@ -163,6 +244,14 @@ export function CallLogProvider(props) {
             } else {
               newLog = [event.data, ...newLog];
             }
+          } else if (event.type === "COMMENT") {
+            if (!isValidCommentPayload(event.data)) return;
+            const callId = event.data.CallLogId ?? event.data.sr ?? event.data.callLogId;
+            newLog = newLog.map((c) =>
+              String(c.sr) === String(callId) || String(c.id) === String(callId)
+                ? appendCommentToCallRecord(c, event.data)
+                : c,
+            );
           }
         });
         updateQueue.current = [];
@@ -977,27 +1066,7 @@ export function CallLogProvider(props) {
       ?.sort((a, b) => new Date(b?.date) - new Date(a?.date));
   }, [callLog]);
 
-  const forwardedCalls = useMemo(() => {
-    const fullName = `${user?.firstname || ""} ${user?.lastname || ""}`
-      .trim()
-      .toLowerCase();
-    const designation = user?.designation?.toLowerCase();
-
-    return [...callLog]
-      .filter((val) => {
-        const assignedName = val?.AssignedEmpName?.toLowerCase();
-        const deptName = val?.DeptName?.toLowerCase();
-        const isForwarded = !!assignedName && !!deptName;
-
-        const isAssignedToCurrentUser =
-          assignedName === fullName && deptName === designation;
-
-        const isNotClosed = !val?.callClosed;
-
-        return isForwarded && isAssignedToCurrentUser && isNotClosed;
-      })
-      .sort((a, b) => new Date(b?.date) - new Date(a?.date));
-  }, [callLog]);
+  const forwardedCalls = useForwardedCalls();
 
   const EditCallDuration = useCallback(
     async (callId, startDateTime, endDateTime) => {
@@ -1113,6 +1182,87 @@ export function CallLogProvider(props) {
     notify(data, "ACCEPT_CALL");
   });
 
+  // RxJS subscription for smooth real-time comment updates across New Call and Old Call Logger
+  useEffect(() => {
+    const sub = commentUpdates$.subscribe((commentData) => {
+      if (!isValidCommentPayload(commentData)) return;
+
+      const callId =
+        commentData.CallLogId ?? commentData.sr ?? commentData.callLogId;
+
+      const rawText =
+        commentData.Comments ?? commentData.comment ?? commentData.text ?? "";
+
+      const commentItem = {
+        id: commentData.id || Date.now(),
+        text: rawText,
+        comment: rawText,
+        time: commentData.CreatedDate || commentData.time || new Date().toISOString(),
+        Name: commentData.Name || commentData.CreatedByName || "Support User",
+        CreatedBy: commentData.CreatedBy,
+        IsClient: commentData.IsClient ?? 0,
+        img: commentData.FilePath || commentData.img || "",
+        FilePath: commentData.FilePath || commentData.img || "",
+      };
+
+      // 1. Immediately patch New Call RxJS stream (zero lag)
+      try {
+        callStreamService.patchComment(callId, commentItem);
+      } catch (err) {
+        console.error("Failed to patch comment in callStreamService:", err);
+      }
+
+      // 2. Update Old Call Logger callLog state
+      const isFromOtherUser =
+        commentData.CreatedBy && user?.id
+          ? String(commentData.CreatedBy) !== String(user.id)
+          : true;
+
+      if (areUpdatesBlocked.current) {
+        updateQueue.current.push({ type: "COMMENT", data: commentData });
+      } else {
+        setCallLog((prevLog) => {
+          if (!Array.isArray(prevLog)) return prevLog;
+          return prevLog.map((c) =>
+            String(c.sr) === String(callId) || String(c.id) === String(callId)
+              ? {
+                  ...appendCommentToCallRecord(c, commentData),
+                  hasNewComment: isFromOtherUser ? true : c.hasNewComment,
+                }
+              : c,
+          );
+        });
+      }
+
+      // 3. Browser notification (only if created by someone else)
+      if (String(commentData.CreatedBy) !== String(user?.id)) {
+        const targetCall = callLogRef.current?.find(
+          (c) => String(c.sr) === String(callId) || String(c.id) === String(callId),
+        );
+        notify(
+          {
+            ...commentData,
+            sr: callId,
+            company: targetCall?.company || commentData.company || "",
+            Name: commentData.Name || targetCall?.callBy || "Support User",
+            Comments: rawText,
+          },
+          "ADDCOMMENTS",
+          user,
+        );
+      }
+    });
+
+    return () => sub.unsubscribe();
+  }, [user]);
+
+  // Add Comments Socket Event
+  useSocketEvent("ADDCOMMENTS", (data) => {
+    console.log("ADDCOMMENTS socket event received:", data);
+    if (!isValidCommentPayload(data)) return;
+    commentUpdates$.next(data);
+  });
+
   // Forwarded Call Events
   useSocketEvent("ForwardedCall", (data) => {
     if (!isValidCallPayload(data)) return;
@@ -1133,6 +1283,7 @@ export function CallLogProvider(props) {
     () => ({
       queue,
       forwardedCalls,
+      forwardedCalls$,
       addComment,
       callLog,
       setCallLog,
@@ -1179,7 +1330,7 @@ export function CallLogProvider(props) {
       editFollowUpCall,
       CALLFORWARD_REASON_MASTER,
     }),
-    [queue, callLog, CurrentCall, masterData, activeFollowUp],
+    [queue, callLog, CurrentCall, masterData, activeFollowUp, forwardedCalls],
   );
   return (
     <CallLogContext.Provider value={contextValue}>

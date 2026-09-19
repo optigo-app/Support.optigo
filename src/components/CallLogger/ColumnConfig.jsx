@@ -579,10 +579,29 @@ export const getCallColumns = ({
               justifyContent: "flex-start",
               height: "100%",
               alignItems: "center",
-              gap: 1,
+              gap: 0.8,
             }}
           >
             {params?.value}
+            {Boolean(params?.row?.hasNewComment) && (
+              <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  bgcolor: "#6900C6",
+                  boxShadow: "0 0 0 2px #EDE9FE",
+                  flexShrink: 0,
+                  animation: "pulseDot 2s infinite ease-in-out",
+                  "@keyframes pulseDot": {
+                    "0%": { transform: "scale(0.95)", boxShadow: "0 0 0 0 rgba(105, 0, 198, 0.6)" },
+                    "70%": { transform: "scale(1.15)", boxShadow: "0 0 0 4px rgba(105, 0, 198, 0)" },
+                    "100%": { transform: "scale(0.95)", boxShadow: "0 0 0 0 rgba(105, 0, 198, 0)" },
+                  },
+                }}
+                title="New message / comment"
+              />
+            )}
           </Box>
         );
       },

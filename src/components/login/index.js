@@ -14,7 +14,7 @@ import Cookies from "js-cookie";
 import { createJWT } from "../../utils/jwt.js";
 import MetaWrapper from "../../meta/MetaWrapper.jsx";
 import { useAuth } from "../../context/UseAuth";
-import { removeSkeyCookie } from "../../utils/AuthUtils";
+import { removeSkeyCookie, setActiveAuthSession } from "../../utils/AuthUtils";
 
 const THEME_GREEN = "rgb(253, 238, 19)";
 const TEXT_COLOR = "#2d2d2d";
@@ -27,7 +27,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   
-  const { user, detectedSession } = useAuth();
+  const { user, detectedSession, detectedSessions = [] } = useAuth();
   
   // Saved accounts management
   const [savedAccounts, setSavedAccounts] = useState(() => {
@@ -42,17 +42,19 @@ export default function LoginPage() {
   const isAddAccount =
     params.get("addAccount") === "1" || params.get("add") === "1";
 
+  const hasDetected = (detectedSessions && detectedSessions.length > 0) || !!detectedSession;
+
   const [forceShowForm, setForceShowForm] = useState(isAddAccount);
   const [showChooser, setShowChooser] = useState(() => {
     if (isAddAccount) return false;
-    return savedAccounts.length > 0 || !!detectedSession;
+    return savedAccounts.length > 0 || hasDetected;
   });
 
   useEffect(() => {
-    if (detectedSession && !isAddAccount && !forceShowForm) {
+    if (hasDetected && !isAddAccount && !forceShowForm) {
       setShowChooser(true);
     }
-  }, [detectedSession, isAddAccount, forceShowForm]);
+  }, [hasDetected, isAddAccount, forceShowForm]);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [duplicateData, setDuplicateData] = useState(null); // stores { email, companyCode, skey }
 
@@ -101,9 +103,7 @@ export default function LoginPage() {
       if (!tokenData) throw new Error("Invalid credentials");
       const jwtToken = await createJWT(tokenData);
 
-      const cookieOptions = { path: "/", sameSite: "Lax" };
-      Cookies.set("skey", jwtToken, cookieOptions);
-      localStorage.setItem("app_active_skey", jwtToken);
+      setActiveAuthSession(jwtToken);
       redirectAndClose();
     } catch (err) {
       setErrors({ password: err.message || "Login failed" });
@@ -147,9 +147,7 @@ export default function LoginPage() {
   const handleConfirmUseExisting = () => {
     setDuplicateOpen(false);
     if (duplicateData) {
-      const cookieOptions = { path: "/", sameSite: "Lax" };
-      Cookies.set("skey", duplicateData.skey, cookieOptions);
-      localStorage.setItem("app_active_skey", duplicateData.skey);
+      setActiveAuthSession(duplicateData.skey);
 
       // Update last active
       try {
@@ -169,9 +167,7 @@ export default function LoginPage() {
   };
 
   const handleSelectAccount = (account) => {
-    const cookieOptions = { path: "/", sameSite: "Lax" };
-    Cookies.set("skey", account.skey, cookieOptions);
-    localStorage.setItem("app_active_skey", account.skey);
+    setActiveAuthSession(account.skey);
 
     // Update lastActive timestamp
     try {
@@ -401,7 +397,42 @@ export default function LoginPage() {
   }
 
   // --- RENDERING CHOOSE ACCOUNT VIEW --- //
-  if (showChooser && (savedAccounts.length > 0 || !!detectedSession)) {
+  if (showChooser && (savedAccounts.length > 0 || hasDetected)) {
+    const sessionsToDisplay =
+      detectedSessions && detectedSessions.length > 0
+        ? detectedSessions
+        : detectedSession
+        ? [detectedSession]
+        : [];
+
+    const handleChooseDetectedSession = (session) => {
+      setActiveAuthSession(session.skey);
+      try {
+        const savedList = JSON.parse(localStorage.getItem("saved_accounts_list") || "[]");
+        const newAccount = {
+          companyCode: session.companyCode || "",
+          email: session.email || "",
+          skey: session.skey,
+          firstname: session.firstname || "",
+          lastname: session.lastname || "",
+          designation: session.designation || "",
+          lastActive: Date.now(),
+        };
+        const filtered = savedList.filter(
+          (acc) =>
+            !(
+              (acc.companyCode || "").toLowerCase() === (newAccount.companyCode || "").toLowerCase() &&
+              (acc.email || "").toLowerCase() === (newAccount.email || "").toLowerCase()
+            )
+        );
+        filtered.push(newAccount);
+        localStorage.setItem("saved_accounts_list", JSON.stringify(filtered));
+      } catch (e) {
+        console.error("Failed to update saved accounts on detected selection:", e);
+      }
+      redirectAndClose();
+    };
+
     return (
       <>
         <MetaWrapper page="ChooseAccount" />
@@ -458,18 +489,16 @@ export default function LoginPage() {
                 bgcolor: "#fafafa",
               }}
             >
-              {/* --- DETECTED SESSION CARD --- */}
-              {detectedSession && (
+              {/* --- DETECTED SESSIONS SECTION --- */}
+              {sessionsToDisplay.length > 0 && (
                 <Box
                   sx={{
                     p: 2.5,
                     borderBottom: "1px solid #eee",
                     bgcolor: "rgba(253, 238, 19, 0.08)",
-                    position: "relative",
-                    textAlign: "center",
                   }}
                 >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                     <Typography
                       variant="caption"
                       sx={{
@@ -478,84 +507,107 @@ export default function LoginPage() {
                         letterSpacing: "0.5px",
                         color: "#887000",
                         bgcolor: "rgba(253, 238, 19, 0.3)",
-                        px: 1,
-                        py: 0.3,
+                        px: 1.2,
+                        py: 0.4,
                         borderRadius: "4px",
                         fontSize: "10px",
                         mx: "auto"
                       }}
                     >
-                      Central Session Detected
+                      {sessionsToDisplay.length > 1
+                        ? `Multiple Browser Sessions (${sessionsToDisplay.length})`
+                        : "Central Session Detected"}
                     </Typography>
                   </Box>
-                  
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: "#2d2d2d",
-                        color: THEME_GREEN,
-                        fontWeight: 700,
-                        fontSize: "14px",
-                        width: 40,
-                        height: 40,
-                      }}
-                    >
-                      {(detectedSession.firstname && detectedSession.lastname
-                        ? `${detectedSession.firstname[0]}${detectedSession.lastname[0]}`
-                        : detectedSession.email[0]
-                      ).toUpperCase()}
-                    </Avatar>
-                    <Box sx={{ textAlign: "left" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "14.5px", color: "#222" }}>
-                          {detectedSession.firstname && detectedSession.lastname
-                            ? `${detectedSession.firstname} ${detectedSession.lastname}`
-                            : detectedSession.email}
-                        </Typography>
+
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                    {sessionsToDisplay.map((s, idx) => {
+                      const sName = s.firstname && s.lastname
+                        ? `${s.firstname} ${s.lastname}`
+                        : s.email;
+                      const sInitials = s.firstname && s.lastname
+                        ? `${s.firstname[0]}${s.lastname[0]}`.toUpperCase()
+                        : (s.email?.[0] || "U").toUpperCase();
+
+                      return (
                         <Box
+                          key={s.skey || `${s.email}-${idx}`}
                           sx={{
-                            fontSize: "10px",
+                            p: 1.5,
                             bgcolor: "#fff",
-                            px: 1,
-                            py: 0.2,
-                            borderRadius: "4px",
-                            fontWeight: 700,
-                            color: "#555",
-                            border: "1px solid #ddd",
-                            textTransform: "uppercase"
+                            borderRadius: "6px",
+                            border: "1px solid #e5e5e5",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
                           }}
                         >
-                          {detectedSession.companyCode}
+                          <Avatar
+                            sx={{
+                              bgcolor: "#2d2d2d",
+                              color: THEME_GREEN,
+                              fontWeight: 700,
+                              fontSize: "13px",
+                              width: 36,
+                              height: 36,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {sInitials}
+                          </Avatar>
+                          <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                              <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: "13.5px", color: "#222" }}>
+                                {sName}
+                              </Typography>
+                              {s.companyCode && (
+                                <Box
+                                  sx={{
+                                    fontSize: "9.5px",
+                                    bgcolor: "#f0f0f0",
+                                    px: 0.8,
+                                    py: 0.2,
+                                    borderRadius: "3px",
+                                    fontWeight: 700,
+                                    color: "#555",
+                                    border: "1px solid #ddd",
+                                    textTransform: "uppercase"
+                                  }}
+                                >
+                                  {s.companyCode}
+                                </Box>
+                              )}
+                            </Box>
+                            <Typography variant="caption" noWrap sx={{ color: "#666", fontSize: "11.5px", display: "block", mt: 0.2 }}>
+                              {s.email} {s.designation ? `• ${s.designation}` : ""}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleChooseDetectedSession(s)}
+                            sx={{
+                              bgcolor: "#2d2d2d",
+                              color: "#fff",
+                              textTransform: "none",
+                              fontWeight: 600,
+                              fontSize: "12px",
+                              px: 1.6,
+                              py: 0.6,
+                              borderRadius: "5px",
+                              flexShrink: 0,
+                              "&:hover": { bgcolor: "#111" }
+                            }}
+                          >
+                            Sign In
+                          </Button>
                         </Box>
-                      </Box>
-                      <Typography variant="body2" sx={{ color: "#666", fontSize: "12.5px", mt: 0.3 }}>
-                        {detectedSession.email} {detectedSession.designation ? `• ${detectedSession.designation}` : ""}
-                      </Typography>
-                    </Box>
+                      );
+                    })}
                   </Box>
-
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    onClick={() => {
-                      localStorage.setItem("app_active_skey", detectedSession.skey);
-                      redirectAndClose();
-                    }}
-                    sx={{
-                      bgcolor: "#2d2d2d",
-                      color: "#fff",
-                      textTransform: "none",
-                      fontWeight: 600,
-                      py: 1,
-                      borderRadius: "6px",
-                      "&:hover": { bgcolor: "#111" }
-                    }}
-                  >
-                    Continue to App
-                  </Button>
                 </Box>
               )}
-              {/* --- END DETECTED SESSION CARD --- */}
+              {/* --- END DETECTED SESSIONS SECTION --- */}
 
               <List disablePadding>
                 {savedAccounts.map((account, index) => {

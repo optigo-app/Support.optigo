@@ -1,5 +1,14 @@
 import { useContext, createContext, useState, useEffect } from "react";
-import { GetCredentialsFromCookie } from "../utils/AuthUtils";
+import {
+  GetCredentialsFromCookie,
+  decodeBase64,
+  getActiveAuthToken,
+  setActiveAuthSession,
+  clearActiveAuthSession,
+  getAllDetectedSessions,
+  syncActiveSkeyCookie,
+  parseTokenPayload,
+} from "../utils/AuthUtils";
 import { getAppBasePath } from "../utils/AppBasePath";
 import { BaseAPI } from "../apis/BaseAPI";
 import Cookies from "js-cookie";
@@ -32,6 +41,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [detectedSession, setDetectedSession] = useState(null);
+  const [detectedSessions, setDetectedSessions] = useState([]);
   const [services, setServices] = useState({
     ticket: false,
     callLog: false,
@@ -59,11 +69,11 @@ export function AuthProvider({ children }) {
       ticket: false,
       callLog: false,
     });
+    sessionStorage.removeItem("direct_token_credentials");
   };
 
   const switchAccount = (skey) => {
-    Cookies.set("skey", skey, { path: "/", sameSite: "Lax" });
-    localStorage.setItem("app_active_skey", skey);
+    setActiveAuthSession(skey);
     sessionStorage.clear();
     window.location.href = `${getAppBasePath()}/`;
   };
@@ -97,9 +107,9 @@ export function AuthProvider({ children }) {
 
         // Save account metadata in saved accounts list
         try {
-          const activeSkey = Cookies.get("skey");
+          const activeSkey = getActiveAuthToken();
           if (activeSkey) {
-            localStorage.setItem("app_active_skey", activeSkey);
+            setActiveAuthSession(activeSkey);
             const savedList = JSON.parse(
               localStorage.getItem("saved_accounts_list") || "[]",
             );
@@ -174,14 +184,25 @@ export function AuthProvider({ children }) {
           const messageChannel = new MessageChannel();
           messageChannel.port1.onmessage = (event) => {
             if (event.data === "CHECK_COOKIE") {
-              const activeCookie = Cookies.get("skey");
+              if (sessionStorage.getItem("direct_token_credentials")) {
+                return;
+              }
               const appActiveSkey = localStorage.getItem("app_active_skey");
-              if (!activeCookie || activeCookie !== appActiveSkey) {
-                console.log(
-                  "Session cookie missing or mismatch in background check",
-                );
+              if (appActiveSkey) {
+                const parsed = parseTokenPayload(appActiveSkey);
+                if (!parsed || parsed.isExpired) {
+                  console.log("Active session token expired in background check");
+                  clearState();
+                  clearActiveAuthSession();
+                } else {
+                  // Background healing: ensure cookie matches valid active localStorage token
+                  const activeCookie = Cookies.get("skey");
+                  if (!activeCookie || activeCookie !== appActiveSkey) {
+                    syncActiveSkeyCookie(appActiveSkey);
+                  }
+                }
+              } else {
                 clearState();
-                localStorage.removeItem("app_active_skey");
               }
             }
           };
@@ -213,14 +234,75 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Check for skey in URL query parameters first
         const params = new URLSearchParams(window.location.search);
+
+        // 1. Check for direct login token in URL query (e.g. ?-=ey... or ?token=ey...)
+        let directToken = params.get("-") || params.get("token") || params.get("auth");
+        if (!directToken) {
+          for (const [key, val] of params.entries()) {
+            if (val && typeof val === "string" && val.trim().startsWith("ey")) {
+              directToken = val.trim();
+              break;
+            } else if (key && typeof key === "string" && key.trim().startsWith("ey")) {
+              directToken = key.trim();
+              break;
+            }
+          }
+        }
+
+        let directCredentials = null;
+        if (directToken) {
+          try {
+            const rawClean = directToken.trim().replace(/\s+/g, "");
+            const decodedStr = decodeBase64(rawClean) || atob(rawClean);
+            const parsed = JSON.parse(decodedStr);
+            if (parsed?.appuserid && parsed?.yearcode) {
+              let userId = parsed.appuserid;
+              try {
+                const decUser = decodeBase64(parsed.appuserid) || atob(String(parsed.appuserid).trim().replace(/\s+/g, ""));
+                if (decUser) userId = decUser;
+              } catch (_) {}
+
+              const host = window?.location?.hostname || "";
+              const isLocal =
+                host === "localhost" ||
+                host === "127.0.0.1" ||
+                host.includes("calllog.web") ||
+                host.includes("nzen") ||
+                process.env.NODE_ENV !== "production";
+              const sv = isLocal ? "0" : "1";
+
+              directCredentials = {
+                userId,
+                yc: parsed.yearcode,
+                sv,
+              };
+
+              sessionStorage.setItem(
+                "direct_token_credentials",
+                JSON.stringify(directCredentials),
+              );
+            }
+          } catch (err) {
+            console.error("Failed to parse direct token credentials from URL:", err);
+          }
+        }
+
+        if (!directCredentials) {
+          try {
+            const stored = sessionStorage.getItem("direct_token_credentials");
+            if (stored) {
+              directCredentials = JSON.parse(stored);
+            }
+          } catch (_) {}
+        }
+
+        // 2. Check for skey in URL query parameters first
         const urlSkey = params.get("skey");
 
         if (urlSkey) {
-          console.log("Found skey in URL, setting cookie...");
-          const cookieOptions = { path: "/", sameSite: "Lax" };
-          Cookies.set("skey", urlSkey, cookieOptions);
+          console.log("Found skey in URL, activating session...");
+          setActiveAuthSession(urlSkey);
 
           // Clean the query parameter from the URL to keep it tidy
           params.delete("skey");
@@ -230,21 +312,26 @@ export function AuthProvider({ children }) {
           window.history.replaceState({}, "", newPath);
         }
 
-        const activeCookie = Cookies.get("skey");
-        const appActiveSkey = localStorage.getItem("app_active_skey");
-        const isSessionActive = activeCookie && activeCookie === appActiveSkey;
+        const activeToken = getActiveAuthToken();
+        let cookieUser = null;
+        if (activeToken) {
+          cookieUser = GetCredentialsFromCookie(activeToken);
+          if (cookieUser) {
+            // Heal/sync cookie to eliminate any duplicate ghost cookies across paths/domains
+            syncActiveSkeyCookie(activeToken);
+          }
+        }
+        const effectiveUser = directCredentials || cookieUser;
 
-        const cookieUser = isSessionActive ? GetCredentialsFromCookie() : null;
-
-        if (cookieUser) {
+        if (effectiveUser) {
           // Initialize both services
           const ticketInitialized = initializeService(
             SERVICE_CONFIG.TICKET,
-            cookieUser,
+            effectiveUser,
           );
           const callLogInitialized = initializeService(
             SERVICE_CONFIG.CALL_LOG,
-            cookieUser,
+            effectiveUser,
           );
 
           setServices({
@@ -252,36 +339,51 @@ export function AuthProvider({ children }) {
             callLog: callLogInitialized,
           });
 
-          await getToken(cookieUser.userId);
+          await getToken(effectiveUser.userId);
         } else {
           console.log("No active app session found");
           clearState();
 
-          // Fetch detected session details if skey cookie exists
-          if (activeCookie) {
-            try {
-              const decoded = GetCredentialsFromCookie(); // parses the activeCookie
-              if (decoded && decoded.userId) {
-                // Initialize services temporarily to make API call
-                initializeService(SERVICE_CONFIG.TICKET, decoded);
-                initializeService(SERVICE_CONFIG.CALL_LOG, decoded);
+          // Read ALL detected sessions across browser cookies
+          const rawSessions = getAllDetectedSessions();
+          if (rawSessions.length > 0) {
+            const enriched = [];
+            for (const s of rawSessions) {
+              try {
+                initializeService(SERVICE_CONFIG.TICKET, s);
+                initializeService(SERVICE_CONFIG.CALL_LOG, s);
 
-                const res = await BaseAPI.getToken(decoded.userId);
-                if (res?.rd1?.[0] && res?.rd?.[0]) {
-                  setDetectedSession({
-                    email: decoded.userId,
-                    companyCode:
-                      res.rd[0]?.companycode || res.rd1[0]?.companycode || "",
-                    firstname: res.rd1[0]?.firstname || "",
-                    lastname: res.rd1[0]?.lastname || "",
-                    designation: res.rd1[0]?.designation || "",
-                    skey: activeCookie,
-                  });
-                }
+                const res = await BaseAPI.getToken(s.email);
+                enriched.push({
+                  email: s.email,
+                  companyCode:
+                    res?.rd?.[0]?.companycode || res?.rd1?.[0]?.companycode || "",
+                  firstname: res?.rd1?.[0]?.firstname || "",
+                  lastname: res?.rd1?.[0]?.lastname || "",
+                  designation: res?.rd1?.[0]?.designation || "",
+                  skey: s.skey,
+                  isExpired: s.isExpired,
+                });
+              } catch (e) {
+                console.error("Failed to fetch detected session info for", s.email, e);
+                enriched.push({
+                  email: s.email,
+                  companyCode: "",
+                  firstname: "",
+                  lastname: "",
+                  designation: "",
+                  skey: s.skey,
+                  isExpired: s.isExpired,
+                });
               }
-            } catch (e) {
-              console.error("Failed to fetch detected session info:", e);
             }
+            setDetectedSessions(enriched);
+            if (enriched.length > 0) {
+              setDetectedSession(enriched[0]);
+            }
+          } else {
+            setDetectedSessions([]);
+            setDetectedSession(null);
           }
         }
       } catch (error) {
@@ -330,6 +432,8 @@ export function AuthProvider({ children }) {
     isUpdate,
     detectedSession,
     setDetectedSession,
+    detectedSessions,
+    setDetectedSessions,
     savedAccounts,
     switchAccount,
     removeSavedAccount,

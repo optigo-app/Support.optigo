@@ -129,7 +129,7 @@ export default function CreateTicketForm({ handleCloseDetail, showNotification, 
         await addTicket(ticketWithId);
         if (resolvedCallId) {
           try {
-            await editCall(resolvedCallId, { ticket: ticketWithId?.TicketNo, ticketId: ticketWithId?.TicketNo, Ticket_CreatedDate: new Date().toISOString() });
+            // await editCall(resolvedCallId, { ticket: ticketWithId?.TicketNo, ticketId: ticketWithId?.TicketNo, Ticket_CreatedDate: new Date().toISOString() });
           } catch (_) {}
         }
         HandleResetform();
@@ -141,7 +141,7 @@ export default function CreateTicketForm({ handleCloseDetail, showNotification, 
       await addTicket(ticketWithId);
       if (resolvedCallId) {
         try {
-          await editCall(resolvedCallId, { ticket: ticketWithId?.TicketNo, ticketId: ticketWithId?.TicketNo, Ticket_CreatedDate: new Date().toISOString() });
+          // await editCall(resolvedCallId, { ticket: ticketWithId?.TicketNo, ticketId: ticketWithId?.TicketNo, Ticket_CreatedDate: new Date().toISOString() });
         } catch (_) {}
       }
       Navigater("/ticket", { replace: true });

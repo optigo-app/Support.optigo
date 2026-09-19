@@ -29,6 +29,7 @@ import AttachmentPill from './AttachmentPill';
 import SimpleBar from './SimpleBar';
 import { openEditCallModal, openDurationModal } from './rxjs/newCallEvents';
 import { formatCallDateTime } from './utils/dateUtils';
+import { getSanitizedStatuses } from './utils/ticketStatusUtils';
 
 // Apple-inspired semantic status styling
 function getAppleStatusStyle(statusName = '') {
@@ -96,10 +97,8 @@ export default function RightDetailInspector({
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'files' | 'history'
   const [copied, setCopied] = useState(false);
 
-  const isCompanyView =
-    selectedCompany &&
-    selectedCompany !== 'all' &&
-    (!Array.isArray(selectedCompany) || selectedCompany.length > 0);
+  // Always inspect single active call; timeline/company view is disabled per user design
+  const isCompanyView = false;
 
   // 1. Company Analytics Aggregator
   const companyData = useMemo(() => {
@@ -871,8 +870,10 @@ export default function RightDetailInspector({
 
                     {/* Dual Status Badges */}
                     {(() => {
-                      const extName = rec.Estatus || activeThread?.estatus || 'Completed';
-                      const intName = rec.status || activeThread?.status || 'Solved';
+                      const { extStatus: extName, intStatus: intName } = getSanitizedStatuses(
+                        activeThread || rec,
+                        Boolean(rec.callClosed || activeThread?.callClosed)
+                      );
                       return (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center' }}>
                           <AppleStatusPill prefix="Ext" statusName={extName} />

@@ -15,6 +15,7 @@ import FiberManualRecordRoundedIcon from '@mui/icons-material/FiberManualRecordR
 import { toast } from 'sonner';
 import { callStreamService } from '../../services/callStreamService';
 import { isValidDate, formatCallDateTime } from './utils/dateUtils';
+import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
 import { getStatusColor } from '../../libs/data';
 import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
@@ -97,15 +98,24 @@ export default function CallLogCard({ record = {} }) {
       String(activeCall.sr) === String(record.sr)
   );
 
+  const hasTicket = hasRealTicket(record);
+  const resolvedTicketId = getResolvedTicketId(record);
+
   const isSolved =
     (record.status || '').toLowerCase() === 'solved' ||
     (record.Estatus || '').toLowerCase() === 'completed';
   const isRunning =
     isLivePrimary || (record.Estatus || '').toLowerCase() === 'running';
 
-  const extStatus = isLivePrimary
+  let rawExtStatus = isLivePrimary
     ? 'In Progress'
     : record.status || (isSolved ? 'Solved' : 'Pending');
+
+  if (!hasTicket && String(rawExtStatus).trim().toLowerCase() === 'ticket generated') {
+    rawExtStatus = isSolved ? 'Solved' : 'Pending';
+  }
+
+  const extStatus = rawExtStatus;
   const rating = record.rating || 0;
   const isForwarded = record.CallType === 'Forwarded' || Boolean(record.ForwardedEmp);
 
@@ -432,14 +442,9 @@ export default function CallLogCard({ record = {} }) {
           )}
 
           {/* Ticket Badge */}
-          {Boolean(
-            (record.ticket && String(record.ticket).trim() !== '' && String(record.ticket).trim() !== 'Upgrade to Ticket') ||
-            (record.Ticket_CreatedDate && String(record.Ticket_CreatedDate).trim() !== '') ||
-            record.Ticket_Id ||
-            record.ticketId
-          ) && (
+          {hasTicket && (
             <Chip
-              label={record.ticket && record.ticket !== 'In Ticket' && record.ticket !== 'Upgrade to Ticket' ? `Ticket #${record.ticket}` : 'In Ticket'}
+              label={resolvedTicketId ? `Ticket #${resolvedTicketId}` : 'In Ticket'}
               size="small"
               sx={{
                 height: 17,

@@ -32,13 +32,13 @@ export const NOTIFICATION_TEMPLATES = {
     const description = data?.description || "No description provided.";
 
     return {
-      title: `New Call — ${company}`,
+      title: `New Call - ${company}`,
       body: `Caller: ${caller}\nAdded By: ${addedBy}\nDescription: ${description}`,
       icon: notificationIcons.add_call,
       badge: "/ic_stat_o.png",
-      requireInteraction: true, // Forces it to stay on screen so you don't miss it
-      vibrate: [200, 100, 200], // Double buzz for mobile
-      tag: "new-call", // Groups notifications so they don't spam
+      requireInteraction: true,
+      vibrate: [200, 100, 200],
+      tag: "new-call",
     };
   },
 
@@ -47,7 +47,7 @@ export const NOTIFICATION_TEMPLATES = {
     const receiver = formatName(data?.receivedBy) || "Unknown User";
 
     return {
-      title: `Call Accepted — ${caller}`,
+      title: `Call Accepted - ${caller}`,
       body: `Support: ${receiver}\nDescription: ${data?.description || "No description provided."}`,
       icon: notificationIcons.call,
       badge: "/ic_stat_o.png",
@@ -89,7 +89,7 @@ export const NOTIFICATION_TEMPLATES = {
       body,
       icon: notificationIcons.forward,
       badge: "/ic_stat_o.png",
-      requireInteraction: isUserReceiver, // Stays on screen if forwarded to YOU specifically
+      requireInteraction: isUserReceiver,
       vibrate: [200, 100, 200],
       tag: "forward-call",
     };
@@ -103,13 +103,13 @@ export const NOTIFICATION_TEMPLATES = {
     const instruction = data?.instruction || "";
 
     return {
-      title: `New Ticket Created — ${company}`,
+      title: `New Ticket Created - ${company}`,
       body: `Created By: ${creator}\nSubject: ${subject}${instruction ? `\nInstructions: ${instruction}` : ""}`,
       icon: notificationIcons.ticket,
       badge: "/ic_stat_o.png",
       requireInteraction: true,
       vibrate: [200, 100, 200],
-      tag: `ticket-${data?.TicketNo || "new"}`, // Groups by Ticket number!
+      tag: `ticket-${data?.TicketNo || "new"}`,
     };
   },
 
@@ -119,13 +119,13 @@ export const NOTIFICATION_TEMPLATES = {
     const subject = data?.MainSubject || data?.subject || "Ticket updated.";
 
     return {
-      title: `Ticket Updated — ${company}`,
+      title: `Ticket Updated - ${company}`,
       body: `Updated By: ${updater}\nSubject: ${subject}\nStatus: Changes were made to this ticket.`,
       icon: notificationIcons.update_ticket,
       badge: "/ic_stat_o.png",
       vibrate: [100, 50, 100],
       tag: `ticket-${data?.TicketNo || "update"}`,
-      renotify: true, // Alerts the user again when the ticket is updated, even if it groups
+      renotify: true,
     };
   },
 
@@ -150,12 +150,42 @@ export const NOTIFICATION_TEMPLATES = {
     const subject = data?.MainSubject || data?.subject || "Ticket closed.";
 
     return {
-      title: `Ticket Closed — ${company}`,
+      title: `Ticket Closed - ${company}`,
       body: `Closed By: ${closer}\nSubject: ${subject}\nStatus: Ticket has been closed successfully.`,
       icon: notificationIcons.close,
       badge: "/ic_stat_o.png",
       vibrate: [100, 50, 100],
       tag: `ticket-${data?.TicketNo || "close"}`,
+      renotify: true,
+    };
+  },
+
+  // Call log comment notification (ADDCOMMENTS socket event)
+  ADDCOMMENTS: (data) => {
+    const callId =
+      data?.sr || data?.CallLogId || data?.CallLogid || data?.callLogId || "";
+    const company = capitalizeWords(data?.company) || "Unknown Company";
+    let commenter = formatName(data?.Name || data?.CreatedBy) || "Someone";
+    let commentText = data?.comment || data?.Comments || "";
+
+    try {
+      if (typeof commentText === "string" && commentText.trim().startsWith("[")) {
+        const parsed = JSON.parse(commentText);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const latest = parsed[parsed.length - 1];
+          commentText = latest?.text || latest?.comment || commentText;
+          if (latest?.Name) commenter = formatName(latest.Name) || commenter;
+        }
+      }
+    } catch (_) {}
+
+    return {
+      title: `New Comment - Call #${callId}`,
+      body: `By: ${commenter}\nCompany: ${company}\nComment: ${commentText || "-"}`,
+      icon: notificationIcons.comment,
+      badge: "/ic_stat_o.png",
+      vibrate: [100, 50, 100],
+      tag: `calllog-comment-${callId}`,
       renotify: true,
     };
   },
@@ -168,15 +198,15 @@ export const notify = (data, templateId, user) => {
   const notificationOptions = templateFn(data, user);
   const typeGroup = templateId.includes("TICKET")
     ? "TICKET"
-    : templateId.includes("CALL")
+    : templateId.includes("CALL") || templateId === "ADDCOMMENTS"
       ? "CALL"
       : "OTHER";
   showBrowserNotification({
     ...notificationOptions,
     data: {
-      ...data, // original payload
-      type: templateId, // now part of data
-      group: typeGroup, // now part of data
+      ...data,
+      type: templateId,
+      group: typeGroup,
     },
   });
 };

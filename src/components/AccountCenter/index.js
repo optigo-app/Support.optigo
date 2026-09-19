@@ -21,9 +21,9 @@ import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 
-// Context + Sections
 import { useAuth } from "../../context/UseAuth";
 import { removeSkeyCookie } from "../../utils/AuthUtils";
+import { getAppBasePath } from "../../utils/AppBasePath";
 import { clearCallSessionState } from "../../utils/callLogUtils";
 import ProfileTab from "./tabs/ProfileTab";
 import NotificationsTab from "./tabs/NotificationsTab";
@@ -65,7 +65,7 @@ export default function AccountCenter() {
     localStorage.removeItem("app_active_skey");
     sessionStorage.clear();
     removeSkeyCookie();
-    window.location.href = "/login";
+    window.location.href = `${getAppBasePath()}/login`;
   };
 
   return (

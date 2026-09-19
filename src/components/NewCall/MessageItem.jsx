@@ -35,6 +35,17 @@ export default function MessageItem({ message }) {
           gap: 1.2,
           px: 3,
           py: 0.8,
+          animation: 'smoothCommentSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          '@keyframes smoothCommentSlideIn': {
+            '0%': {
+              opacity: 0,
+              transform: 'translateY(12px) scale(0.98)',
+            },
+            '100%': {
+              opacity: 1,
+              transform: 'translateY(0) scale(1)',
+            },
+          },
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '75%' }}>
@@ -566,6 +577,17 @@ export default function MessageItem({ message }) {
           py: 1,
           transition: 'background-color 0.15s ease',
           '&:hover': { bgcolor: '#F8FAFC' },
+          animation: 'smoothCommentSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          '@keyframes smoothCommentSlideIn': {
+            '0%': {
+              opacity: 0,
+              transform: 'translateY(12px) scale(0.98)',
+            },
+            '100%': {
+              opacity: 1,
+              transform: 'translateY(0) scale(1)',
+            },
+          },
         }}
       >
         <Avatar
@@ -639,6 +661,17 @@ export default function MessageItem({ message }) {
         transition: 'background-color 0.15s ease',
         '&:hover': {
           bgcolor: '#F8FAFC',
+        },
+        animation: 'smoothCommentSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        '@keyframes smoothCommentSlideIn': {
+          '0%': {
+            opacity: 0,
+            transform: 'translateY(12px) scale(0.98)',
+          },
+          '100%': {
+            opacity: 1,
+            transform: 'translateY(0) scale(1)',
+          },
         },
       }}
     >

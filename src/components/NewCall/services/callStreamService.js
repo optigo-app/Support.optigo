@@ -1,5 +1,7 @@
 import { BehaviorSubject, combineLatest } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { hasRealTicket } from '../utils/ticketStatusUtils';
+import { isValidDate } from '../utils/dateUtils';
 
 /**
  * Normalizes a raw call record from live API into a clean thread item.
@@ -41,6 +43,24 @@ export function normalizeCallRecord(rec, idx = 0) {
   const receivedBy = (rec.receivedBy || rec.AssignedEmpName || 'Support Desk').trim();
   const projectId = rec.ProjectID || rec.projectID || rec.projectId || rec.CompanyID || rec.project_id || '';
 
+  const hasTicket = hasRealTicket(rec);
+  const isEnded = Boolean(
+    (rec.callClosed && isValidDate(rec.callClosed)) ||
+    (rec.CallDuration && rec.CallDuration !== '00:00:00' && rec.CallDuration !== '0')
+  );
+
+  let rawStatus = rec.status || (isEnded ? 'Solved' : 'Pending');
+  let rawEstatus = rec.Estatus || rec.estatus || (isEnded ? 'Completed' : 'Running');
+
+  if (!hasTicket) {
+    if (String(rawStatus).trim().toLowerCase() === 'ticket generated') {
+      rawStatus = isEnded ? 'Solved' : 'Pending';
+    }
+    if (String(rawEstatus).trim().toLowerCase() === 'ticket generated') {
+      rawEstatus = isEnded ? 'Completed' : 'Running';
+    }
+  }
+
   return {
     id: `call-${sr}`,
     sr,
@@ -52,11 +72,11 @@ export function normalizeCallRecord(rec, idx = 0) {
     AssignedEmpName: rec.AssignedEmpName || '',
     lastMessage:
       rec.description ||
-      (rec.Estatus ? `Call Status: ${rec.Estatus}` : 'Voice support call logged'),
+      (rawEstatus ? `Call Status: ${rawEstatus}` : 'Voice support call logged'),
     timestamp: rec.time || '',
     date: rec.date || rec.callStart || '',
-    status: rec.status || 'Solved',
-    estatus: rec.Estatus || rec.estatus || 'Completed',
+    status: rawStatus,
+    estatus: rawEstatus,
     statusId: rec.StatusID || rec.statusId || '',
     estatusId: rec.EStatusId || rec.estatusId || '',
     priority: rec.priority || rec.PriorityId || 'Normal',
@@ -554,10 +574,36 @@ class CallStreamService {
   patchComment(callLogId, commentObj) {
     if (!callLogId || !commentObj) return;
     const currentThreads = this.threads$.getValue();
+    let hasUpdated = false;
+    const activeId = this.activeThreadId$.getValue();
+    const currentUserId = this.currentUser$.getValue()?.id;
+
+    const normalizedComment = {
+      id: commentObj.id || Date.now(),
+      text: commentObj.text ?? commentObj.comment ?? commentObj.Comments ?? '',
+      comment: commentObj.text ?? commentObj.comment ?? commentObj.Comments ?? '',
+      time: commentObj.time || commentObj.CreatedDate || new Date().toISOString(),
+      Name: commentObj.Name || commentObj.CreatedByName || 'Support Agent',
+      CreatedBy: commentObj.CreatedBy,
+      IsClient: commentObj.IsClient ?? 0,
+      img: commentObj.img || commentObj.FilePath || '',
+      FilePath: commentObj.img || commentObj.FilePath || '',
+    };
+
+    const isFromOtherUser =
+      normalizedComment.CreatedBy && currentUserId
+        ? String(normalizedComment.CreatedBy) !== String(currentUserId)
+        : true;
+
     const updatedThreads = currentThreads.map((t) => {
-      if (String(t.sr) !== String(callLogId) && String(t.id) !== String(callLogId)) {
+      if (
+        String(t.sr) !== String(callLogId) &&
+        String(t.id) !== String(callLogId) &&
+        `call-${t.sr}` !== String(callLogId)
+      ) {
         return t;
       }
+      hasUpdated = true;
       const raw = { ...(t.rawRecord || {}) };
       let comments = [];
       if (typeof raw.comment === 'string') {
@@ -570,15 +616,67 @@ class CallStreamService {
         comments = [...raw.comment];
       }
 
-      comments.push(commentObj);
+      // Check if comment already exists (by ID or matching text + approximate timestamp)
+      const alreadyExists = comments.some((c) => {
+        if (normalizedComment.id && c.id && String(c.id) === String(normalizedComment.id)) {
+          return true;
+        }
+        const sameText = (c.text || c.comment || '').trim() === normalizedComment.text.trim();
+        const timeDiff = Math.abs(new Date(c.time || 0) - new Date(normalizedComment.time || 0));
+        if (sameText && (timeDiff < 10000 || !c.time)) {
+          return true;
+        }
+        return false;
+      });
+
+      if (!alreadyExists) {
+        comments.push(normalizedComment);
+      }
+
       raw.comment = JSON.stringify(comments);
+
+      // Check if this thread is currently open / being viewed
+      const isActive =
+        activeId === t.id ||
+        String(activeId) === String(t.sr) ||
+        activeId === `call-${t.sr}`;
+
+      // Mark unread dot if user is doing something else (viewing another thread)
+      const shouldMarkUnread = !isActive && isFromOtherUser;
+      if (shouldMarkUnread) {
+        this.unreadThreadIds.add(t.id);
+        this.unreadThreadIds.add(String(t.sr));
+        this.unreadThreadIds.add(`call-${t.sr}`);
+      }
+
+      // Format time for timestamp display
+      let displayTime = t.timestamp;
+      try {
+        if (normalizedComment.time) {
+          const d = new Date(normalizedComment.time);
+          if (!isNaN(d.getTime())) {
+            displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          }
+        }
+      } catch (_) {}
+
+      const previewText = normalizedComment.text
+        ? `${normalizedComment.Name ? `${normalizedComment.Name.split(' ')[0]}: ` : ''}${normalizedComment.text}`
+        : t.lastMessage;
+
       return {
         ...t,
+        unread: shouldMarkUnread ? true : t.unread,
+        lastMessage: previewText,
+        timestamp: displayTime || t.timestamp,
         rawRecord: raw,
         comments,
       };
     });
-    this.threads$.next(updatedThreads);
+
+    if (hasUpdated) {
+      this.threads$.next(updatedThreads);
+    }
   }
 
   // Add custom messages / follow-ups

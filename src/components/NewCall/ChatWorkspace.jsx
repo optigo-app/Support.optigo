@@ -27,8 +27,13 @@ import NewCallFollowUpModal from './NewCallFollowUpModal';
 import NewCallEditModal from './NewCallEditModal';
 import NewCallForwardModal from './NewCallForwardModal';
 import NewCallDurationModal from './NewCallDurationModal';
+import QuickQueryCardsRail from './QuickQueryCardsRail';
+import AcceptCallModal from '../CallLogger/AcceptCallModal';
+import { acceptCallModal$ } from '../../rxjs/tableUiStore';
+import { globalSearchQuery$, setGlobalSearchQuery } from '../../rxjs/globalSearchStore';
 import { formatLocalDateToYYYYMMDD } from './AirbnbDateRangePicker';
 import { formatTimeOnly, formatDateGroup, isValidDate, getEpochMs } from './utils/dateUtils';
+import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
 import { filesUploadApi } from '../../apis/UploadFille';
 import { useSocketEvent } from '../../hooks/useSocketListener';
 
@@ -56,6 +61,12 @@ export default function ChatWorkspace() {
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [customMessagesMap, setCustomMessagesMap] = useState({});
   const [conversationViewMode, setConversationViewMode] = useState('single'); // 'single' | 'timeline'
+  const [isQueueOpen, setIsQueueOpen] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('queue') !== '0'; // Open by default
+  });
+  const [acceptCallState, setAcceptCallState] = useState(null);
+  const [isAcceptingQueue, setIsAcceptingQueue] = useState(false);
 
   const lastFilterKeyRef = useRef('');
   const isInternalUrlUpdateRef = useRef(false);
@@ -232,10 +243,21 @@ export default function ChatWorkspace() {
     };
   }, []);
 
+  // 3b. Subscribe to global search query stream (from GlobalSearchBar)
+  useEffect(() => {
+    const sub = globalSearchQuery$.subscribe((q) => {
+      if (typeof q === 'string' && q !== searchQuery) {
+        setSearchQuery(q);
+        callStreamService.setSearchQuery(q);
+      }
+    });
+    return () => sub.unsubscribe();
+  }, [searchQuery]);
+
   // 4. Initialize from URL Query Params on mount (exact CallLogger behavior)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const savedSearch = params.get('search') || '';
+    const savedSearch = params.get('search') || params.get('searchQuery') || '';
     const savedView = params.get('view') || 'team';
     const savedCompany = params.get('company') || params.get('companyStatus') || '';
     const savedStatus = params.get('status') || '';
@@ -246,6 +268,7 @@ export default function ChatWorkspace() {
     if (savedSearch) {
       setSearchQuery(savedSearch);
       callStreamService.setSearchQuery(savedSearch);
+      setGlobalSearchQuery(savedSearch);
     }
     if (savedView) {
       setViewMode(savedView);
@@ -269,7 +292,7 @@ export default function ChatWorkspace() {
     }
   }, []);
 
-  // 5. Sync filters into URL search params safely without triggering re-render loops
+  // 5. Sync filters into URL search params safely without overwriting external search
   useEffect(() => {
     const currentParams = new URLSearchParams(location.search);
     const newParams = new URLSearchParams();
@@ -290,9 +313,9 @@ export default function ChatWorkspace() {
       isInternalUrlUpdateRef.current = true;
       navigate({ pathname: location.pathname, search: newQueryStr ? `?${newQueryStr}` : '' }, { replace: true });
     }
-  }, [searchQuery, viewMode, selectedCompany, statusFilter, filterBy, dateRangeObj, navigate, location.pathname, location.search]);
+  }, [searchQuery, viewMode, selectedCompany, statusFilter, filterBy, dateRangeObj, navigate, location.pathname]);
 
-  // 6. Sync search query when URL changes externally (e.g. from GlobalSearchBar)
+  // 6. Sync external URL search changes (e.g. from GlobalSearchBar or direct navigation)
   useEffect(() => {
     if (isInternalUrlUpdateRef.current) {
       isInternalUrlUpdateRef.current = false;
@@ -303,8 +326,30 @@ export default function ChatWorkspace() {
     if (savedSearch !== searchQuery) {
       setSearchQuery(savedSearch);
       callStreamService.setSearchQuery(savedSearch);
+      setGlobalSearchQuery(savedSearch);
     }
-  }, [location.search, searchQuery]);
+    if (params.get('queue') === '1') {
+      setIsQueueOpen(true);
+    } else if (params.get('queue') === '0') {
+      setIsQueueOpen(false);
+    }
+  }, [location.search]);
+
+  // 7. Listen for toggle-newcall-queue event from Header button
+  useEffect(() => {
+    const handleToggle = () => setIsQueueOpen((prev) => !prev);
+    window.addEventListener('toggle-newcall-queue', handleToggle);
+    return () => window.removeEventListener('toggle-newcall-queue', handleToggle);
+  }, []);
+
+  // 8. Subscribe to RxJS acceptCallModal$ for queue acceptance
+  useEffect(() => {
+    const sub = acceptCallModal$.subscribe((val) => {
+      setAcceptCallState(val);
+      setIsAcceptingQueue(false);
+    });
+    return () => sub.unsubscribe();
+  }, []);
 
   // ID Resolvers to ensure Backend gets ProjectID and StatusId numbers
   const getProjectId = useCallback(
@@ -795,13 +840,8 @@ export default function ChatWorkspace() {
       }
     }
 
-    // Append Ticket Entry Card if call is upgraded to Ticket
-    const hasTicket = Boolean(
-      (rec.ticket && String(rec.ticket).trim() !== '' && String(rec.ticket).trim() !== 'Upgrade to Ticket') ||
-      (rec.Ticket_CreatedDate && String(rec.Ticket_CreatedDate).trim() !== '') ||
-      rec.Ticket_Id ||
-      rec.ticketId
-    );
+    // Append Ticket Entry Card if call is upgraded to a genuine Ticket
+    const hasTicket = hasRealTicket(rec);
     if (hasTicket) {
       const ticketTime = rec.Ticket_CreatedDate && isValidDate(rec.Ticket_CreatedDate)
         ? formatTimeOnly(null, rec.Ticket_CreatedDate)
@@ -810,29 +850,28 @@ export default function ChatWorkspace() {
         ? formatDateGroup(rec.Ticket_CreatedDate)
         : dateFormatted;
 
-      const resolvedTicketNo =
-        rec.ticket && rec.ticket !== 'In Ticket' && rec.ticket !== 'Upgrade to Ticket'
-          ? rec.ticket
-          : rec.Ticket_Id || rec.ticketId || rec.id || rec.sr;
+      const resolvedTicketNo = getResolvedTicketId(rec) || rec.TicketNo || rec.ticket;
 
-      items.push({
-        id: `ticket-card-${rec.sr || 'main'}-${callId}`,
-        dateGroup: ticketDate,
-        sender: rec.receivedBy || rec.AssignedEmpName || 'Support Team',
-        time: ticketTime,
-        isTicketCard: true,
-        sortTime: baseStartTime + 400,
-        ticketData: {
-          ticketId: resolvedTicketNo,
-          ticketCreatedDate: rec.Ticket_CreatedDate || '',
-          ticketTitle: rec.description || rec.Descr || 'Helpdesk Ticket',
-          appname: rec.appname || rec.company || '',
-          createdBy: rec.receivedBy || rec.AssignedEmpName || 'Support Agent',
-          company: rec.company || '',
-          sr: rec.sr,
-          rawRecord: rec,
-        },
-      });
+      if (resolvedTicketNo) {
+        items.push({
+          id: `ticket-card-${rec.sr || 'main'}-${callId}`,
+          dateGroup: ticketDate,
+          sender: rec.receivedBy || rec.AssignedEmpName || 'Support Team',
+          time: ticketTime,
+          isTicketCard: true,
+          sortTime: baseStartTime + 400,
+          ticketData: {
+            ticketId: resolvedTicketNo,
+            ticketCreatedDate: rec.Ticket_CreatedDate || '',
+            ticketTitle: rec.description || rec.Descr || 'Helpdesk Ticket',
+            appname: rec.appname || rec.company || '',
+            createdBy: rec.receivedBy || rec.AssignedEmpName || 'Support Agent',
+            company: rec.company || '',
+            sr: rec.sr,
+            rawRecord: rec,
+          },
+        });
+      }
     }
 
     // Append iTask Entry Card if call is moved to iTask
@@ -931,35 +970,16 @@ export default function ChatWorkspace() {
       });
     };
 
-    if (conversationViewMode === 'timeline' && currentCompany !== 'all') {
-      const companyCalls = threads.filter(
-        (t) => (t.company || '').toLowerCase() === currentCompany.toLowerCase()
-      );
-
-      const aggregated = [];
-      companyCalls.forEach((callItem) => {
-        const rawRec = callItem.rawRecord || callItem;
-        const callItems = buildMessagesForCall(rawRec, callItem.id);
-        const injectedCustom = getCustomForCall(callItem).filter((msg) => {
-          const cText = (msg.content || '').trim().toLowerCase();
-          return !callItems.some((ci) => (ci.content || '').trim().toLowerCase() === cText);
-        });
-        aggregated.push(...callItems, ...injectedCustom);
-      });
-
-      aggregated.sort((a, b) => (a.sortTime || 0) - (b.sortTime || 0));
-      setMessages(aggregated);
-    } else {
-      const rawRec = activeThread.rawRecord || activeThread;
-      const callItems = buildMessagesForCall(rawRec, activeThread.id);
-      const injectedCustom = getCustomForCall(activeThread).filter((msg) => {
-        const cText = (msg.content || '').trim().toLowerCase();
-        return !callItems.some((ci) => (ci.content || '').trim().toLowerCase() === cText);
-      });
-      const combined = [...callItems, ...injectedCustom];
-      combined.sort((a, b) => (a.sortTime || 0) - (b.sortTime || 0));
-      setMessages(combined);
-    }
+    // Always render single active call conversation exclusively
+    const rawRec = activeThread.rawRecord || activeThread;
+    const callItems = buildMessagesForCall(rawRec, activeThread.id);
+    const injectedCustom = getCustomForCall(activeThread).filter((msg) => {
+      const cText = (msg.content || '').trim().toLowerCase();
+      return !callItems.some((ci) => (ci.content || '').trim().toLowerCase() === cText);
+    });
+    const combined = [...callItems, ...injectedCustom];
+    combined.sort((a, b) => (a.sortTime || 0) - (b.sortTime || 0));
+    setMessages(combined);
   }, [
     activeThread,
     threads,
@@ -982,6 +1002,7 @@ export default function ChatWorkspace() {
   const handleSearchChange = useCallback((query) => {
     setSearchQuery(query);
     callStreamService.setSearchQuery(query);
+    setGlobalSearchQuery(query);
   }, []);
 
   // Start Live VoIP Support Call & push call record via RxJS Stream
@@ -1030,6 +1051,53 @@ export default function ChatWorkspace() {
       });
     }
   }, [activeThread, callLogCtx, user]);
+
+  // Handle Confirm Accept Call from Queue (Exact same API & logic as CallLogger)
+  const handleConfirmAcceptCall = useCallback(async () => {
+    if (!acceptCallState?.callId) return;
+    setIsAcceptingQueue(true);
+    try {
+      const res = await callLogCtx.AcceptQueueCall(acceptCallState.callId);
+      if (res && !res.success) {
+        toast.error(res.error?.message || 'Failed to accept call');
+      } else if (res && res.success) {
+        toast.success('Call accepted successfully');
+        const userName = user?.firstname
+          ? `${user.firstname} ${user.lastname || ''}`.trim()
+          : user?.name || 'Support Executive';
+        callStreamService.patchPrimaryCall(acceptCallState.callId, {
+          receivedBy: userName,
+          AssignedEmpName: userName,
+          status: 'In Progress',
+          Estatus: 'Running',
+        });
+        callStreamService.selectThread(`call-${acceptCallState.callId}`);
+        callLogCtx?.triggerRefresh?.();
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to accept call');
+    } finally {
+      setIsAcceptingQueue(false);
+      acceptCallModal$.next(null);
+    }
+  }, [acceptCallState, callLogCtx, user]);
+
+  // Handle selecting a call directly from the Queue Rail
+  const handleSelectQueueCall = useCallback(
+    (threadId, rawCall) => {
+      if (rawCall) {
+        const currentThreads = callStreamService.threads$.getValue() || [];
+        const exists = currentThreads.some(
+          (t) => t.id === threadId || t.sr === rawCall.sr || t.sr === rawCall.id
+        );
+        if (!exists) {
+          callStreamService.addNewCall(rawCall, false);
+        }
+      }
+      handleSelectThread(threadId);
+    },
+    [handleSelectThread]
+  );
 
   const handleSendMessage = useCallback(
     async (text, fileOrAttachment = null) => {
@@ -1217,6 +1285,20 @@ export default function ChatWorkspace() {
       {/* Global Floating VoIP Call Widget */}
       <FloatingCallWidget />
 
+      {/* Call Queue Horizontal Rail (Collapsible via Header Queue Button or URL) */}
+      {isQueueOpen && (
+        <QuickQueryCardsRail
+          activeThreadId={activeThreadId}
+          onSelectThread={handleSelectQueueCall}
+          onAcceptCall={(callId) => {
+            acceptCallModal$.next({ callId });
+          }}
+          onClose={() => {
+            setIsQueueOpen(false);
+          }}
+        />
+      )}
+
       {/* Main Workspace: Company Avatars Rail + Direct Messages Sidebar + Chat Canvas + Inspector */}
       <Box sx={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden', bgcolor: '#FFFFFF' }}>
         {/* Inner Sidebar 1: Company Avatars Rail */}
@@ -1298,6 +1380,18 @@ export default function ChatWorkspace() {
       <NewCallEditModal />
       <NewCallForwardModal />
       <NewCallDurationModal />
+
+      {/* Accept Queue Call Modal (Exact same modal & confirmation as CallLogger) */}
+      {Boolean(acceptCallState) && (
+        <AcceptCallModal
+          isDialogOpen={Boolean(acceptCallState)}
+          loading={isAcceptingQueue}
+          handleConfirmStartCall={handleConfirmAcceptCall}
+          handleCancel={() => {
+            acceptCallModal$.next(null);
+          }}
+        />
+      )}
 
       {/* Toast Notification Container */}
       <Toaster position="bottom-right" closeButton />

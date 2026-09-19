@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -38,6 +38,12 @@ import { useAuth } from '../../context/UseAuth';
 import { useCallLog } from '../../context/UseCallLog';
 import { getStatusColor, getPriorityColor } from '../../libs/data';
 import CallLogApi from '../../apis/CallLogApiController';
+import {
+  hasRealTicket,
+  getResolvedTicketId,
+  getSanitizedStatuses,
+} from './utils/ticketStatusUtils';
+import { isValidDate } from './utils/dateUtils';
 
 function getChipStyleFromColor(colorName) {
   switch (colorName) {
@@ -118,6 +124,12 @@ export default function ChatHeader({
   const [ratingAnchor, setRatingAnchor] = useState(null);
   const [startCallAnchor, setStartCallAnchor] = useState(null);
   const [isAcceptingHeader, setIsAcceptingHeader] = useState(false);
+  const [activeVoipCall, setActiveVoipCall] = useState(null);
+
+  useEffect(() => {
+    const sub = callStreamService.activeCall$.subscribe(setActiveVoipCall);
+    return () => sub.unsubscribe();
+  }, []);
 
   const handleAcceptHeaderCall = async () => {
     if (!activeThread?.sr) return;
@@ -154,7 +166,29 @@ export default function ChatHeader({
     }
   };
 
-  const raw = React.useMemo(() => activeThread?.rawRecord || {}, [activeThread?.rawRecord]);
+  const raw = React.useMemo(() => activeThread?.rawRecord || activeThread || {}, [activeThread]);
+
+  const hasTicket = React.useMemo(() => {
+    return hasRealTicket(raw) || hasRealTicket(activeThread);
+  }, [raw, activeThread]);
+
+  const resolvedTicketId = React.useMemo(() => {
+    return getResolvedTicketId(raw) || getResolvedTicketId(activeThread);
+  }, [raw, activeThread]);
+
+  const ticketContent =
+    raw.Ticket_Description ||
+    raw.ticketDescription ||
+    raw.TicketTitle ||
+    raw.ticketTitle ||
+    raw.TicketSubject ||
+    raw.ticketSubject ||
+    raw.subject ||
+    raw.description ||
+    raw.Descr ||
+    activeThread?.description ||
+    '';
+
   const followUpsList = React.useMemo(() => {
     const fuList = raw.FollowUpList || activeThread?.FollowUpList;
     if (!fuList) return [];
@@ -170,24 +204,45 @@ export default function ChatHeader({
     return [];
   }, [raw.FollowUpList, activeThread?.FollowUpList]);
 
-  const isValidDateString = (d) => d && typeof d === 'string' && !d.startsWith('1900-01-01');
+  // Determine if call is active (ongoing/running/pending) vs ended
+  const isCallEnded = React.useMemo(() => {
+    // 1. If active VoIP call matches this thread, it is currently in progress
+    if (
+      activeVoipCall &&
+      (String(activeVoipCall.sr) === String(raw.sr) ||
+        String(activeVoipCall.sr) === String(activeThread?.sr))
+    ) {
+      return false;
+    }
+    // 2. Check callClosed date
+    const closed = raw.callClosed || activeThread?.callClosed;
+    const hasClosedDate = isValidDate(closed);
 
-  const isPrimaryPending = !isValidDateString(raw.callClosed || activeThread?.callClosed) &&
-    (!raw.CallDuration || raw.CallDuration === '00:00:00' || raw.CallDuration === '0');
+    // 3. Check duration
+    const duration =
+      raw.CallDuration || activeThread?.duration || raw.callDuration || '';
+    const hasDuration = duration && duration !== '00:00:00' && duration !== '0';
+
+    return Boolean(hasClosedDate || hasDuration);
+  }, [activeVoipCall, raw.callClosed, raw.CallDuration, raw.sr, activeThread]);
+
+  const isPrimaryPending = !isCallEnded;
 
   const pendingFollowUps = React.useMemo(() => {
     return followUpsList.filter((fu) => {
-      const isClosed = isValidDateString(fu.CallClosed);
+      const isClosed = isValidDate(fu.CallClosed);
       const hasDuration = fu.CallDuration && fu.CallDuration !== '00:00:00' && fu.CallDuration !== '0';
       return !isClosed && !hasDuration;
     });
   }, [followUpsList]);
 
   const totalPendingCallsCount = (isPrimaryPending ? 1 : 0) + pendingFollowUps.length;
-  // External Status maps to estatus / Estatus (e.g. Completed, Running, Ticket generated)
-  const currentExtStatus = activeThread?.estatus || raw.Estatus || 'Completed';
-  // Internal Status maps to status / Status (e.g. Solved, Pending, In Progress)
-  const currentIntStatus = activeThread?.status || raw.status || 'Solved';
+
+  // External & Internal Statuses sanitized to never show 'Ticket generated' if call has no ticket
+  const { extStatus: currentExtStatus, intStatus: currentIntStatus } = React.useMemo(() => {
+    return getSanitizedStatuses(activeThread || raw, isCallEnded);
+  }, [activeThread, raw, isCallEnded]);
+
   const currentPriority = activeThread?.priority || raw.priority || 'Normal';
   const currentRating = raw.rating || activeThread?.rating || 0;
   const isForwarded = raw.CallType === 'Forwarded' || Boolean(raw.ForwardedEmp);
@@ -197,9 +252,77 @@ export default function ChatHeader({
   const intConfig = getStatusStyle(currentIntStatus);
   const priConfig = getPriorityStyle(currentPriority);
 
+  const handleCopyCallInfo = async () => {
+    setProfileAnchor(null);
+    if (!activeThread && !raw) return;
+
+    const callId = raw.sr || activeThread?.sr || '';
+    const company = raw.company || activeThread?.company || '';
+    const caller = raw.callBy || raw.CallerName || activeThread?.name || activeThread?.callBy || '';
+    const phone = raw.phone || raw.Phone || activeThread?.phone || '';
+    const agent = raw.receivedBy || raw.AssignedEmpName || activeThread?.receivedBy || '';
+    const extStatus = currentExtStatus || '';
+    const intStatus = currentIntStatus || '';
+    const priority = currentPriority || '';
+    const callDate = raw.callStart || raw.createDate || activeThread?.callStart || '';
+    const callNotes = raw.description || raw.Descr || activeThread?.description || '';
+
+    const lines = [];
+    if (callId) lines.push(`Call ID: #${callId}`);
+    if (company) lines.push(`Company: ${company}`);
+    if (caller) lines.push(`Caller: ${caller}`);
+    if (phone) lines.push(`Phone: ${phone}`);
+    if (agent) lines.push(`Assigned Agent: ${agent}`);
+    if (extStatus) lines.push(`External Status: ${extStatus}`);
+    if (intStatus) lines.push(`Internal Status: ${intStatus}`);
+    if (priority) lines.push(`Priority: ${priority}`);
+    if (callDate && isValidDate(callDate)) lines.push(`Date: ${callDate}`);
+    if (callNotes) lines.push(`Call Details: ${callNotes}`);
+
+    if (hasTicket && resolvedTicketId) {
+      lines.push('');
+      lines.push(`Ticket ID: #${resolvedTicketId}`);
+      if (ticketContent) {
+        lines.push(`Ticket Content: ${ticketContent}`);
+      }
+      if (raw.Ticket_CreatedDate && isValidDate(raw.Ticket_CreatedDate)) {
+        lines.push(`Ticket Created: ${raw.Ticket_CreatedDate}`);
+      }
+    }
+
+    const textToCopy = lines.join('\n');
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      toast.success(
+        resolvedTicketId
+          ? `Copied Call #${callId} & Ticket #${resolvedTicketId} info to clipboard`
+          : `Copied Call #${callId} info to clipboard`
+      );
+    } catch (err) {
+      console.error('Failed to copy call info:', err);
+      toast.error('Failed to copy information to clipboard');
+    }
+  };
+
   const handleUpdateExtStatus = async (opt) => {
     setExtStatusAnchor(null);
     if (!activeThread?.sr && !activeThread?.id) return;
+    if (!isCallEnded) {
+      toast.error('Cannot change status while call is still active. Please end the call first.');
+      return;
+    }
     const statusVal = opt.value || opt.id || opt.label;
     const statusLabel = opt.label || opt.Name || opt.name || opt;
 
@@ -242,6 +365,10 @@ export default function ChatHeader({
   const handleUpdateIntStatus = async (opt) => {
     setIntStatusAnchor(null);
     if (!activeThread?.sr && !activeThread?.id) return;
+    if (!isCallEnded) {
+      toast.error('Cannot change status while call is still active. Please end the call first.');
+      return;
+    }
     const statusVal = opt.value || opt.id || opt.label;
     const statusLabel = opt.label || opt.Name || opt.name || opt;
 
@@ -497,9 +624,21 @@ export default function ChatHeader({
             {/* Sleek Slack-Style Status Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 0.5 }}>
               {/* External Status Pill */}
-              <Tooltip title="Click to change External Status">
+              <Tooltip
+                title={
+                  !isCallEnded
+                    ? 'Call is still in progress. Status options are disabled until the call is ended.'
+                    : 'Click to change External Status'
+                }
+              >
                 <Box
-                  onClick={(e) => setExtStatusAnchor(e.currentTarget)}
+                  onClick={(e) => {
+                    if (!isCallEnded) {
+                      toast.info('Status options are disabled until the call has ended.');
+                      return;
+                    }
+                    setExtStatusAnchor(e.currentTarget);
+                  }}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -509,23 +648,43 @@ export default function ChatHeader({
                     borderRadius: '16px',
                     bgcolor: extConfig.bg,
                     border: `1px solid ${extConfig.border}`,
-                    cursor: 'pointer',
+                    cursor: !isCallEnded ? 'not-allowed' : 'pointer',
+                    opacity: !isCallEnded ? 0.6 : 1,
                     transition: 'all 0.15s ease',
-                    '&:hover': { opacity: 0.85, transform: 'translateY(-0.5px)' },
+                    '&:hover': !isCallEnded
+                      ? {}
+                      : { opacity: 0.85, transform: 'translateY(-0.5px)' },
                   }}
                 >
                   <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: extConfig.dotColor }} />
                   <Typography sx={{ fontSize: 11, fontWeight: 750, color: extConfig.color }}>
                     {currentExtStatus}
                   </Typography>
-                  <CaretDown size={9} weight="bold" color={extConfig.color} />
+                  <CaretDown
+                    size={9}
+                    weight="bold"
+                    color={extConfig.color}
+                    style={{ opacity: !isCallEnded ? 0.35 : 1 }}
+                  />
                 </Box>
               </Tooltip>
 
               {/* Internal Status Pill */}
-              <Tooltip title="Click to change Internal Workflow Status">
+              <Tooltip
+                title={
+                  !isCallEnded
+                    ? 'Call is still in progress. Status options are disabled until the call is ended.'
+                    : 'Click to change Internal Workflow Status'
+                }
+              >
                 <Box
-                  onClick={(e) => setIntStatusAnchor(e.currentTarget)}
+                  onClick={(e) => {
+                    if (!isCallEnded) {
+                      toast.info('Status options are disabled until the call has ended.');
+                      return;
+                    }
+                    setIntStatusAnchor(e.currentTarget);
+                  }}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -535,16 +694,24 @@ export default function ChatHeader({
                     borderRadius: '16px',
                     bgcolor: intConfig.bg,
                     border: `1px solid ${intConfig.border}`,
-                    cursor: 'pointer',
+                    cursor: !isCallEnded ? 'not-allowed' : 'pointer',
+                    opacity: !isCallEnded ? 0.6 : 1,
                     transition: 'all 0.15s ease',
-                    '&:hover': { opacity: 0.85, transform: 'translateY(-0.5px)' },
+                    '&:hover': !isCallEnded
+                      ? {}
+                      : { opacity: 0.85, transform: 'translateY(-0.5px)' },
                   }}
                 >
                   <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: intConfig.dotColor }} />
                   <Typography sx={{ fontSize: 11, fontWeight: 750, color: intConfig.color }}>
                     {currentIntStatus}
                   </Typography>
-                  <CaretDown size={9} weight="bold" color={intConfig.color} />
+                  <CaretDown
+                    size={9}
+                    weight="bold"
+                    color={intConfig.color}
+                    style={{ opacity: !isCallEnded ? 0.35 : 1 }}
+                  />
                 </Box>
               </Tooltip>
 
@@ -683,8 +850,8 @@ export default function ChatHeader({
               Edit Call Duration & Timing
             </MenuItem>
           )}
-          <MenuItem onClick={() => setProfileAnchor(null)} sx={{ fontSize: 13, fontWeight: 550 }}>
-            Copy call info & ticket ID
+          <MenuItem onClick={handleCopyCallInfo} sx={{ fontSize: 13, fontWeight: 550 }}>
+            {resolvedTicketId ? `Copy call info & ticket ID (#${resolvedTicketId})` : 'Copy call info & ticket ID'}
           </MenuItem>
         </Menu>
 
@@ -700,30 +867,36 @@ export default function ChatHeader({
           <Typography sx={{ px: 1.5, py: 0.6, fontSize: 11, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>
             Update External Status
           </Typography>
-          {(ESTATUS_LIST.length > 0 ? ESTATUS_LIST : EXTERNAL_STATUS_FALLBACK).map((opt) => {
-            const label = opt.label || opt.Name || opt.name || opt;
-            const isSelected = String(currentExtStatus).toLowerCase() === String(label).toLowerCase();
-            const itemStyle = getStatusStyle(label);
-            return (
-              <MenuItem
-                key={opt.value || opt.id || label}
-                onClick={() => handleUpdateExtStatus(opt)}
-                sx={{
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? 800 : 550,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  borderRadius: '6px',
-                  my: 0.2,
-                  bgcolor: isSelected ? '#F1F5F9' : 'transparent',
-                }}
-              >
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
-                {label}
-              </MenuItem>
-            );
-          })}
+          {(ESTATUS_LIST.length > 0 ? ESTATUS_LIST : EXTERNAL_STATUS_FALLBACK)
+            .filter((opt) => {
+              const label = String(opt.label || opt.Name || opt.name || opt).trim().toLowerCase();
+              if (!hasTicket && label === 'ticket generated') return false;
+              return true;
+            })
+            .map((opt) => {
+              const label = opt.label || opt.Name || opt.name || opt;
+              const isSelected = String(currentExtStatus).toLowerCase() === String(label).toLowerCase();
+              const itemStyle = getStatusStyle(label);
+              return (
+                <MenuItem
+                  key={opt.value || opt.id || label}
+                  onClick={() => handleUpdateExtStatus(opt)}
+                  sx={{
+                    fontSize: 12.5,
+                    fontWeight: isSelected ? 800 : 550,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    borderRadius: '6px',
+                    my: 0.2,
+                    bgcolor: isSelected ? '#F1F5F9' : 'transparent',
+                  }}
+                >
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
+                  {label}
+                </MenuItem>
+              );
+            })}
         </Menu>
 
         {/* Internal Status Update Menu (master-based: STATUS_LIST) */}
@@ -738,30 +911,36 @@ export default function ChatHeader({
           <Typography sx={{ px: 1.5, py: 0.6, fontSize: 11, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>
             Update Internal Status
           </Typography>
-          {(STATUS_LIST.length > 0 ? STATUS_LIST : INTERNAL_STATUS_FALLBACK).map((opt) => {
-            const label = opt.label || opt.Name || opt.name || opt;
-            const isSelected = String(currentIntStatus).toLowerCase() === String(label).toLowerCase();
-            const itemStyle = getStatusStyle(label);
-            return (
-              <MenuItem
-                key={opt.value || opt.id || label}
-                onClick={() => handleUpdateIntStatus(opt)}
-                sx={{
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? 800 : 550,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  borderRadius: '6px',
-                  my: 0.2,
-                  bgcolor: isSelected ? '#F1F5F9' : 'transparent',
-                }}
-              >
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
-                {label}
-              </MenuItem>
-            );
-          })}
+          {(STATUS_LIST.length > 0 ? STATUS_LIST : INTERNAL_STATUS_FALLBACK)
+            .filter((opt) => {
+              const label = String(opt.label || opt.Name || opt.name || opt).trim().toLowerCase();
+              if (!hasTicket && label === 'ticket generated') return false;
+              return true;
+            })
+            .map((opt) => {
+              const label = opt.label || opt.Name || opt.name || opt;
+              const isSelected = String(currentIntStatus).toLowerCase() === String(label).toLowerCase();
+              const itemStyle = getStatusStyle(label);
+              return (
+                <MenuItem
+                  key={opt.value || opt.id || label}
+                  onClick={() => handleUpdateIntStatus(opt)}
+                  sx={{
+                    fontSize: 12.5,
+                    fontWeight: isSelected ? 800 : 550,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    borderRadius: '6px',
+                    my: 0.2,
+                    bgcolor: isSelected ? '#F1F5F9' : 'transparent',
+                  }}
+                >
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
+                  {label}
+                </MenuItem>
+              );
+            })}
         </Menu>
 
         {/* Priority Update Menu (master-based: PRIORITY_LIST) */}

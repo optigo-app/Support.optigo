@@ -32,6 +32,8 @@ import {
   globalActiveModule$,
   setActiveModule,
   clearActiveModule,
+  globalSearchQuery$,
+  setGlobalSearchQuery,
   useRxSubject,
 } from "../../../rxjs/globalSearchStore";
 
@@ -98,13 +100,20 @@ const GlobalSearchBar = () => {
   }, [suggestions]);
 
   // Handle module chip selection
-  const handleSelectModule = useCallback((mod) => {
-    setActiveModule(mod);
-    setInputValue("");
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
+  const handleSelectModule = useCallback(
+    (mod) => {
+      setActiveModule(mod);
+      setInputValue("");
+      setGlobalSearchQuery("");
+      if (location.pathname.toLowerCase() !== mod.path.toLowerCase()) {
+        navigate(mod.path);
+      }
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    },
+    [location.pathname, navigate]
+  );
 
   // Handle remove active module chip
   const handleRemoveModule = useCallback(() => {
@@ -114,13 +123,24 @@ const GlobalSearchBar = () => {
     }
   }, []);
 
+  // Handle input changes
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+
+    // If not typing an '@' prefix mention, broadcast live search to active module
+    if (!val.startsWith("@")) {
+      setGlobalSearchQuery(val);
+    }
+  };
+
   // Handle execute search
   const handleExecuteSearch = useCallback(
     (queryToSearch = inputValue) => {
       let finalQuery = queryToSearch;
       let targetMod = activeModule;
 
-      // Check if query begins with inline prefix like `@ticket query`
+      // Check if query begins with inline prefix like `@ticket query` or `@newcall query`
       if (finalQuery.startsWith("@")) {
         const parts = finalQuery.split(" ");
         const potentialPrefix = parts[0];
@@ -238,7 +258,7 @@ const GlobalSearchBar = () => {
           <InputBase
             inputRef={inputRef}
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onKeyDown={handleKeyDown}
             placeholder={
@@ -263,6 +283,7 @@ const GlobalSearchBar = () => {
               size="small"
               onClick={() => {
                 setInputValue("");
+                setGlobalSearchQuery("");
                 const params = new URLSearchParams(location.search);
                 if (params.has("search") || params.has("searchQuery")) {
                   params.delete("search");

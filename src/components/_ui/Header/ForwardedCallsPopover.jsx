@@ -6,17 +6,26 @@ import {
   Popover,
   List,
   ListItem,
+  Avatar,
+  Tooltip,
 } from "@mui/material";
 import {
   PhoneForwarded,
-  Building,
+  Building2,
   Clock,
   ArrowRight,
   Inbox,
-  UserCheck,
+  User,
+  ArrowUpRight,
+  Sparkles,
 } from "lucide-react";
 import { getPriorityColor } from "../../../libs/data";
 
+/**
+ * Apple HIG-inspired Forwarded Calls Popover.
+ * Provides clarity, deference, and depth with an elegant transfer trail
+ * ("Who forwarded → To whom"), clean typography, and tactile interaction.
+ */
 const ForwardedCallsPopover = ({
   openPopover,
   anchorEl,
@@ -24,6 +33,8 @@ const ForwardedCallsPopover = ({
   forwardedCalls = [],
   OnForwardClick,
 }) => {
+  const count = forwardedCalls?.length || 0;
+
   return (
     <Popover
       id={openPopover ? "forwarded-calls-popover" : undefined}
@@ -34,95 +45,153 @@ const ForwardedCallsPopover = ({
       transformOrigin={{ vertical: "top", horizontal: "right" }}
       PaperProps={{
         sx: {
-          mt: 1,
-          width: 360,
-          maxHeight: 440,
+          mt: 1.2,
+          width: 390,
+          maxHeight: 520,
           overflowY: "auto",
-          borderRadius: "12px",
-          boxShadow: "0px 12px 36px rgba(0, 0, 0, 0.16), 0px 0px 0px 1px rgba(0,0,0,0.06)",
-          border: "1px solid #E2E8F0",
-          bgcolor: "#FFFFFF",
+          borderRadius: "16px",
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          backdropFilter: "blur(24px)",
+          boxShadow:
+            "0 20px 48px -8px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06)",
+          border: "1px solid rgba(226, 232, 240, 0.8)",
+          // Smooth iOS scrollbar
+          "&::-webkit-scrollbar": { width: 5 },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: "rgba(0, 0, 0, 0.15)",
+            borderRadius: 4,
+          },
         },
       }}
     >
-      {/* Popover Header */}
+      {/* ── Apple HIG Header ── */}
       <Box
         sx={{
-          p: 1.6,
+          p: 1.75,
           px: 2,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           borderBottom: "1px solid #F1F5F9",
-          bgcolor: "#F8FAFC",
+          backgroundColor: "#FFFFFF",
+          position: "sticky",
+          top: 0,
+          zIndex: 2,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
           <Box
             sx={{
-              p: 0.6,
-              borderRadius: "6px",
-              bgcolor: forwardedCalls.length > 0 ? "#FEE2E2" : "#EDE9FE",
-              color: forwardedCalls.length > 0 ? "#DC2626" : "#6900C6",
+              width: 32,
+              height: 32,
+              borderRadius: "9px",
+              backgroundColor: count > 0 ? "rgba(239, 68, 68, 0.1)" : "rgba(105, 0, 198, 0.08)",
+              color: count > 0 ? "#DC2626" : "#6900C6",
               display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: count > 0 ? "0 2px 8px rgba(239, 68, 68, 0.15)" : "none",
             }}
           >
-            <PhoneForwarded size={16} strokeWidth={2.5} />
+            <PhoneForwarded size={17} strokeWidth={2.4} />
           </Box>
-          <Typography sx={{ fontWeight: 750, fontSize: "0.92rem", color: "#0F172A" }}>
-            Forwarded Calls
-          </Typography>
+          <Box>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: "0.92rem",
+                color: "#0F172A",
+                letterSpacing: "-0.015em",
+                lineHeight: 1.2,
+              }}
+            >
+              Forwarded Calls
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: "0.7rem",
+                color: "#64748B",
+                fontWeight: 500,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {count > 0 ? `${count} awaiting your response` : "All caught up"}
+            </Typography>
+          </Box>
         </Box>
+
         <Chip
-          label={forwardedCalls.length}
+          label={count}
           size="small"
           sx={{
-            height: 20,
-            fontSize: "0.72rem",
+            height: 22,
+            minWidth: 26,
+            fontSize: "0.74rem",
             fontWeight: 800,
-            bgcolor: forwardedCalls.length > 0 ? "#DC2626" : "#E2E8F0",
-            color: forwardedCalls.length > 0 ? "#FFFFFF" : "#475569",
+            borderRadius: "999px",
+            backgroundColor: count > 0 ? "#DC2626" : "#E2E8F0",
+            color: count > 0 ? "#FFFFFF" : "#64748B",
+            letterSpacing: "-0.01em",
           }}
         />
       </Box>
 
-      {/* Popover Body */}
-      {forwardedCalls.length === 0 ? (
+      {/* ── Popover Content ── */}
+      {count === 0 ? (
         <Box
           sx={{
-            py: 4,
-            px: 2,
+            py: 6,
+            px: 3,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             textAlign: "center",
-            gap: 1,
+            gap: 1.2,
           }}
         >
           <Box
             sx={{
-              p: 1.2,
+              width: 52,
+              height: 52,
               borderRadius: "50%",
-              bgcolor: "#F1F5F9",
+              backgroundColor: "#F8FAFC",
+              border: "1px solid #E2E8F0",
               color: "#94A3B8",
               display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mb: 0.5,
             }}
           >
-            <Inbox size={28} strokeWidth={1.5} />
+            <Inbox size={26} strokeWidth={1.75} />
           </Box>
-          <Typography sx={{ fontSize: "0.85rem", fontWeight: 650, color: "#334155" }}>
+          <Typography
+            sx={{
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              color: "#1E293B",
+              letterSpacing: "-0.01em",
+            }}
+          >
             No Forwarded Calls
           </Typography>
-          <Typography sx={{ fontSize: "0.75rem", color: "#94A3B8", maxWidth: 220 }}>
-            Calls forwarded to you by team members will appear here.
+          <Typography
+            sx={{
+              fontSize: "0.78rem",
+              color: "#64748B",
+              maxWidth: 240,
+              lineHeight: 1.4,
+            }}
+          >
+            Calls assigned or forwarded to you by teammates will appear here in real time.
           </Typography>
         </Box>
       ) : (
-        <List disablePadding sx={{ p: 0.8 }}>
+        <List disablePadding sx={{ p: 1.2, display: "flex", flexDirection: "column", gap: 1 }}>
           {forwardedCalls.map((call, index) => (
-            <ForwardedCallItem
-              key={call?.sr || call?.id || index}
+            <ForwardedCallCard
+              key={call?.sr ? `${call.sr}-${call.followUpId || index}` : index}
               call={call}
               onForwardClick={OnForwardClick}
             />
@@ -135,40 +204,142 @@ const ForwardedCallsPopover = ({
 
 export default ForwardedCallsPopover;
 
-const ForwardedCallItem = ({ call, onForwardClick }) => {
+/**
+ * Clean Apple HIG Inset Call Card with explicit "Forwarded By → Assigned To" trail.
+ */
+const ForwardedCallCard = ({ call, onForwardClick }) => {
   const { color } = getPriorityColor(call?.priority);
-  const priBg = color === "error" ? "#FEE2E2" : color === "warning" ? "#FEF3C7" : "#F1F5F9";
-  const priColor = color === "error" ? "#DC2626" : color === "warning" ? "#D97706" : "#475569";
+
+  // Priority color token mapping (Apple HIG semantic system)
+  const priorityStyles = {
+    error: { bg: "#FEF2F2", color: "#DC2626", border: "#FCA5A5" },
+    warning: { bg: "#FFFBEB", color: "#D97706", border: "#FCD34D" },
+    default: { bg: "#F8FAFC", color: "#475569", border: "#E2E8F0" },
+  };
+  const pri = priorityStyles[color] || priorityStyles.default;
+
+  // Who forwarded the call vs who received it
+  const senderName =
+    call.receivedBy ||
+    call.forwardedBy ||
+    call.CreatedBy ||
+    "Team Member";
+  const recipientName =
+    call.forwardedTo ||
+    call.AssignedEmpName ||
+    "You";
+
+  const isSelf = senderName.trim().toLowerCase() === recipientName.trim().toLowerCase();
 
   return (
     <ListItem
-      alignItems="flex-start"
+      disableGutters
       onClick={() => onForwardClick && onForwardClick(call)}
       sx={{
         flexDirection: "column",
-        p: 1.2,
-        mb: 0.6,
-        borderRadius: "8px",
-        border: "1px solid #F1F5F9",
-        bgcolor: "#FFFFFF",
+        p: 1.4,
+        borderRadius: "12px",
+        backgroundColor: "#FFFFFF",
+        border: "1px solid #E2E8F0",
         cursor: "pointer",
-        transition: "all 0.15s ease",
+        transition: "all 0.18s cubic-bezier(0.4, 0, 0.2, 1)",
         "&:hover": {
-          bgcolor: "#F8FAFC",
+          backgroundColor: "#F8FAFC",
           borderColor: "#CBD5E1",
           transform: "translateY(-1px)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          boxShadow: "0 6px 18px -3px rgba(0, 0, 0, 0.07)",
+          "& .action-arrow": {
+            transform: "translateX(2px)",
+            color: "#1D4ED8",
+          },
         },
       }}
     >
-      {/* Top row: Forwarder + Priority */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", mb: 0.5 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-          <UserCheck size={14} color="#6900C6" strokeWidth={2.5} />
-          <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: "#6900C6" }}>
-            {call.receivedBy || call.forwardedBy || "Team Member"}
+      {/* ── Top Row: Transfer Flow Route (Who forwarded to whom) ── */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          mb: 0.8,
+        }}
+      >
+        <Box
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.7,
+            px: 0.9,
+            py: 0.35,
+            borderRadius: "7px",
+            backgroundColor: "#F1F5F9",
+            maxWidth: "75%",
+          }}
+        >
+          {/* Sender Avatar */}
+          <Avatar
+            sx={{
+              width: 17,
+              height: 17,
+              fontSize: "0.62rem",
+              fontWeight: 750,
+              backgroundColor: "#6366F1",
+              color: "#FFFFFF",
+            }}
+          >
+            {senderName.charAt(0).toUpperCase() || "T"}
+          </Avatar>
+
+          <Typography
+            noWrap
+            sx={{
+              fontSize: "0.72rem",
+              fontWeight: 650,
+              color: "#334155",
+              maxWidth: 90,
+            }}
+            title={senderName}
+          >
+            {senderName}
           </Typography>
+
+          {!isSelf && (
+            <>
+              <ArrowRight size={11} color="#94A3B8" strokeWidth={2.4} />
+              <Typography
+                noWrap
+                sx={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "#2563EB",
+                  maxWidth: 90,
+                }}
+                title={recipientName}
+              >
+                {recipientName}
+              </Typography>
+            </>
+          )}
+
+          {call.DeptName && (
+            <Chip
+              label={call.DeptName}
+              size="small"
+              sx={{
+                height: 15,
+                fontSize: "0.6rem",
+                fontWeight: 700,
+                backgroundColor: "rgba(99, 102, 241, 0.12)",
+                color: "#4F46E5",
+                borderRadius: "4px",
+                px: 0.3,
+              }}
+            />
+          )}
         </Box>
+
+        {/* Priority Badge */}
         <Chip
           label={call.priority || "Normal"}
           size="small"
@@ -176,60 +347,139 @@ const ForwardedCallItem = ({ call, onForwardClick }) => {
             height: 18,
             fontSize: "0.65rem",
             fontWeight: 750,
-            bgcolor: priBg,
-            color: priColor,
+            backgroundColor: pri.bg,
+            color: pri.color,
+            border: `1px solid ${pri.border}`,
+            borderRadius: "5px",
           }}
         />
       </Box>
 
-      {/* Main Info: Company & Caller */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: 0.3, width: "100%" }}>
-        <Building size={13} color="#64748B" />
+      {/* ── Caller & Company ── */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 0.8,
+          width: "100%",
+          mb: 0.5,
+        }}
+      >
+        <Building2 size={14} color="#64748B" strokeWidth={2.2} />
         <Typography
           noWrap
           sx={{
-            fontSize: "0.82rem",
-            fontWeight: 700,
+            fontSize: "0.85rem",
+            fontWeight: 750,
             color: "#0F172A",
+            letterSpacing: "-0.01em",
             flex: 1,
           }}
         >
           {call?.company || "Unknown Company"}
-          {call?.callBy ? ` • ${call.callBy}` : ""}
+          {call?.callBy && (
+            <Typography
+              component="span"
+              sx={{
+                fontWeight: 500,
+                color: "#64748B",
+                fontSize: "0.8rem",
+              }}
+            >
+              {" "}
+              • {call.callBy}
+            </Typography>
+          )}
         </Typography>
+
+        {call?.appname && (
+          <Chip
+            label={call.appname}
+            size="small"
+            sx={{
+              height: 18,
+              fontSize: "0.64rem",
+              fontWeight: 650,
+              backgroundColor: "#EEF2FF",
+              color: "#4338CA",
+              borderRadius: "5px",
+            }}
+          />
+        )}
       </Box>
 
-      {/* Description if present */}
+      {/* ── Call Description Bubble (Apple Style Inset Note) ── */}
       {(call?.description || call?.lastMessage) && (
-        <Typography
+        <Box
           sx={{
-            fontSize: "0.75rem",
-            color: "#475569",
-            lineHeight: 1.3,
-            mb: 0.6,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
+            width: "100%",
+            p: "6px 9px",
+            mb: 0.8,
+            borderRadius: "7px",
+            backgroundColor: "#F8FAFC",
+            borderLeft: "2.5px solid #3B82F6",
           }}
         >
-          {call?.description || call?.lastMessage}
-        </Typography>
-      )}
-
-      {/* Bottom Footer: Time + Take Action */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", pt: 0.4 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Clock size={12} color="#94A3B8" />
-          <Typography sx={{ fontSize: "0.7rem", color: "#94A3B8", fontWeight: 500 }}>
-            {call.time || "Recent"}
+          <Typography
+            sx={{
+              fontSize: "0.75rem",
+              color: "#334155",
+              lineHeight: 1.35,
+              fontWeight: 500,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {call?.description || call?.lastMessage}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.3, color: "#2563EB" }}>
-          <Typography sx={{ fontSize: "0.72rem", fontWeight: 750 }}>
-            Open Call
+      )}
+
+      {/* ── Footer: Time Stamp & Open Action ── */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          pt: 0.3,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Clock size={12} color="#94A3B8" strokeWidth={2} />
+          <Typography sx={{ fontSize: "0.7rem", color: "#64748B", fontWeight: 600 }}>
+            {call.time || "Recent"}
           </Typography>
-          <ArrowRight size={12} strokeWidth={2.5} />
+          {call?.isForwardedFollowUp && (
+            <Typography
+              sx={{
+                fontSize: "0.65rem",
+                color: "#6366F1",
+                fontWeight: 700,
+                ml: 0.5,
+              }}
+            >
+              • Follow-up
+            </Typography>
+          )}
+        </Box>
+
+        <Box
+          className="action-arrow"
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.35,
+            color: "#2563EB",
+            fontWeight: 750,
+            fontSize: "0.73rem",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Open Call
+          <ArrowRight size={13} strokeWidth={2.4} />
         </Box>
       </Box>
     </ListItem>

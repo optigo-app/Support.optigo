@@ -1128,12 +1128,20 @@ const CallLogManagementApp = ({ showNotification = () => {} }) => {
       const selectedData = callLogMap[rowData.sr];
       if (!selectedData) return;
 
+      if (selectedData.hasNewComment) {
+        setCallLog((prev) =>
+          prev.map((c) =>
+            c.sr === selectedData.sr ? { ...c, hasNewComment: false } : c,
+          ),
+        );
+      }
+
       setCurrentCall(selectedData);
       if (!sliders.recordMode) {
         toggleSlider("recordMode");
       }
     },
-    [callLogMap, toggleSlider, sliders.recordMode],
+    [callLogMap, toggleSlider, sliders.recordMode, setCallLog, setCurrentCall],
   );
 
   const handleEditAndStartCall = useCallback((id) => {

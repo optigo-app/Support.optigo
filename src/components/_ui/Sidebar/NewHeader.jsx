@@ -19,7 +19,7 @@ import {
   Paper,
   Badge,
 } from "@mui/material";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   PhoneForwarded,
   LogOut,
@@ -43,6 +43,7 @@ import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
 import { getAppBasePath } from "../../../utils/AppBasePath";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
+import { callStreamService } from "../../NewCall/services/callStreamService";
 
 const NewHeader = () => {
   const navigate = useNavigate();
@@ -96,10 +97,33 @@ const NewHeader = () => {
     setProfileAnchorEl(null);
   };
 
+  const routerLocation = useLocation();
+
+  const handleQueueClick = (e) => {
+    e.preventDefault();
+    if (routerLocation.pathname === '/newCall') {
+      window.dispatchEvent(new CustomEvent('toggle-newcall-queue'));
+    } else {
+      navigate('/newCall');
+    }
+  };
+
   const handleForwardClick = (call) => {
     setCurrentCall(call);
     handleFwdClose();
-    navigate("/?queue=1");
+    const targetSr = call?.sr || call?.CallLogid || call?.id;
+    if (routerLocation.pathname === '/newCall') {
+      if (targetSr) {
+        callStreamService.selectThread(targetSr);
+      }
+    } else {
+      navigate('/newCall');
+      if (targetSr) {
+        setTimeout(() => {
+          callStreamService.selectThread(targetSr);
+        }, 120);
+      }
+    }
   };
 
   const handleLogoutClick = () => {
@@ -237,21 +261,21 @@ const NewHeader = () => {
             direction="row"
             alignItems="center"
             spacing={1}
-            component={Link}
-            to="/?queue=1"
+            onClick={handleQueueClick}
             sx={{
               cursor: "pointer",
               px: 0.75,
               py: 0.4,
               borderRadius: "3px",
-              border: "1px solid #CBD5E1",
-              bgcolor: "#F9FAFB",
+              border: "1px solid",
+              borderColor: queueCount > 0 ? "#EF4444" : "#CBD5E1",
+              bgcolor: queueCount > 0 ? "#FEF2F2" : "#F9FAFB",
               transition: "all 0.15s ease",
               "&:hover": {
                 bgcolor: "#F1F5F9",
                 borderColor: "#94A3B8",
               },
-              textDecoration: "none",
+              userSelect: "none",
             }}
           >
             <Box

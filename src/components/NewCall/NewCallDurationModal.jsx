@@ -1,38 +1,40 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
-  DialogContent,
   Box,
-  Typography,
-  IconButton,
   Button,
-  TextField,
-  CircularProgress,
-  Chip,
+  Typography,
+  alpha,
   Grid,
-} from '@mui/material';
-import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { X, Clock, Check } from '@phosphor-icons/react';
-import { toast } from 'sonner';
-import dayjs from 'dayjs';
-import duration from 'dayjs/plugin/duration';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import { useCallLog } from '../../context/UseCallLog';
+  IconButton,
+  CircularProgress,
+  TextField,
+} from "@mui/material";
+import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import CloseIcon from "@mui/icons-material/CloseRounded";
+import { useCallLog } from "../../context/UseCallLog";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import duration from "dayjs/plugin/duration";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import { toast } from "sonner";
 import {
   durationModal$,
   closeDurationModal,
   useNewCallSubject,
-} from './rxjs/newCallEvents';
-import { callStreamService } from './services/callStreamService';
+} from "./rxjs/newCallEvents";
+import { callStreamService } from "./services/callStreamService";
 
-dayjs.extend(duration);
 dayjs.extend(relativeTime);
+dayjs.extend(duration);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-// Helper function to parse user natural language duration strings (e.g. 5s, 10m, 1h 20m)
-const parseNaturalDuration = (text) => {
-  if (!text || typeof text !== 'string') return dayjs.duration(0);
+const parseDuration = (text) => {
+  if (!text || typeof text !== "string") return dayjs.duration(0);
   const input = text.toLowerCase().trim();
   let hours = 0;
   let minutes = 0;
@@ -58,7 +60,71 @@ const parseNaturalDuration = (text) => {
   }
 
   seconds += minutes * 60 + hours * 3600;
-  return dayjs.duration(seconds, 'seconds');
+  return dayjs.duration(seconds, "seconds");
+};
+
+const DurationInput = ({ onChange, value }) => {
+  const [inputValue, setInputValue] = useState(value || "");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (value) {
+      setInputValue(value);
+    }
+  }, [value]);
+
+  const handleChange = (e) => {
+    const value = e.target.value;
+    setInputValue(value);
+
+    try {
+      const dur = parseDuration(value);
+      if (dur.asMilliseconds() === 0 && value.trim() !== "" && value.trim() !== "0") {
+        setError("Invalid duration format");
+        onChange(null);
+      } else {
+        setError("");
+        onChange(dur);
+      }
+    } catch {
+      setError("Invalid format");
+      onChange(null);
+    }
+  };
+
+  return (
+    <TextField
+      fullWidth
+      sx={{
+        "& .MuiOutlinedInput-root": {
+          borderRadius: 3,
+          bgcolor: "#f8fafc",
+          fontSize: "0.875rem",
+          fontWeight: 500,
+          border: `1.5px solid ${alpha("#e2e8f0", 0.8)}`,
+          transition: "all 0.2s ease-in-out",
+          "&:hover": {
+            bgcolor: "#ffffff",
+            borderColor: alpha("#6366f1", 0.4),
+          },
+          "&.Mui-focused": {
+            bgcolor: "#ffffff",
+            borderColor: "#6366f1",
+            boxShadow: `0 0 0 3px ${alpha("#6366f1", 0.1)}`,
+          },
+        },
+        "& .MuiOutlinedInput-notchedOutline": {
+          border: "none",
+        },
+      }}
+      size="small"
+      value={inputValue}
+      onChange={handleChange}
+      placeholder="e.g. 1h 20m, 45m, 30s"
+      error={!!error}
+      helperText={error || "Type duration to auto-calculate end time"}
+    />
+  );
 };
 
 export default function NewCallDurationModal() {
@@ -67,9 +133,9 @@ export default function NewCallDurationModal() {
 
   const [callStart, setCallStart] = useState(null);
   const [callEnd, setCallEnd] = useState(null);
-  const [durationInput, setDurationInput] = useState('');
-  const [durationError, setDurationError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [durationInput, setDurationInput] = useState("");
+  const [manualEdit, setManualEdit] = useState(false);
 
   const targetCall = modalState.call;
 
@@ -79,76 +145,16 @@ export default function NewCallDurationModal() {
       const startStr = raw.callStart || raw.CallStart;
       const endStr = raw.callClosed || raw.CallClosed;
 
-      const start = startStr && startStr !== '1900-01-01T00:00:00' ? dayjs(startStr) : dayjs();
-      const end = endStr && endStr !== '1900-01-01T00:00:00' ? dayjs(endStr) : dayjs(start).add(5, 'minute');
+      const start = startStr && startStr !== "1900-01-01T00:00:00" ? dayjs(startStr) : null;
+      const end = endStr && endStr !== "1900-01-01T00:00:00" ? dayjs(endStr) : null;
 
-      setCallStart(start.isValid() ? start : dayjs());
-      setCallEnd(end.isValid() ? end : dayjs().add(5, 'minute'));
+      setCallStart(start);
+      setCallEnd(end);
+      setManualEdit(false);
 
-      if (start.isValid() && end.isValid()) {
-        const diff = end.diff(start, 'second');
-        if (diff > 0) {
-          const dur = dayjs.duration(diff, 'seconds');
-          const h = dur.hours();
-          const m = dur.minutes();
-          const s = dur.seconds();
-
-          let formatted = [];
-          if (h > 0) formatted.push(`${h}h`);
-          if (m > 0) formatted.push(`${m}m`);
-          if (s > 0 && h === 0) formatted.push(`${s}s`);
-          setDurationInput(formatted.join(' ') || '0s');
-        } else {
-          setDurationInput('5m');
-        }
-      }
-      setDurationError('');
-      setLoading(false);
-    }
-  }, [modalState.open, targetCall]);
-
-  // Handle duration input change - auto calculate end time
-  const handleDurationInputChange = (e) => {
-    const val = e.target.value;
-    setDurationInput(val);
-
-    try {
-      const dur = parseNaturalDuration(val);
-      if (dur.asMilliseconds() === 0 && val.trim() !== '' && val.trim() !== '0') {
-        setDurationError('Invalid duration format');
-      } else {
-        setDurationError('');
-        if (callStart && callStart.isValid()) {
-          const newEndTime = callStart.add(dur.asSeconds(), 'seconds');
-          setCallEnd(newEndTime);
-        }
-      }
-    } catch {
-      setDurationError('Invalid format');
-    }
-  };
-
-  // Handle manual start time change
-  const handleStartTimeChange = (newValue) => {
-    setCallStart(newValue);
-
-    if (durationInput && newValue && newValue.isValid()) {
-      const dur = parseNaturalDuration(durationInput);
-      if (dur.asMilliseconds() > 0) {
-        const newEndTime = newValue.add(dur.asSeconds(), 'seconds');
-        setCallEnd(newEndTime);
-      }
-    }
-  };
-
-  // Handle manual end time change
-  const handleEndTimeChange = (newValue) => {
-    setCallEnd(newValue);
-
-    if (callStart && newValue && callStart.isValid() && newValue.isValid()) {
-      const diff = newValue.diff(callStart, 'second');
-      if (diff > 0) {
-        const dur = dayjs.duration(diff, 'seconds');
+      if (start && end && start.isValid() && end.isValid()) {
+        const diff = end.diff(start, "second");
+        const dur = dayjs.duration(diff, "seconds");
         const h = dur.hours();
         const m = dur.minutes();
         const s = dur.seconds();
@@ -158,21 +164,81 @@ export default function NewCallDurationModal() {
         if (m > 0) formatted.push(`${m}m`);
         if (s > 0 && h === 0) formatted.push(`${s}s`);
 
-        setDurationInput(formatted.join(' ') || '0s');
-        setDurationError('');
+        setDurationInput(formatted.join(" ") || "0s");
+      } else {
+        setDurationInput("");
+      }
+    } else {
+      setManualEdit(false);
+      setLoading(false);
+    }
+  }, [modalState.open, targetCall]);
+
+  const handleClose = () => {
+    closeDurationModal();
+    setLoading(false);
+    setManualEdit(false);
+  };
+
+  // Handle duration input change - auto calculate end time
+  const handleDurationChange = (duration) => {
+    if (duration && callStart && callStart.isValid()) {
+      const newEndTime = callStart.add(duration.asSeconds(), "seconds");
+      setCallEnd(newEndTime);
+      setManualEdit(false);
+    }
+  };
+
+  // Handle manual start time change
+  const handleStartTimeChange = (newValue) => {
+    setCallStart(newValue);
+
+    // If duration input exists, recalculate end time
+    if (durationInput && newValue && newValue.isValid()) {
+      const dur = parseDuration(durationInput);
+      if (dur.asMilliseconds() > 0) {
+        const newEndTime = newValue.add(dur.asSeconds(), "seconds");
+        setCallEnd(newEndTime);
+        setManualEdit(false);
+      }
+    } else if (manualEdit && callEnd) {
+      setCallEnd(callEnd);
+    }
+  };
+
+  // Handle manual end time change
+  const handleEndTimeChange = (newValue) => {
+    setCallEnd(newValue);
+    setManualEdit(true);
+
+    // Update duration input based on new end time
+    if (callStart && newValue && callStart.isValid() && newValue.isValid()) {
+      const diff = newValue.diff(callStart, "second");
+      if (diff > 0) {
+        const dur = dayjs.duration(diff, "seconds");
+        const h = dur.hours();
+        const m = dur.minutes();
+        const s = dur.seconds();
+
+        let formatted = [];
+        if (h > 0) formatted.push(`${h}h`);
+        if (m > 0) formatted.push(`${m}m`);
+        if (s > 0 && h === 0) formatted.push(`${s}s`);
+
+        setDurationInput(formatted.join(" ") || "0s");
       }
     }
   };
 
-  // Calculated human readable duration summary
-  const totalDurationDisplay = useMemo(() => {
+  const calculateDuration = () => {
     if (!callStart || !callEnd || !callStart.isValid() || !callEnd.isValid()) {
-      return '0 sec';
+      return "0 sec";
     }
-    const diffSeconds = callEnd.diff(callStart, 'second');
-    if (diffSeconds <= 0) return '0 sec';
 
-    const dur = dayjs.duration(diffSeconds, 'seconds');
+    const diffSeconds = callEnd.diff(callStart, "second");
+    if (diffSeconds <= 0) return "0 sec";
+
+    const dur = dayjs.duration(diffSeconds, "seconds");
     const h = dur.hours();
     const m = dur.minutes();
     const s = dur.seconds();
@@ -183,236 +249,286 @@ export default function NewCallDurationModal() {
     if (m > 0 && s > 0) return `${m} min ${s} sec`;
     if (m > 0) return `${m} min`;
     return `${s} sec`;
-  }, [callStart, callEnd]);
+  };
 
   const handleSave = async () => {
-    if (!callStart || !callEnd || !callStart.isValid() || !callEnd.isValid()) {
-      toast.error('Please enter valid start and end dates');
-      return;
-    }
-
-    const diffSeconds = callEnd.diff(callStart, 'second');
-    if (diffSeconds <= 0) {
-      toast.error('End time must be after start time');
-      return;
-    }
-
-    const callId = targetCall?.sr || targetCall?.id || targetCall?.CallLogid;
-    if (!callId) {
-      toast.error('No call ID found to update');
-      return;
-    }
-
-    const dur = dayjs.duration(diffSeconds, 'seconds');
-    const formattedDuration = `${dur.hours().toString().padStart(2, '0')}:${dur.minutes().toString().padStart(2, '0')}:${dur.seconds().toString().padStart(2, '0')}`;
-    const startFormatted = callStart.format('YYYY-MM-DD HH:mm:ss');
-    const endFormatted = callEnd.format('YYYY-MM-DD HH:mm:ss');
-
-    setLoading(true);
     try {
-      const data = await EditCallDuration(callId, startFormatted, endFormatted);
+      if (!callStart || !callEnd || !callStart.isValid() || !callEnd.isValid()) {
+        toast.error("Please enter valid start and end dates");
+        return;
+      }
+
+      const diffSeconds = callEnd.diff(callStart, "second");
+      if (diffSeconds <= 0) {
+        toast.error("End time must be after start time");
+        return;
+      }
+
+      const callId = targetCall?.sr || targetCall?.id || targetCall?.CallLogid;
+      if (!callId) {
+        toast.error("No call ID found to update");
+        return;
+      }
+
+      const dur = dayjs.duration(diffSeconds, "seconds");
+      const formatted = {
+        callStart: callStart.format("YYYY-MM-DD HH:mm:ss"),
+        callEnd: callEnd.format("YYYY-MM-DD HH:mm:ss"),
+        duration: `${dur.hours().toString().padStart(2, "0")}:${dur.minutes().toString().padStart(2, "0")}:${dur.seconds().toString().padStart(2, "0")}`,
+      };
+
+      setLoading(true);
+      const data = await EditCallDuration(callId, formatted.callStart, formatted.callEnd);
 
       if (data?.stat === 1 && data?.stat_code === 1000) {
-        // Synchronize local call stream
         callStreamService.patchPrimaryCall(callId, {
-          callStart: startFormatted,
-          callClosed: endFormatted,
-          CallDuration: formattedDuration,
+          callStart: formatted.callStart,
+          callClosed: formatted.callEnd,
+          CallDuration: formatted.duration,
         });
-
-        toast.success('Call duration updated successfully');
+        toast.success("Call duration updated successfully");
         if (triggerRefresh) triggerRefresh();
-        closeDurationModal();
+        handleClose();
       } else {
-        toast.error(data?.message || 'Failed to update call duration');
+        toast.error(data?.message || "Failed to update call duration");
       }
-    } catch (err) {
-      console.error('Error updating call duration:', err);
-      toast.error('Server error updating call duration');
+    } catch (error) {
+      console.error("Error updating call duration:", error);
+      toast.error("Error updating call duration");
     } finally {
       setLoading(false);
     }
   };
 
-  const callSerial = targetCall?.sr || targetCall?.id || '';
-
   return (
     <Dialog
       open={modalState.open}
-      onClose={closeDurationModal}
-      maxWidth="xs"
-      fullWidth
+      onClose={handleClose}
       PaperProps={{
         sx: {
-          borderRadius: '12px',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-          overflow: 'hidden',
-          p: 0,
+          borderRadius: 4,
+          bgcolor: "#ffffff",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+          width: 470,
+          maxWidth: "95vw",
+          border: `1px solid ${alpha("#e2e8f0", 0.8)}`,
+          overflow: "visible",
+          m: 1,
         },
       }}
     >
       <LocalizationProvider dateAdapter={AdapterDayjs}>
-        {/* Header */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            px: 2.5,
-            py: 1.8,
-            borderBottom: '1px solid #E2E8F0',
-            bgcolor: '#FFFFFF',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Clock size={20} color="#0284C7" weight="bold" />
-            <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
-              Edit Call Duration
-            </Typography>
-            {callSerial && (
-              <Chip
-                label={`#${callSerial}`}
-                size="small"
-                sx={{
-                  height: 20,
-                  fontSize: 11,
-                  fontWeight: 750,
-                  bgcolor: '#F1F5F9',
-                  color: '#475569',
-                }}
-              />
-            )}
-          </Box>
-          <IconButton size="small" onClick={closeDurationModal} sx={{ color: '#64748B' }}>
-            <X size={18} weight="bold" />
+        <Box sx={{ px: 2, pt: 2, mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "#0f172a",
+              fontSize: "1.125rem",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            Edit Call Duration
+          </Typography>
+
+          <IconButton onClick={handleClose}>
+            <CloseIcon />
           </IconButton>
         </Box>
 
-        {/* Content */}
-        <DialogContent sx={{ p: 2.5, bgcolor: '#FFFFFF' }}>
+        <Box sx={{ p: 2, pt: 0 }}>
           <Grid container spacing={2}>
-            {/* Start Time Picker */}
-            <Grid item xs={6}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#334155', mb: 0.6 }}>
-                Start Time
-              </Typography>
-              <DateTimePicker
-                value={callStart}
-                onChange={handleStartTimeChange}
-                slotProps={{
-                  textField: {
-                    size: 'small',
-                    fullWidth: true,
-                    sx: {
-                      '& .MuiOutlinedInput-root': {
-                        fontSize: 12,
-                        borderRadius: '8px',
-                      },
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* End Time Picker */}
-            <Grid item xs={6}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#334155', mb: 0.6 }}>
-                End Time
-              </Typography>
-              <DateTimePicker
-                value={callEnd}
-                onChange={handleEndTimeChange}
-                slotProps={{
-                  textField: {
-                    size: 'small',
-                    fullWidth: true,
-                    sx: {
-                      '& .MuiOutlinedInput-root': {
-                        fontSize: 12,
-                        borderRadius: '8px',
-                      },
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Duration text input with auto-calculator */}
-            <Grid item xs={12}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#334155', mb: 0.6 }}>
-                Duration
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                value={durationInput}
-                onChange={handleDurationInputChange}
-                placeholder="e.g. 5s, 10m, 1h 20m, 45m"
-                error={Boolean(durationError)}
-                helperText={durationError || 'Type duration to auto-calculate end time'}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: 13,
+            <Grid item xs={12} sm={6}>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
                     fontWeight: 600,
-                    borderRadius: '8px',
-                    bgcolor: '#F8FAFC',
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontSize: 11,
-                    fontWeight: 500,
-                    color: durationError ? '#DC2626' : '#64748B',
-                    mt: 0.4,
-                  },
-                }}
-              />
+                    color: "#374151",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  Start Time
+                </Typography>
+                <DateTimePicker
+                  value={callStart}
+                  onChange={handleStartTimeChange}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: "small",
+                      placeholder: "Select start time",
+                    },
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      bgcolor: "#f8fafc",
+                      fontSize: "0.875rem",
+                      fontWeight: 500,
+                      border: `1.5px solid ${alpha("#e2e8f0", 0.8)}`,
+                      transition: "all 0.2s ease-in-out",
+                      "&:hover": {
+                        bgcolor: "#ffffff",
+                        borderColor: alpha("#6366f1", 0.4),
+                      },
+                      "&.Mui-focused": {
+                        bgcolor: "#ffffff",
+                        borderColor: "#6366f1",
+                        boxShadow: `0 0 0 3px ${alpha("#6366f1", 0.1)}`,
+                      },
+                    },
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      border: "none",
+                    },
+                  }}
+                />
+              </Box>
             </Grid>
-
-            {/* Total Duration Live Preview Box */}
+            <Grid item xs={12} sm={6}>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  End Time {manualEdit && <span style={{ fontSize: '0.75rem', color: '#6366f1' }}>(Manual)</span>}
+                </Typography>
+                <DateTimePicker
+                  value={callEnd}
+                  onChange={handleEndTimeChange}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: "small",
+                      placeholder: "Auto-calculated or select manually",
+                    },
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      bgcolor: manualEdit ? "#fef3c7" : "#f8fafc",
+                      fontSize: "0.875rem",
+                      fontWeight: 500,
+                      border: `1.5px solid ${alpha(manualEdit ? "#fbbf24" : "#e2e8f0", 0.8)}`,
+                      transition: "all 0.2s ease-in-out",
+                      "&:hover": {
+                        bgcolor: "#ffffff",
+                        borderColor: alpha("#6366f1", 0.4),
+                      },
+                      "&.Mui-focused": {
+                        bgcolor: "#ffffff",
+                        borderColor: "#6366f1",
+                        boxShadow: `0 0 0 3px ${alpha("#6366f1", 0.1)}`,
+                      },
+                    },
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      border: "none",
+                    },
+                  }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  Duration
+                </Typography>
+                <DurationInput
+                  onChange={handleDurationChange}
+                  value={durationInput}
+                />
+              </Box>
+            </Grid>
             <Grid item xs={12}>
               <Box
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  p: 1.5,
-                  borderRadius: '8px',
-                  bgcolor: '#F1F5F9',
-                  border: '1px solid #E2E8F0',
+                  py: 1,
+                  px: 2,
+                  borderRadius: 3,
+                  bgcolor: alpha("#f1f5f9", 0.7),
+                  border: `1px solid ${alpha("#e2e8f0", 0.6)}`,
                 }}
               >
-                <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#475569' }}>
-                  Total Duration
-                </Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0284C7' }}>
-                  {totalDurationDisplay}
-                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "#64748b",
+                      fontSize: "0.84rem",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Total Duration
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      fontWeight: 700,
+                      color: "#6366f1",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    {calculateDuration()}
+                  </Typography>
+                </Box>
               </Box>
             </Grid>
+            <Grid item xs={12} display="flex" alignItems="center" justifyContent="flex-end">
+              <Button
+                variant="contained"
+                onClick={handleSave}
+                disabled={loading || !callStart || !callEnd || callEnd.diff(callStart, "second") <= 0}
+                sx={{
+                  borderRadius: 3,
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  bgcolor: "#6366f1",
+                  color: "#ffffff",
+                  px: 3,
+                  "&:hover": {
+                    bgcolor: "#4f46e5",
+                  },
+                  "&:disabled": {
+                    bgcolor: "#e2e8f0",
+                    color: "#94a3b8",
+                  },
+                  boxShadow: "none",
+                }}
+              >
+                {loading ? (
+                  <CircularProgress
+                    size={20}
+                    sx={{
+                      color: "#fff",
+                    }}
+                  />
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </Grid>
           </Grid>
-
-          {/* Action Button */}
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={loading || Boolean(durationError)}
-              startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Check size={16} weight="bold" />}
-              sx={{
-                bgcolor: '#4F46E5',
-                '&:hover': { bgcolor: '#4338CA' },
-                borderRadius: '8px',
-                px: 2.5,
-                py: 0.9,
-                fontSize: 12.5,
-                fontWeight: 750,
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 12px rgba(79,70,229,0.25)',
-              }}
-            >
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Box>
-        </DialogContent>
+        </Box>
       </LocalizationProvider>
     </Dialog>
   );

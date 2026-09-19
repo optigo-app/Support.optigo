@@ -23,7 +23,11 @@ const SingleTicketView = () => {
 
 	useEffect(() => {
 		const fetchTicket = async () => {
-			if (!ticketId) {
+			const queryParams = new URLSearchParams(window.location.search);
+			const queryTicketId = queryParams.get("TicketId") || queryParams.get("ticketId");
+			const effectiveTicketId = queryTicketId || ticketId;
+
+			if (!effectiveTicketId) {
 				setError("Ticket ID not provided.");
 				setLoading(false);
 				return;
@@ -33,7 +37,8 @@ const SingleTicketView = () => {
 				setLoading(true);
 				setError(null);
 				const response = await TicketApi.getSingleTickets({
-					ticketId: ticketId,
+					ticketId: effectiveTicketId,
+					ticketNo: ticketId,
 				});
 
 				if (response?.rd && response.rd.length > 0) {

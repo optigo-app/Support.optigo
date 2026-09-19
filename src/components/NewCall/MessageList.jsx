@@ -46,20 +46,26 @@ export default function MessageList({ messages = [], isLoading = false }) {
     const isNewMsg = messages.length > prevMsgLengthRef.current;
     prevMsgLengthRef.current = messages.length;
 
-    const performScroll = () => {
-      if (!scrollEl) return;
+    let timer;
+    if (isNewMsg) {
+      // Allow DOM to layout the newly mounted message, then smoothly glide into view
+      timer = setTimeout(() => {
+        if (!scrollEl) return;
+        scrollEl.scrollTo({
+          top: scrollEl.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 50);
+    } else {
+      // Thread switch or initial fetch: instant position
       scrollEl.scrollTo({
         top: scrollEl.scrollHeight,
-        behavior: isNewMsg ? 'smooth' : 'auto',
+        behavior: 'auto',
       });
-    };
-
-    const rAF = requestAnimationFrame(performScroll);
-    const timer = setTimeout(performScroll, 80);
+    }
 
     return () => {
-      cancelAnimationFrame(rAF);
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     };
   }, [messages, isLoading]);
 

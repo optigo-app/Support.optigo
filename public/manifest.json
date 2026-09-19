@@ -4,27 +4,28 @@
   "description": "Enterprise operations, call logging, ticket management, and real-time business intelligence.",
   "icons": [
     {
-      "src": "/Black_Optigo_R_Logo.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/Black_Optigo_R_Logo.png",
+      "src": "/appicons/call-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     },
     {
-      "src": "/optigo_logo.png",
+      "src": "/appicons/call-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/2.ico",
-      "type": "image/x-icon",
-      "sizes": "64x64 32x32 24x24 16x16"
+      "src": "/appicons/call-favicon-64.png",
+      "type": "image/png",
+      "sizes": "64x64",
+      "purpose": "any"
+    },
+    {
+      "src": "/appicons/call-favicon-32.png",
+      "type": "image/png",
+      "sizes": "32x32",
+      "purpose": "any"
     }
   ],
   "start_url": "/",
@@ -40,21 +41,28 @@
       "short_name": "Tickets",
       "description": "View and manage support tickets",
       "url": "/Ticket",
-      "icons": [{ "src": "/optigo_logo.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/appicons/ticket-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Call Logger",
       "short_name": "Calls",
       "description": "Manage active call logs",
       "url": "/callLog",
-      "icons": [{ "src": "/optigo_logo.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/appicons/call-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Delivery & Training",
+      "name": "Delivery & Orders",
       "short_name": "Orders",
       "description": "View delivery orders",
       "url": "/Orders",
-      "icons": [{ "src": "/optigo_logo.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/appicons/order-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Training Dashboard",
+      "short_name": "Training",
+      "description": "Corporate training and learning",
+      "url": "/Training",
+      "icons": [{ "src": "/appicons/training-192.png", "sizes": "192x192" }]
     }
   ]
 }

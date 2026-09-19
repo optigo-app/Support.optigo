@@ -27,6 +27,7 @@ import { useAuth } from "../../../context/UseAuth";
 import { useNotificationManager } from "../../../context/NotificationManager";
 import { usePWA } from "../../../pwa";
 import { removeSkeyCookie } from "../../../utils/AuthUtils";
+import { getAppBasePath } from "../../../utils/AppBasePath";
 
 const getInitials = (firstname = "", lastname = "") =>
   `${firstname?.[0] || ""}${lastname?.[0] || ""}`.toUpperCase() || "U";
@@ -133,7 +134,7 @@ const AccountPopover = ({ anchorEl, open, onClose }) => {
     localStorage.removeItem("app_active_skey");
     sessionStorage.clear();
     removeSkeyCookie();
-    window.location.href = "/login";
+    window.location.href = `${getAppBasePath()}/login`;
   };
 
   return (

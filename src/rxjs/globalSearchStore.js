@@ -28,7 +28,7 @@ export const MODULE_PREFIXES = [
     key: "newcall",
     label: "New Call",
     path: "/newCall",
-    aliases: ["newcall", "new", "nc", "newcalls", "new_call"],
+    aliases: ["newcall", "new", "nc", "newcalls", "new_call", "new-call", "new call", "new-calls"],
     iconName: "newcall",
     description: "Search in New Call module",
     chipColor: "#6366F1",
@@ -109,11 +109,12 @@ export function getModuleByPath(pathname = "/") {
 
 export function matchPrefix(prefixInput) {
   if (!prefixInput) return null;
-  const clean = prefixInput.replace(/^@/, "").toLowerCase().trim();
+  const clean = prefixInput.replace(/^@/, "").toLowerCase().trim().replace(/[\s\-_]/g, "");
   return MODULE_PREFIXES.find(
     (m) =>
-      m.key.toLowerCase() === clean ||
-      m.aliases.some((alias) => alias.toLowerCase() === clean)
+      m.key.toLowerCase().replace(/[\s\-_]/g, "") === clean ||
+      m.label.toLowerCase().replace(/[\s\-_]/g, "") === clean ||
+      m.aliases.some((alias) => alias.toLowerCase().replace(/[\s\-_]/g, "") === clean)
   );
 }
 
@@ -121,12 +122,18 @@ export function filterModuleSuggestions(query) {
   if (!query || !query.startsWith("@")) return [];
   const searchPart = query.slice(1).toLowerCase().trim();
   if (!searchPart) return MODULE_PREFIXES;
+  const cleanSearch = searchPart.replace(/[\s\-_]/g, "");
 
   return MODULE_PREFIXES.filter(
     (m) =>
       m.key.toLowerCase().includes(searchPart) ||
       m.label.toLowerCase().includes(searchPart) ||
-      m.aliases.some((alias) => alias.toLowerCase().startsWith(searchPart))
+      m.label.toLowerCase().replace(/[\s\-_]/g, "").includes(cleanSearch) ||
+      m.aliases.some(
+        (alias) =>
+          alias.toLowerCase().startsWith(searchPart) ||
+          alias.toLowerCase().replace(/[\s\-_]/g, "").includes(cleanSearch)
+      )
   );
 }
 
@@ -152,11 +159,24 @@ export function dispatchGlobalSearch({ query, targetModule, navigate, currentPat
   const destModule =
     targetModule ||
     getModuleByPath(currentPath) ||
-    MODULE_PREFIXES.find((m) => m.key === "call") ||
+    MODULE_PREFIXES.find((m) => m.key === "newcall") ||
     MODULE_PREFIXES[0];
   const targetPath = destModule ? destModule.path : "/";
 
+  // Emit search query globally
+  globalSearchQuery$.next(trimmed);
+
+  const currentParams = new URLSearchParams(window.location.search);
   const searchParams = new URLSearchParams();
+
+  // If staying in or navigating to newCall, preserve current company filter
+  if (destModule.key === "newcall") {
+    const existingComp = currentParams.get("company");
+    if (existingComp) {
+      searchParams.set("company", existingComp);
+    }
+  }
+
   if (trimmed) {
     searchParams.set("search", trimmed);
   }

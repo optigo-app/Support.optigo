@@ -6,6 +6,22 @@ const STATIC_ASSETS = [
   "/optigo_logo.png",
   "/Black_Optigo_R_Logo.png",
   "/2.ico",
+  "/appicons/call-192.png",
+  "/appicons/call-512.png",
+  "/appicons/call-favicon-32.png",
+  "/appicons/newcall-192.png",
+  "/appicons/newcall-favicon-32.png",
+  "/appicons/archive-192.png",
+  "/appicons/archive-favicon-32.png",
+  "/appicons/ticket-192.png",
+  "/appicons/ticket-512.png",
+  "/appicons/ticket-favicon-32.png",
+  "/appicons/order-192.png",
+  "/appicons/order-512.png",
+  "/appicons/order-favicon-32.png",
+  "/appicons/training-192.png",
+  "/appicons/training-512.png",
+  "/appicons/training-favicon-32.png",
 ];
 
 self.addEventListener("install", (event) => {

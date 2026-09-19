@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { filesUploadApi } from "../../apis/UploadFille";
 import {
   Box,
@@ -266,6 +266,20 @@ export default function CallLogDetailView({
     : [];
   const { user } = useAuth();
   const [Comments, SetComments] = useState(commentdata);
+
+  // Keep Comments state synchronized when real-time comment updates arrive
+  useEffect(() => {
+    try {
+      const parsed = defaultCallLogData?.comment
+        ? (typeof defaultCallLogData.comment === "string"
+            ? JSON.parse(defaultCallLogData.comment)
+            : defaultCallLogData.comment)
+        : [];
+      if (Array.isArray(parsed)) {
+        SetComments(parsed);
+      }
+    } catch (_) {}
+  }, [defaultCallLogData?.comment]);
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
@@ -702,10 +716,21 @@ export default function CallLogDetailView({
                     sx={{
                       display: "flex",
                       alignItems: "flex-start",
-                      gap: 1.25,
+                      gap: 1.25, 
                       py: 1.5,
                       borderBottom: `0.5px solid ${hig.separator}`,
                       "&:last-child": { borderBottom: "none" },
+                      animation: "smoothCommentSlideIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+                      "@keyframes smoothCommentSlideIn": {
+                        "0%": {
+                          opacity: 0,
+                          transform: "translateY(10px) scale(0.98)",
+                        },
+                        "100%": {
+                          opacity: 1,
+                          transform: "translateY(0) scale(1)",
+                        },
+                      },
                     }}
                   >
                     <Avatar

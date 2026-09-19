@@ -15,18 +15,7 @@ import {
   TextB,
   TextItalic,
   TextStrikethrough,
-  Link,
-  ListNumbers,
-  ListBullets,
-  Quotes,
-  Code,
   ImageSquare,
-  TextAa,
-  Smiley,
-  At,
-  VideoCamera,
-  Microphone,
-  Article,
   PaperPlaneRight,
   X,
   FileText,
@@ -46,6 +35,7 @@ import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
 import { callStreamService } from './services/callStreamService';
 import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
+import { hasRealTicket } from './utils/ticketStatusUtils';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -99,12 +89,9 @@ const MessageComposer = React.memo(function MessageComposer({
   const fileInputRef = useRef(null);
 
   const rawRecord = useMemo(() => activeThread?.rawRecord || activeThread || {}, [activeThread]);
-  const isTicketDone = Boolean(
-    (rawRecord?.ticket && String(rawRecord?.ticket).trim() !== '' && String(rawRecord?.ticket).trim() !== 'Upgrade to Ticket') ||
-    (rawRecord?.Ticket_CreatedDate && String(rawRecord?.Ticket_CreatedDate).trim() !== '') ||
-    rawRecord?.Ticket_Id ||
-    rawRecord?.ticketId
-  );
+  const isTicketDone = useMemo(() => {
+    return hasRealTicket(rawRecord);
+  }, [rawRecord]);
   const hasTaskId = Boolean(
     (rawRecord?.TaskId && Number(rawRecord?.TaskId) > 0) ||
     (rawRecord?.taskId && Number(rawRecord?.taskId) > 0)
@@ -367,48 +354,6 @@ const MessageComposer = React.memo(function MessageComposer({
                 <TextStrikethrough size={15} weight="bold" />
               </IconButton>
             </Tooltip>
-
-            <Box sx={{ width: '1px', height: 14, bgcolor: '#E2E8F0', mx: 0.4 }} />
-
-            <Tooltip title="Link">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <Link size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Numbered list">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <ListNumbers size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Bulleted list">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <ListBullets size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Blockquote">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <Quotes size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Code snippet">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <Code size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Embed image / file attachment">
-              <IconButton
-                size="small"
-                onClick={() => fileInputRef.current?.click()}
-                sx={{ color: selectedFile ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: selectedFile ? '#EDE9FE' : 'transparent' }}
-              >
-                <ImageSquare size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
           </Box>
 
           {/* Right: Integrated Action Chips (Ticket Upgrade, iTask, Call Type, Source) */}
@@ -646,42 +591,6 @@ const MessageComposer = React.memo(function MessageComposer({
                 sx={{ color: selectedFile ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: selectedFile ? '#EDE9FE' : 'transparent' }}
               >
                 <Paperclip size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Format toolbar">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <TextAa size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Add emoji">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <Smiley size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Mention someone (@)">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <At size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Record video clip">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <VideoCamera size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Record audio clip">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <Microphone size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Create canvas document">
-              <IconButton size="small" sx={{ color: '#64748B', p: 0.4, borderRadius: '4px' }}>
-                <Article size={16} weight="bold" />
               </IconButton>
             </Tooltip>
           </Box>

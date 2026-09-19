@@ -132,12 +132,17 @@ export const handleStatusNotification = (data, notifyFn ,msg ,error) => {
  */
 export const isForwardedCall = (fu) => {
 	if (!fu) return false;
-	return (
+	return Boolean(
 		fu.IsForwardFollowup === 1 ||
 		fu.IsForwardFollowup === "1" ||
 		fu.IsForwardFollowup === true ||
 		(fu.ForwardedEmpId && Number(fu.ForwardedEmpId) > 0) ||
-		(fu.ForwardedEmp && String(fu.ForwardedEmp).trim() !== "")
+		(fu.ForwardedEmp && String(fu.ForwardedEmp).trim() !== "") ||
+		fu.InternalStatusId === 5 ||
+		fu.StatusId === 5 ||
+		fu.statusId === 5 ||
+		String(fu.InternalStatus || fu.internalStatus || fu.status || "").trim().toLowerCase() === "forwarded" ||
+		String(fu.Estatus || fu.estatus || "").trim().toLowerCase() === "forwarded"
 	);
 };
 

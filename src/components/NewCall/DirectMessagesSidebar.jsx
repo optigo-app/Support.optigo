@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import {
   FadersHorizontal,
-  PencilSimpleLine,
 } from '@phosphor-icons/react';
 import { getStatusColor } from '../../libs/data';
 
@@ -175,35 +174,8 @@ export default function DirectMessagesSidebar({
             }}
           />
         </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title="Filter unread">
-            <IconButton
-              size="small"
-              onClick={() => setFilterMode(filterMode === 'all' ? 'unread' : 'all')}
-              sx={{ color: filterMode === 'unread' ? '#6900C6' : '#6B7280', p: 0.5, borderRadius: '4px' }}
-            >
-              <FadersHorizontal size={17} weight={filterMode === 'unread' ? 'bold' : 'regular'} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="New message">
-            <IconButton
-              size="small"
-              sx={{
-                color: '#374151',
-                bgcolor: '#F3F4F6',
-                p: 0.5,
-                borderRadius: '4px',
-                '&:hover': { bgcolor: '#EDE9FE', color: '#6900C6' },
-              }}
-            >
-              <PencilSimpleLine size={16} weight="bold" />
-            </IconButton>
-          </Tooltip>
-        </Box>
       </Box>
 
-      {/* Active Company Filter Banner */}
       {selectedCompany !== 'all' && (
         <Box
           sx={{
@@ -335,31 +307,39 @@ export default function DirectMessagesSidebar({
                       height: `${ITEM_HEIGHT}px`,
                       p: 1.1,
                       px: 1.2,
-                      bgcolor: isActive ? '#EFD7FF' : 'transparent',
+                      bgcolor: isActive ? '#EFD7FF' : thread.unread ? '#FAF5FF' : 'transparent',
                       borderBottom: '1px solid #F1F5F9',
-                      borderLeft: isActive ? '3.5px solid #6900C6' : '3.5px solid transparent',
+                      borderLeft: isActive
+                        ? '3.5px solid #6900C6'
+                        : thread.unread
+                        ? '3.5px solid #9333EA'
+                        : '3.5px solid transparent',
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 1.2,
                       cursor: 'pointer',
                       boxSizing: 'border-box',
-                      transition: 'background-color 0.15s ease, border-left 0.15s ease',
+                      transition: 'all 0.15s ease',
                       '&:hover': {
-                        bgcolor: isActive ? '#EFD7FF' : '#F8FAFC',
+                        bgcolor: isActive ? '#EFD7FF' : thread.unread ? '#F5EEFF' : '#F8FAFC',
                       },
                     }}
                   >
-                    {/* Thread Avatar */}
+                    {/* Thread Avatar with clean unread ring */}
                     <Box sx={{ position: 'relative', flexShrink: 0, mt: 0.2 }}>
                       <Avatar
                         sx={{
                           width: 35,
                           height: 35,
                           borderRadius: '50px',
-                          bgcolor: '#D2C9F8',
+                          bgcolor: thread.unread ? '#EDE9FE' : '#D2C9F8',
                           color: '#6900C6',
                           fontSize: 12,
                           fontWeight: 700,
+                          boxShadow: thread.unread
+                            ? '0 0 0 2px #FFFFFF, 0 0 0 4px #9333EA'
+                            : 'none',
+                          transition: 'box-shadow 0.2s ease',
                         }}
                       >
                         {(thread.name || thread.company || 'C').charAt(0).toUpperCase()}
@@ -380,36 +360,19 @@ export default function DirectMessagesSidebar({
                           }}
                         />
                       )}
-
-                      {/* Unread indicator dot */}
-                      {thread.unread && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: -2,
-                            right: -2,
-                            width: 9,
-                            height: 9,
-                            borderRadius: '50%',
-                            bgcolor: '#6900C6',
-                            border: '1.5px solid #FFFFFF',
-                            boxShadow: '0 0 5px rgba(105, 0, 198, 0.6)',
-                          }}
-                        />
-                      )}
                     </Box>
 
                     {/* Thread Content */}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      {/* Line 1: Title & Time */}
+                      {/* Line 1: Title & Time + Modern Unread Badge */}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, maxWidth: 180 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, maxWidth: 175 }}>
                           <Typography
                             variant="subtitle2"
                             sx={{
                               fontSize: '0.82rem',
                               fontWeight: thread.unread ? 800 : 700,
-                              color: '#0F172A',
+                              color: thread.unread ? '#581C87' : '#0F172A',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -435,28 +398,54 @@ export default function DirectMessagesSidebar({
                           )}
                         </Box>
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
                           <Typography
                             variant="caption"
                             sx={{
                               fontSize: '0.68rem',
-                              color: thread.unread ? '#6900C6' : '#94A3B8',
+                              color: thread.unread ? '#7C3AED' : '#94A3B8',
                               fontWeight: thread.unread ? 800 : 500,
                             }}
                           >
                             {thread.timestamp || '00:00'}
                           </Typography>
+
+                          {/* Creative Modern Live Beacon Pill */}
                           {thread.unread && (
                             <Box
                               sx={{
-                                width: 7,
-                                height: 7,
-                                borderRadius: '50%',
-                                bgcolor: '#6900C6',
-                                boxShadow: '0 0 0 2px #EDE9FE',
-                                flexShrink: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3.5px',
+                                px: '6px',
+                                py: '1px',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)',
+                                color: '#FFFFFF',
+                                fontSize: '0.58rem',
+                                fontWeight: 800,
+                                letterSpacing: '0.4px',
+                                boxShadow: '0 2px 6px rgba(124, 58, 237, 0.35)',
+                                textTransform: 'uppercase',
+                                animation: 'pulseBadge 2.5s infinite ease-in-out',
+                                '@keyframes pulseBadge': {
+                                  '0%': { transform: 'scale(0.96)', opacity: 0.9 },
+                                  '50%': { transform: 'scale(1.04)', opacity: 1 },
+                                  '100%': { transform: 'scale(0.96)', opacity: 0.9 },
+                                },
                               }}
-                            />
+                            >
+                              <Box
+                                sx={{
+                                  width: 4.5,
+                                  height: 4.5,
+                                  borderRadius: '50%',
+                                  bgcolor: '#34D399',
+                                  boxShadow: '0 0 4px #34D399',
+                                }}
+                              />
+                              new
+                            </Box>
                           )}
                         </Box>
                       </Box>
