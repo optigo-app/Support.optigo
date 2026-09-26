@@ -14,6 +14,10 @@ import {
 } from '@mui/material';
 import {
   FadersHorizontal,
+  Buildings,
+  CaretLeft,
+  CaretRight,
+  SidebarSimple,
 } from '@phosphor-icons/react';
 import { getStatusColor } from '../../libs/data';
 
@@ -21,6 +25,11 @@ const ITEM_HEIGHT = 74; // Precise height per ticket row
 const OVERSCAN = 5;     // Extra items above and below viewport
 
 export default function DirectMessagesSidebar({
+  open = true,
+  onClose,
+  onOpen,
+  isCompaniesOpen = true,
+  onOpenCompanies,
   threads = [],
   activeThreadId,
   onSelectThread,
@@ -110,71 +119,150 @@ export default function DirectMessagesSidebar({
     [onSelectThread]
   );
 
+  // 6. Auto-scroll virtualized container to active thread
+  useEffect(() => {
+    if (!activeThreadId || filteredThreads.length === 0 || !scrollContainerRef.current) return;
+    const targetIndex = filteredThreads.findIndex(
+      (t) =>
+        t.id === activeThreadId ||
+        String(t.sr) === String(activeThreadId) ||
+        `call-${t.sr}` === String(activeThreadId)
+    );
+    if (targetIndex >= 0) {
+      const targetScrollTop = targetIndex * ITEM_HEIGHT;
+      const currentScrollTop = scrollContainerRef.current.scrollTop;
+      const containerH = scrollContainerRef.current.clientHeight || 600;
+
+      // Only scroll if out of current visible bounds
+      if (
+        targetScrollTop < currentScrollTop ||
+        targetScrollTop > currentScrollTop + containerH - ITEM_HEIGHT
+      ) {
+        const newTop = Math.max(0, targetScrollTop - Math.floor(containerH / 3));
+        scrollContainerRef.current.scrollTo({
+          top: newTop,
+          behavior: 'smooth',
+        });
+        setScrollTop(newTop);
+      }
+    }
+  }, [activeThreadId, filteredThreads]);
+
   return (
     <Box
       sx={{
-        width: sidebarWidth,
-        minWidth: sidebarWidth,
-        maxWidth: sidebarWidth,
+        width: open ? sidebarWidth : 0,
+        minWidth: open ? sidebarWidth : 0,
+        maxWidth: open ? sidebarWidth : 0,
         bgcolor: '#FFFFFF',
-        borderRight: '1px solid #E5E7EB',
+        borderRight: open ? '1px solid #E5E7EB' : 'none',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         overflow: 'hidden',
+        transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.2s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        flexShrink: 0,
       }}
     >
-      {/* Header: Title + Total Calls Count Badge + Filter + New */}
       <Box
         sx={{
-          height: 48,                       
-          minHeight: 48,
-          px: 2,
+          width: sidebarWidth,
+          minWidth: sidebarWidth,
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #F1F5F9',
+          flexDirection: 'column',
         }}
       >
+        {/* Header: Title + Total Calls Count Badge + Filter + New */}
         <Box
-          onClick={() => onSelectCompany && onSelectCompany('all')}
           sx={{
+            height: 48,                       
+            minHeight: 48,
+            px: 1.5,
             display: 'flex',
             alignItems: 'center',
-            gap: 1,
-            cursor: selectedCompany !== 'all' ? 'pointer' : 'default',
-            p: 0.4,
-            borderRadius: '6px',
-            transition: 'background-color 0.15s ease',
-            '&:hover': {
-              bgcolor: selectedCompany !== 'all' ? '#F1F5F9' : 'transparent',
-            },
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #F1F5F9',
           }}
         >
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 800,
-              fontSize: '0.98rem',
-              color: '#111827',
-              letterSpacing: '-0.01em',
-            }}
-          >
-            All Calls
-          </Typography>
-          <Chip
-            label={totalCount > 999 ? `${(totalCount / 1000).toFixed(1)}k` : totalCount}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: 10.5,
-              fontWeight: 750,
-              bgcolor: '#F1F5F9',
-              color: '#475569',
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+            {/* If Companies sidebar is collapsed, offer button to reopen it */}
+            {onOpenCompanies && !isCompaniesOpen && (
+              <Tooltip title="Show Companies Sidebar">
+                <IconButton
+                  size="small"
+                  onClick={onOpenCompanies}
+                  sx={{
+                    p: 0.5,
+                    color: '#6900C6',
+                    bgcolor: '#EDE9FE',
+                    borderRadius: '6px',
+                    '&:hover': { bgcolor: '#DDD6FE' },
+                  }}
+                >
+                  <Buildings size={15} weight="bold" />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            <Box
+              onClick={() => onSelectCompany && onSelectCompany('all')}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: selectedCompany !== 'all' ? 'pointer' : 'default',
+                p: 0.4,
+                borderRadius: '6px',
+                transition: 'background-color 0.15s ease',
+                '&:hover': {
+                  bgcolor: selectedCompany !== 'all' ? '#F1F5F9' : 'transparent',
+                },
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: '0.98rem',
+                  color: '#111827',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                All Calls
+              </Typography>
+              <Chip
+                label={totalCount > 999 ? `${(totalCount / 1000).toFixed(1)}k` : totalCount}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: 10.5,
+                  fontWeight: 750,
+                  bgcolor: '#F1F5F9',
+                  color: '#475569',
+                }}
+              />
+            </Box>
+          </Box>
+
+          {/* Right Header Action: Collapse button */}
+          {onClose && (
+            <Tooltip title="Collapse Calls Sidebar">
+              <IconButton
+                size="small"
+                onClick={onClose}
+                sx={{
+                  p: 0.5,
+                  color: '#64748B',
+                  borderRadius: '6px',
+                  '&:hover': { bgcolor: '#F1F5F9', color: '#6900C6' },
+                }}
+              >
+                <CaretLeft size={16} weight="bold" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
-      </Box>
 
       {selectedCompany !== 'all' && (
         <Box
@@ -515,6 +603,7 @@ export default function DirectMessagesSidebar({
             </Box>
           </Box>
         )}
+      </Box>
       </Box>
     </Box>
   );

@@ -21,6 +21,7 @@ import {
   CalendarBlank,
   CaretDown,
   X,
+  SidebarSimple,
 } from '@phosphor-icons/react';
 
 export default function QueryHeaderBar({
@@ -37,6 +38,8 @@ export default function QueryHeaderBar({
   setDateRange,
   onAddClick,
   onExportClick,
+  isSidebarsCollapsed = false,
+  onToggleSidebars,
 }) {
   // Dropdown states
   const [companyAnchor, setCompanyAnchor] = useState(null);
@@ -77,6 +80,34 @@ export default function QueryHeaderBar({
         '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 2 },
       }}
     >
+      {/* 0. Collapse Sidebars Button */}
+      {onToggleSidebars && (
+        <Tooltip title={isSidebarsCollapsed ? 'Show Sidebars' : 'Collapse Sidebars'} arrow>
+          <IconButton
+            size="small"
+            onClick={onToggleSidebars}
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: '5px',
+              border: '1px solid',
+              borderColor: isSidebarsCollapsed ? '#6900C6' : '#CBD5E1',
+              bgcolor: isSidebarsCollapsed ? '#EDE9FE' : '#FFFFFF',
+              color: isSidebarsCollapsed ? '#6900C6' : '#475569',
+              transition: 'all 0.15s ease',
+              flexShrink: 0,
+              '&:hover': {
+                bgcolor: isSidebarsCollapsed ? '#DDD6FE' : '#F1F5F9',
+                borderColor: '#6900C6',
+                color: '#6900C6',
+              },
+            }}
+          >
+            <SidebarSimple size={18} weight={isSidebarsCollapsed ? 'fill' : 'bold'} />
+          </IconButton>
+        </Tooltip>
+      )}
+
       {/* 1. + ADD Action Button */}
       <Button
         variant="contained"

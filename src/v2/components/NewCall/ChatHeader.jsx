@@ -101,6 +101,8 @@ export default function ChatHeader({
   isLoading = false,
   isInspectorOpen = false,
   onToggleInspector,
+  showCallsList = true,
+  onToggleCallsList,
 }) {
   const { user } = useAuth();
   const {
@@ -482,9 +484,9 @@ export default function ChatHeader({
       {/* Top Header Row */}
       <Box
         sx={{
-          height: 48,
-          minHeight: 48,
+          minHeight: 52,
           px: 2,
+          py: 0.5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -498,66 +500,173 @@ export default function ChatHeader({
             <Skeleton variant="text" width={130} height={22} animation="wave" />
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-            <Box
-              onClick={(e) => setProfileAnchor(e.currentTarget)}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.8,
-                cursor: 'pointer',
-                p: 0.4,
-                px: 0.6,
-                borderRadius: '6px',
-                '&:hover': { bgcolor: '#F8FAFC' },
-              }}
-            >
-              <Box sx={{ position: 'relative' }}>
-                <Avatar
-                  src={activeThread?.avatar}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+            {/* Show Calls button if Calls sidebar is collapsed */}
+            {onToggleCallsList && !showCallsList && (
+              <Tooltip title="Show Calls Sidebar">
+                <IconButton
+                  size="small"
+                  onClick={onToggleCallsList}
                   sx={{
-                    width: 26,
-                    height: 26,
+                    width: 30,
+                    height: 30,
                     borderRadius: '6px',
                     bgcolor: '#EDE9FE',
                     color: '#6900C6',
-                    fontSize: 11,
-                    fontWeight: 700,
+                    border: '1px solid #DDD6FE',
+                    flexShrink: 0,
+                    '&:hover': { bgcolor: '#DDD6FE', color: '#5300A0' },
                   }}
                 >
-                  {activeThread?.name?.charAt(0) || 'A'}
-                </Avatar>
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: -1,
-                    right: -1,
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    bgcolor: '#10B981',
-                    border: '1.5px solid #FFFFFF',
-                  }}
-                />
-              </Box>
+                  <SidebarSimple size={16} weight="bold" />
+                </IconButton>
+              </Tooltip>
+            )}
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, minWidth: 0 }}>
-                <Typography
+            {/* Call Title, Call #, Caller & Profile Dropdown */}
+            {(() => {
+              const callSr = activeThread?.sr || activeThread?.rawRecord?.sr || activeThread?.rawRecord?.id || '';
+              const callDescr = (
+                activeThread?.description ||
+                activeThread?.rawRecord?.description ||
+                activeThread?.rawRecord?.Descr ||
+                activeThread?.rawRecord?.Title ||
+                ''
+              ).trim();
+              const callerName = (
+                activeThread?.callBy ||
+                activeThread?.name ||
+                activeThread?.rawRecord?.callBy ||
+                activeThread?.rawRecord?.CustomerName ||
+                'Client'
+              ).trim();
+              const companyName = (
+                selectedCompany !== 'all'
+                  ? selectedCompany
+                  : (activeThread?.company || activeThread?.rawRecord?.company || activeThread?.rawRecord?.CompanyName || '')
+              ).trim();
+              const primaryTitle = callDescr || (callSr ? `Voice Call #${callSr}` : 'Voice Call');
+
+              return (
+                <Box
+                  onClick={(e) => setProfileAnchor(e.currentTarget)}
                   sx={{
-                    fontSize: 13.5,
-                    fontWeight: 800,
-                    color: '#0F172A',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: 150,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.2,
+                    cursor: 'pointer',
+                    p: 0.4,
+                    px: 0.8,
+                    borderRadius: '8px',
+                    transition: 'background-color 0.15s ease',
+                    '&:hover': { bgcolor: '#F8FAFC' },
+                    minWidth: 0,
                   }}
                 >
-                  {activeThread?.name || 'Voice Call'}
-                </Typography>
-                <CaretDown size={11} weight="bold" color="#64748B" />
-              </Box>
-            </Box>
+                  <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                    <Avatar
+                      src={activeThread?.avatar}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '8px',
+                        bgcolor: '#EDE9FE',
+                        color: '#6900C6',
+                        fontSize: 12,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {(callerName || 'C').charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: -1,
+                        right: -1,
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        bgcolor: '#10B981',
+                        border: '1.5px solid #FFFFFF',
+                      }}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+                      <Tooltip title={primaryTitle} placement="bottom-start" arrow enterDelay={400}>
+                        <Typography
+                          sx={{
+                            fontSize: '0.92rem',
+                            fontWeight: 800,
+                            color: '#0F172A',
+                            lineHeight: 1.2,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: { xs: 150, sm: 220, md: 340 },
+                            letterSpacing: '-0.01em',
+                          }}
+                        >
+                          {primaryTitle}
+                        </Typography>
+                      </Tooltip>
+
+                      {callSr && (
+                        <Chip
+                          label={`#${callSr}`}
+                          size="small"
+                          sx={{
+                            height: 19,
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            bgcolor: '#EDE9FE',
+                            color: '#6900C6',
+                            borderRadius: '4px',
+                            border: '1px solid #DDD6FE',
+                            '& .MuiChip-label': { px: 0.6 },
+                          }}
+                        />
+                      )}
+
+                      <CaretDown size={11} weight="bold" color="#64748B" />
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.15, minWidth: 0 }}>
+                      <Typography
+                        sx={{
+                          fontSize: '0.74rem',
+                          color: '#64748B',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Caller: <Box component="span" sx={{ color: '#1E293B', fontWeight: 700 }}>{callerName}</Box>
+                      </Typography>
+
+                      {companyName && (
+                        <>
+                          <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#CBD5E1', flexShrink: 0 }} />
+                          <Typography
+                            sx={{
+                              fontSize: '0.74rem',
+                              color: '#64748B',
+                              fontWeight: 550,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: 160,
+                            }}
+                          >
+                            {companyName}
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })()}
 
             {/* View Mode Toggle: Timeline vs Single Ticket (Commented out per user request - do not remove) */}
             {/*

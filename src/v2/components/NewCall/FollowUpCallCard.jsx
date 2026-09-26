@@ -425,36 +425,36 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
     <Paper
       elevation={0}
       sx={{
-        maxWidth: 390,
+        maxWidth: { xs: '100%', sm: 540, md: 580 },
         width: '100%',
         bgcolor: isCurrentRunning
           ? '#F0FDF4'
           : isForward
           ? '#FAF5FF'
-          : '#F8FAFC',
+          : '#FFFFFF',
         border: isCurrentRunning
           ? '1.5px solid #10B981'
           : isForward
-          ? '1px solid #E9D5FF'
+          ? '1px solid #DDD6FE'
           : '1px solid #E2E8F0',
-        borderRadius: '12px',
-        p: 1.1,
+        borderRadius: '10px',
+        p: 1.5,
         boxShadow: isCurrentRunning
           ? '0 3px 12px rgba(16, 185, 129, 0.12)'
-          : '0 1px 2px rgba(0, 0, 0, 0.02)',
+          : '0 1px 3px rgba(0, 0, 0, 0.04)',
         transition: 'all 0.15s ease',
-        mt: 0.3,
-        mb: 0.3,
+        mt: 0.4,
+        mb: 0.4,
       }}
     >
       {/* Top Header Row: Icon + Title + Status Chip (Click to change status) */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.2, mb: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2, minWidth: 0, flex: 1 }}>
           <Box
             sx={{
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
+              width: 36,
+              height: 36,
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -473,58 +473,108 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                   ? '#6900C6'
                   : '#15803D'
                 : '#D97706',
+              border: `1px solid ${
+                isCurrentRunning
+                  ? '#059669'
+                  : isForward
+                  ? '#DDD6FE'
+                  : '#BBF7D0'
+              }`,
             }}
           >
             {isForward ? (
-              <ShareNetwork size={15} weight="bold" />
+              <ShareNetwork size={18} weight="bold" />
             ) : (
-              <PhoneCall size={15} weight={isCurrentRunning ? 'fill' : 'bold'} />
+              <PhoneCall size={18} weight={isCurrentRunning ? 'fill' : 'bold'} />
             )}
           </Box>
 
-          <Box sx={{ minWidth: 0 }}>
-            <Typography
-              sx={{
-                fontSize: 12,
-                fontWeight: 750,
-                color: '#0F172A',
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {isForward ? 'Forwarded Call' : 'Follow-Up Call'} {fuId ? `• #${fuId}` : ''}
-            </Typography>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            {/* Prominent Follow-Up / Forward Title */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
+              <Typography
+                sx={{
+                  fontSize: '0.94rem',
+                  fontWeight: 800,
+                  color: '#0F172A',
+                  lineHeight: 1.3,
+                  wordBreak: 'break-word',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {fuDescr || (isForward ? `Forwarded Call #${fuId}` : `Follow-Up Call #${fuId}`)}
+              </Typography>
+              <Tooltip title="Edit remarks / description">
+                <Box
+                  component="span"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInlineDescr(fuDescr);
+                    setIsEditingDescr(true);
+                  }}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    color: '#94A3B8',
+                    p: 0.2,
+                    borderRadius: '4px',
+                    '&:hover': { color: '#0F172A', bgcolor: '#F1F5F9' },
+                  }}
+                >
+                  <PencilSimpleLine size={13} />
+                </Box>
+              </Tooltip>
+            </Box>
+
             <Box
               sx={{
-                fontSize: 10.5,
+                fontSize: '0.75rem',
                 color: isCurrentRunning ? '#10B981' : '#64748B',
-                fontWeight: 550,
-                mt: 0.1,
+                fontWeight: 600,
+                mt: 0.25,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0.4,
+                gap: 0.8,
+                flexWrap: 'wrap',
               }}
             >
-              {isCurrentRunning ? (
-                isPaused ? (
-                  <>
-                    <PauseRoundedIcon sx={{ fontSize: 11, color: '#D97706' }} />
-                    <span style={{ color: '#D97706' }}>Paused</span>
-                  </>
-                ) : (
-                  <>
-                    <FiberManualRecordRoundedIcon sx={{ fontSize: 9, color: '#10B981' }} />
-                    <span>Live Voice Call</span>
-                  </>
-                )
-              ) : isCompleted ? (
-                <span>Voice Call • {durationStr !== '—' ? durationStr : 'Completed'}</span>
-              ) : fuCreatedDate && isValidDate(fuCreatedDate) ? (
-                <span>Added {formatCallDateTime(fuCreatedDate)}</span>
-              ) : (
-                <span>Pending</span>
+              <span>{isForward ? 'Forwarded Call' : 'Follow-Up Call'} {fuId ? `• #${fuId}` : ''}</span>
+              {durationStr !== '—' && (
+                <>
+                  <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#CBD5E1' }} />
+                  {hasRealStart && hasRealClosed ? (
+                    <Tooltip title="Click to edit call duration" arrow>
+                      <Box
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDurationModal({
+                            sr: callLogId,
+                            id: callLogId,
+                            CallLogid: callLogId,
+                            callStart: fuStart,
+                            callClosed: fuClosed,
+                            CallDuration: fuDuration,
+                          });
+                        }}
+                        sx={{
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.35,
+                          color: '#0284C7',
+                          fontWeight: 700,
+                          '&:hover': { textDecoration: 'underline' },
+                        }}
+                      >
+                        <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
+                        <span>{durationStr}</span>
+                      </Box>
+                    </Tooltip>
+                  ) : (
+                    <span>{durationStr}</span>
+                  )}
+                </>
               )}
             </Box>
           </Box>
@@ -536,11 +586,12 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
             label={isPaused ? 'PAUSED' : 'LIVE'}
             size="small"
             sx={{
-              height: 20,
-              fontSize: 9.5,
+              height: 22,
+              fontSize: '0.72rem',
               fontWeight: 800,
               bgcolor: isPaused ? '#FEF3C7' : '#10B981',
               color: isPaused ? '#B45309' : '#FFFFFF',
+              borderRadius: '5px',
             }}
           />
         ) : (
@@ -549,12 +600,13 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
             size="small"
             onClick={(e) => setStatusAnchorEl(e.currentTarget)}
             sx={{
-              height: 20,
-              fontSize: 9.5,
-              fontWeight: 750,
+              height: 22,
+              fontSize: '0.72rem',
+              fontWeight: 800,
               bgcolor: statusColors.bg,
               color: statusColors.text,
               border: `1px solid ${statusColors.border}`,
+              borderRadius: '5px',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
               '&:hover': {
@@ -567,84 +619,61 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
         )}
       </Box>
 
-      {/* Compact Telemetry Row */}
+      {/* Structured Details Grid */}
       <Box
         sx={{
-          mt: 0.8,
-          pt: 0.7,
-          borderTop: '1px solid rgba(0, 0, 0, 0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0.35,
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 1.2,
+          p: 1.2,
+          px: 1.5,
+          bgcolor: isForward ? '#FAF5FF' : '#F8FAFC',
+          borderRadius: '8px',
+          border: `1px solid ${isForward ? '#EDE9FE' : '#F1F5F9'}`,
+          mb: 1,
         }}
       >
-        {/* Start / End / Duration Inline Summary */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
-          <Typography sx={{ fontSize: 10.5, color: '#64748B', fontWeight: 500 }}>
-            {startStr !== '—' ? `${startStr} → ${endStr}` : 'Not started'}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {isForward ? 'Forwarded To' : 'Handled By'}
           </Typography>
-          {durationStr !== '—' && (
-            hasRealStart && hasRealClosed ? (
-              <Tooltip title="Click to edit call duration" arrow>
-                <Box
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDurationModal({
-                      sr: callLogId,
-                      id: callLogId,
-                      CallLogid: callLogId,
-                      callStart: fuStart,
-                      callClosed: fuClosed,
-                      CallDuration: fuDuration,
-                    });
-                  }}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.35,
-                    fontWeight: 700,
-                    color: '#0F172A',
-                    fontSize: 10.5,
-                    cursor: 'pointer',
-                    borderRadius: '4px',
-                    px: 0.5,
-                    py: 0.1,
-                    bgcolor: '#F1F5F9',
-                    border: '1px solid #E2E8F0',
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#E0F2FE',
-                      borderColor: '#BAE6FD',
-                      color: '#0284C7',
-                    },
-                  }}
-                >
-                  <AccessTimeRoundedIcon sx={{ fontSize: 12.5, color: '#64748B' }} />
-                  <span>{durationStr}</span>
-                </Box>
-              </Tooltip>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, fontWeight: 700, color: '#0F172A', fontSize: 10.5 }}>
-                <AccessTimeRoundedIcon sx={{ fontSize: 12.5, color: '#64748B' }} />
-                <span>{durationStr}</span>
-              </Box>
-            )
-          )}
-        </Box>
-
-        {/* Handler */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>
-            {isForward ? 'Forwarded to:' : 'Handled by:'}
-          </Typography>
-          <Typography sx={{ fontSize: 10.5, fontWeight: 650, color: '#334155' }}>
+          <Typography sx={{ fontSize: '0.82rem', color: '#1E293B', fontWeight: 700 }}>
             {fuForwardedEmp || fuReceivedBy || fuCreatedBy || 'Support Team'}
           </Typography>
         </Box>
 
-        {/* Description: Double-Click Inline Editable */}
-        {isEditingDescr ? (
-          <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Caller
+          </Typography>
+          <Typography sx={{ fontSize: '0.82rem', color: '#1E293B', fontWeight: 700 }}>
+            {callerName}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Call Window
+          </Typography>
+          <Typography sx={{ fontSize: '0.78rem', color: '#475569', fontWeight: 550 }}>
+            {startStr !== '—' ? `${startStr} → ${endStr}` : 'Not started'}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Duration
+          </Typography>
+          <Typography sx={{ fontSize: '0.78rem', color: '#475569', fontWeight: 650 }}>
+            {durationStr}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Description / Remarks: Inline Editor when active */}
+      {isEditingDescr && (
+        <Box sx={{ mb: 1, mt: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
             <TextField
               size="small"
               multiline
@@ -706,51 +735,8 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
               </Button>
             </Box>
           </Box>
-        ) : (
-          <Box
-            onDoubleClick={() => {
-              setInlineDescr(fuDescr);
-              setIsEditingDescr(true);
-            }}
-            sx={{
-              mt: 0.3,
-              p: 0.6,
-              px: 0.8,
-              bgcolor: 'rgba(255, 255, 255, 0.75)',
-              borderRadius: '5px',
-              border: '1px solid rgba(0, 0, 0, 0.05)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 0.5,
-              transition: 'all 0.15s ease',
-              '&:hover': {
-                bgcolor: '#FFFFFF',
-                borderColor: '#CBD5E1',
-                '& .edit-icon': { opacity: 1 },
-              },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-              <ChatBubbleOutlineRoundedIcon sx={{ fontSize: 13, color: '#64748B', mt: 0.2, flexShrink: 0 }} />
-              <Typography
-                sx={{
-                  fontSize: 11,
-                  color: fuDescr ? '#1E293B' : '#94A3B8',
-                  fontWeight: fuDescr ? 500 : 400,
-                  fontStyle: fuDescr ? 'normal' : 'italic',
-                  whiteSpace: 'pre-wrap',
-                  flex: 1,
-                }}
-              >
-                {fuDescr || 'Add description (double-click)...'}
-              </Typography>
-            </Box>
-            <PencilSimpleLine size={12} className="edit-icon" style={{ opacity: 0.35, flexShrink: 0, marginTop: 2 }} />
-          </Box>
-        )}
-      </Box>
+        </Box>
+      )}
 
       {/* Inline Start Error Banner */}
       <Collapse in={Boolean(startError)} unmountOnExit>

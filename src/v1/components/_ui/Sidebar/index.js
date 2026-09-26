@@ -28,6 +28,7 @@ import { removeSkeyCookie } from "../../../utils/AuthUtils";
 import { isArchiveDomain } from "../../../utils/AppBasePath";
 import ForwardedCallsPopover from "../Header/ForwardedCallsPopover";
 import { mainSidebarCollapsed$, useSubject } from "../../../rxjs/layoutStore";
+import VersionBadge from "../VersionBadge";
 
 const SIDEBAR_OPEN = 240;
 const SIDEBAR_CLOSED = 64;
@@ -266,6 +267,7 @@ export default function ModernMenu() {
         <Box
           sx={{ py: 0.75, display: "flex", flexDirection: "column", gap: 0.25 }}
         >
+          <VersionBadge collapsed={collapsed} />
           <Tooltip title={collapsed ? "Logout" : ""} placement="right" arrow>
             <ListItemButton
               onClick={handleLogout}

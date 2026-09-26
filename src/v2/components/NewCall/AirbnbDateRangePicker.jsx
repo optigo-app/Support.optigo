@@ -32,6 +32,7 @@ import {
   CaretRight,
   CaretDown,
   CalendarBlank,
+  X,
 } from '@phosphor-icons/react';
 
 export const formatLocalDateToYYYYMMDD = (d) => {
@@ -318,6 +319,8 @@ export default function AirbnbDateRangePicker({
     return 'Select Date Range';
   }, [rangeStart, rangeEnd]);
 
+  const hasDateFilter = Boolean(rangeStart || rangeEnd);
+
   return (
     <>
       {/* Outer Airbnb Range Trigger Pill */}
@@ -326,14 +329,16 @@ export default function AirbnbDateRangePicker({
         sx={{
           display: 'inline-flex',
           alignItems: 'center',
-          border: '1px solid #CBD5E1',
+          border: '1px solid',
+          borderColor: hasDateFilter ? '#93C5FD' : '#CBD5E1',
           borderRadius: '5px',
-          bgcolor: '#FFFFFF',
+          bgcolor: hasDateFilter ? '#EFF6FF' : '#FFFFFF',
           height: 32,
           p: '2px',
           transition: 'all 0.15s ease',
+          boxShadow: hasDateFilter ? '0 1px 3px rgba(37, 99, 235, 0.15)' : 'none',
           '&:hover': {
-            borderColor: '#CBD5E1',
+            borderColor: hasDateFilter ? '#60A5FA' : '#CBD5E1',
             boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
           },
         }}
@@ -343,9 +348,9 @@ export default function AirbnbDateRangePicker({
           onClick={(e) => handleStepRange('prev', e)}
           sx={{
             p: 0.5,
-            color: '#64748B',
+            color: hasDateFilter ? '#2563EB' : '#64748B',
             borderRadius: '4px',
-            '&:hover': { bgcolor: '#F8FAFC', color: '#0F172A' },
+            '&:hover': { bgcolor: hasDateFilter ? '#DBEAFE' : '#F8FAFC', color: '#0F172A' },
           }}
         >
           <CaretLeft size={13} weight="bold" />
@@ -362,19 +367,46 @@ export default function AirbnbDateRangePicker({
             height: '100%',
           }}
         >
-          <CalendarBlank size={15} color="#4F46E5" weight="bold" />
+          <CalendarBlank size={15} color={hasDateFilter ? '#2563EB' : '#4F46E5'} weight="bold" />
           <Typography
             sx={{
               fontSize: 12,
               fontWeight: 600,
-              color: '#0F172A',
+              color: hasDateFilter ? '#1D4ED8' : '#0F172A',
               letterSpacing: '-0.01em',
               whiteSpace: 'nowrap',
             }}
           >
             {displayText}
           </Typography>
-          <CaretDown size={12} color="#64748B" weight="bold" />
+          <CaretDown size={12} color={hasDateFilter ? '#2563EB' : '#64748B'} weight="bold" />
+          {hasDateFilter && (
+            <Box
+              component="span"
+              title="Clear date range"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClear();
+              }}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                ml: 0.4,
+                p: 0.25,
+                borderRadius: '50%',
+                color: '#2563EB',
+                cursor: 'pointer',
+                transition: 'background-color 0.15s ease, color 0.15s ease',
+                '&:hover': {
+                  bgcolor: '#DBEAFE',
+                  color: '#1E40AF',
+                },
+              }}
+            >
+              <X size={11} weight="bold" />
+            </Box>
+          )}
         </Box>
 
         <IconButton

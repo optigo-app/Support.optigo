@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   Box,
   InputBase,
@@ -10,7 +10,9 @@ import {
   Chip,
   Menu,
   MenuItem,
+  Avatar,
 } from '@mui/material';
+import AlternateEmailRoundedIcon from '@mui/icons-material/AlternateEmailRounded';
 import {
   TextB,
   TextItalic,
@@ -36,6 +38,7 @@ import { useAuth } from '../../context/UseAuth';
 import { callStreamService } from './services/callStreamService';
 import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
 import { hasRealTicket } from './utils/ticketStatusUtils';
+import { getEmployeesList } from './utils/mentionUtils';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -66,7 +69,7 @@ const MessageComposer = React.memo(function MessageComposer({
 }) {
   const navigate = useNavigate();
   const { user, CompanyInfo } = useAuth();
-  const { CALL_TYPE_MASTER, UpdateCall, saveCallLogTask, getTaskList } = useCallLog();
+  const { CALL_TYPE_MASTER, UpdateCall, saveCallLogTask, getTaskList, EMPLOYEE_LIST } = useCallLog();
 
   const [text, setText] = useState('');
   const [isBold, setIsBold] = useState(false);
@@ -76,6 +79,54 @@ const MessageComposer = React.memo(function MessageComposer({
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Mention State
+  const [isMentionOpen, setIsMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+
+  const inputRef = useRef(null);
+  const mentionPopupRef = useRef(null);
+
+  const allEmployees = useMemo(() => {
+    if (Array.isArray(EMPLOYEE_LIST) && EMPLOYEE_LIST.length > 0) {
+      return EMPLOYEE_LIST;
+    }
+    return getEmployeesList();
+  }, [EMPLOYEE_LIST]);
+
+  const filteredEmployees = useMemo(() => {
+    if (!isMentionOpen) return [];
+    const q = mentionQuery.trim().toLowerCase();
+    if (!q) {
+      return allEmployees.slice(0, 8);
+    }
+    return allEmployees
+      .filter((emp) => {
+        const name = (emp.user || emp.EmployeeName || emp.name || '').toLowerCase();
+        const desig = (emp.designation || emp.role || '').toLowerCase();
+        return name.includes(q) || desig.includes(q);
+      })
+      .slice(0, 8);
+  }, [isMentionOpen, mentionQuery, allEmployees]);
+
+  // Click outside to close mention popup
+  useEffect(() => {
+    if (!isMentionOpen) return;
+    const handleClickOutside = (e) => {
+      if (
+        mentionPopupRef.current &&
+        !mentionPopupRef.current.contains(e.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target)
+      ) {
+        setIsMentionOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMentionOpen]);
 
   // iTask State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -181,6 +232,7 @@ const MessageComposer = React.memo(function MessageComposer({
         await onSendMessage(text, selectedFile);
       }
       setText('');
+      setIsMentionOpen(false);
       handleRemoveFile();
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -189,7 +241,101 @@ const MessageComposer = React.memo(function MessageComposer({
     }
   };
 
+  const insertMention = useCallback(
+    (employee) => {
+      const empName = employee?.user || employee?.EmployeeName || employee?.name || '';
+      if (!empName) return;
+
+      const before = text.slice(0, mentionStartIndex);
+      const after = text.slice(mentionStartIndex + 1 + mentionQuery.length);
+      const updated = `${before}@${empName} ${after}`;
+      setText(updated);
+      setIsMentionOpen(false);
+      setMentionQuery('');
+
+      setTimeout(() => {
+        const inputEl = inputRef.current;
+        if (inputEl) {
+          const newPos = before.length + empName.length + 2; // '@' + name + ' '
+          inputEl.focus();
+          if (inputEl.setSelectionRange) {
+            inputEl.setSelectionRange(newPos, newPos);
+          }
+        }
+      }, 15);
+    },
+    [text, mentionStartIndex, mentionQuery]
+  );
+
+  const handleTextChange = (e) => {
+    const newText = e.target.value;
+    setText(newText);
+
+    const cursorPos = e.target.selectionStart ?? newText.length;
+    const textBeforeCursor = newText.slice(0, cursorPos);
+
+    const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9._\s]*)$/);
+    if (match) {
+      const query = match[1];
+      if (!query.includes('\n') && query.length <= 30) {
+        setMentionQuery(query);
+        const atIndex = textBeforeCursor.lastIndexOf('@');
+        setMentionStartIndex(atIndex);
+        setIsMentionOpen(true);
+        setActiveMentionIndex(0);
+        return;
+      }
+    }
+    setIsMentionOpen(false);
+  };
+
+  const handleMentionButtonClick = () => {
+    const inputEl = inputRef.current;
+    const currentPos = inputEl ? inputEl.selectionStart : text.length;
+    const before = text.slice(0, currentPos);
+    const after = text.slice(currentPos);
+    const prefix = before.length > 0 && !before.endsWith(' ') ? ' ' : '';
+    const updated = `${before}${prefix}@${after}`;
+    setText(updated);
+    setMentionStartIndex(before.length + prefix.length);
+    setMentionQuery('');
+    setIsMentionOpen(true);
+    setActiveMentionIndex(0);
+    setTimeout(() => {
+      if (inputEl) {
+        inputEl.focus();
+        const newPos = before.length + prefix.length + 1;
+        if (inputEl.setSelectionRange) {
+          inputEl.setSelectionRange(newPos, newPos);
+        }
+      }
+    }, 15);
+  };
+
   const handleKeyDown = (e) => {
+    if (isMentionOpen && filteredEmployees.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveMentionIndex((prev) => (prev + 1) % filteredEmployees.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveMentionIndex((prev) => (prev - 1 + filteredEmployees.length) % filteredEmployees.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(filteredEmployees[activeMentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsMentionOpen(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -298,6 +444,7 @@ const MessageComposer = React.memo(function MessageComposer({
 
       <Box
         sx={{
+          position: 'relative',
           border: isDragging ? '1.5px dashed #6900C6' : '1px solid #CBD5E1',
           borderRadius: '8px',
           bgcolor: isDragging ? '#FDF8FF' : '#FFFFFF',
@@ -310,6 +457,148 @@ const MessageComposer = React.memo(function MessageComposer({
           },
         }}
       >
+        {/* Mention Suggestions Autocomplete Popup */}
+        {isMentionOpen && (
+          <Box
+            ref={mentionPopupRef}
+            sx={{
+              position: 'absolute',
+              bottom: 'calc(100% + 8px)',
+              left: 8,
+              width: 320,
+              maxWidth: 'calc(100vw - 32px)',
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '10px',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.14), 0 4px 10px rgba(0, 0, 0, 0.06)',
+              overflow: 'hidden',
+              zIndex: 1500,
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'mentionSlideUp 0.15s ease-out',
+              '@keyframes mentionSlideUp': {
+                from: { opacity: 0, transform: 'translateY(6px)' },
+                to: { opacity: 1, transform: 'translateY(0)' },
+              },
+            }}
+          >
+            {/* Header */}
+            <Box
+              sx={{
+                px: 1.4,
+                py: 0.8,
+                bgcolor: '#F8FAFC',
+                borderBottom: '1px solid #F1F5F9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  color: '#6900C6',
+                  letterSpacing: '0.3px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                @ Mention Team Member
+              </Typography>
+              <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 500 }}>
+                ↑↓ navigate • ↵ select
+              </Typography>
+            </Box>
+
+            {/* List */}
+            <Box
+              sx={{
+                overflowY: 'auto',
+                maxHeight: 220,
+                '&::-webkit-scrollbar': { width: '4px' },
+                '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: '4px' },
+              }}
+            >
+              {filteredEmployees.length > 0 ? (
+                filteredEmployees.map((emp, index) => {
+                  const isSelected = index === activeMentionIndex;
+                  const empName = emp.user || emp.EmployeeName || emp.name || 'Unknown';
+                  const initial = empName.charAt(0).toUpperCase();
+                  const designation = emp.designation || emp.role || '';
+
+                  return (
+                    <Box
+                      key={emp.userid ?? index}
+                      onClick={() => insertMention(emp)}
+                      onMouseEnter={() => setActiveMentionIndex(index)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.2,
+                        px: 1.4,
+                        py: 0.8,
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? '#F3E8FF' : 'transparent',
+                        borderLeft: isSelected ? '3.5px solid #6900C6' : '3.5px solid transparent',
+                        transition: 'all 0.1s ease',
+                        '&:hover': {
+                          bgcolor: '#F3E8FF',
+                        },
+                      }}
+                    >
+                      <Avatar
+                        sx={{
+                          width: 26,
+                          height: 26,
+                          fontSize: 11,
+                          fontWeight: 800,
+                          bgcolor: isSelected ? '#6900C6' : '#EDE9FE',
+                          color: isSelected ? '#FFFFFF' : '#6900C6',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {initial}
+                      </Avatar>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          noWrap
+                          sx={{
+                            fontSize: '0.82rem',
+                            fontWeight: isSelected ? 800 : 700,
+                            color: isSelected ? '#581C87' : '#0F172A',
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {empName}
+                        </Typography>
+                        {designation && (
+                          <Typography
+                            noWrap
+                            sx={{
+                              fontSize: '0.7rem',
+                              color: isSelected ? '#7C3AED' : '#64748B',
+                              fontWeight: 500,
+                              mt: 0.2,
+                            }}
+                          >
+                            {designation}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })
+              ) : (
+                <Box sx={{ p: 2, textAlign: 'center', color: '#94A3B8' }}>
+                  <Typography sx={{ fontSize: '0.78rem', fontWeight: 500 }}>
+                    No team members found matching "@{mentionQuery}"
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        )}
+
         {/* Top Formatting Toolbar & Actions Header */}
         <Box
           sx={{
@@ -352,6 +641,22 @@ const MessageComposer = React.memo(function MessageComposer({
                 sx={{ color: isStrike ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: isStrike ? '#EDE9FE' : 'transparent' }}
               >
                 <TextStrikethrough size={15} weight="bold" />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Mention employee (@)">
+              <IconButton
+                size="small"
+                onClick={handleMentionButtonClick}
+                sx={{
+                  color: isMentionOpen ? '#6900C6' : '#64748B',
+                  p: 0.4,
+                  borderRadius: '4px',
+                  bgcolor: isMentionOpen ? '#EDE9FE' : 'transparent',
+                  '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' },
+                }}
+              >
+                <AlternateEmailRoundedIcon sx={{ fontSize: 16 }} />
               </IconButton>
             </Tooltip>
           </Box>
@@ -551,11 +856,12 @@ const MessageComposer = React.memo(function MessageComposer({
         {/* Text Input Area */}
         <Box sx={{ px: 1.5, py: 1, minHeight: 44 }}>
           <InputBase
+            inputRef={inputRef}
             multiline
             minRows={1}
             maxRows={6}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={selectedFile ? 'Add a message or press Enter to send attachment...' : placeholder}

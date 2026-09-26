@@ -13,11 +13,13 @@ import {
   X,
   Plus,
   Export,
+  SidebarSimple,
 } from '@phosphor-icons/react';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import SettingsPhoneRoundedIcon from '@mui/icons-material/SettingsPhoneRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import AirbnbDateRangePicker from './AirbnbDateRangePicker';
 import CustomMultiSelectDropdown from './CustomMultiSelectDropdown';
 import { useCallLog } from '../../context/UseCallLog';
@@ -38,8 +40,42 @@ export default function TopBar({
   setViewMode,
   onAddClick,
   onExportClick,
+  onClearAll,
+  isRailCompanyFiltered = false,
+  isSidebarsCollapsed = false,
+  onToggleSidebars,
 }) {
   const { STATUS_LIST = [], ESTATUS_LIST = [], companyOptions = [], COMPANY_LIST = [] } = useCallLog();
+
+  const hasActiveFilters = React.useMemo(() => {
+    const hasSearch = Boolean(searchQuery && String(searchQuery).trim() !== '');
+    const hasCompany = Boolean(
+      selectedCompany &&
+      selectedCompany !== 'all' &&
+      (!Array.isArray(selectedCompany) || selectedCompany.length > 0)
+    );
+    const hasFilterBy = Boolean(filterBy && filterBy !== 'all' && filterBy !== '');
+    const hasStatus = Boolean(
+      statusFilter &&
+      statusFilter !== 'all' &&
+      (!Array.isArray(statusFilter) || statusFilter.length > 0)
+    );
+    const hasDate = Boolean(dateRangeObj?.start || dateRangeObj?.end);
+    const hasRailComp = Boolean(isRailCompanyFiltered);
+
+    return hasSearch || hasCompany || hasFilterBy || hasStatus || hasDate || hasRailComp;
+  }, [searchQuery, selectedCompany, filterBy, statusFilter, dateRangeObj, isRailCompanyFiltered]);
+
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (searchQuery && String(searchQuery).trim() !== '') count++;
+    if (selectedCompany && selectedCompany !== 'all' && (!Array.isArray(selectedCompany) || selectedCompany.length > 0)) count++;
+    if (filterBy && filterBy !== 'all' && filterBy !== '') count++;
+    if (statusFilter && statusFilter !== 'all' && (!Array.isArray(statusFilter) || statusFilter.length > 0)) count++;
+    if (dateRangeObj?.start || dateRangeObj?.end) count++;
+    if (isRailCompanyFiltered) count++;
+    return count;
+  }, [searchQuery, selectedCompany, filterBy, statusFilter, dateRangeObj, isRailCompanyFiltered]);
 
   const allCompanyOptions = React.useMemo(() => {
     const validCompList = (COMPANY_LIST && COMPANY_LIST.length > 0)
@@ -111,6 +147,34 @@ export default function TopBar({
           '&::-webkit-scrollbar': { display: 'none' },
         }}
       >
+        {/* 0. Collapse / Expand Sidebars Button */}
+        <Tooltip title={isSidebarsCollapsed ? 'Show Sidebars (Companies & Calls)' : 'Collapse Sidebars'} arrow>
+          <IconButton
+            size="small"
+            onClick={onToggleSidebars}
+            aria-label="Toggle Sidebars"
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: '6px',
+              border: '1px solid',
+              borderColor: isSidebarsCollapsed ? '#6900C6' : '#CBD5E1',
+              bgcolor: isSidebarsCollapsed ? '#EDE9FE' : '#FFFFFF',
+              color: isSidebarsCollapsed ? '#6900C6' : '#475569',
+              transition: 'all 0.15s ease',
+              flexShrink: 0,
+              boxShadow: isSidebarsCollapsed ? '0 0 0 2px rgba(105, 0, 198, 0.15)' : 'none',
+              '&:hover': {
+                bgcolor: isSidebarsCollapsed ? '#DDD6FE' : '#F1F5F9',
+                borderColor: '#6900C6',
+                color: '#6900C6',
+              },
+            }}
+          >
+            <SidebarSimple size={18} weight={isSidebarsCollapsed ? 'fill' : 'bold'} />
+          </IconButton>
+        </Tooltip>
+
         {/* 1. Global ADD Button */}
         <Button
           variant="contained"
@@ -338,6 +402,66 @@ export default function TopBar({
             if (setStatusFilter) setStatusFilter(newVal);
           }}
         />
+
+        {/* 9. Clear All Filters / Reset Button */}
+        {hasActiveFilters ? (
+          <Tooltip title="Clear all active filters" arrow>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={onClearAll}
+              startIcon={<FilterAltOffIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                height: 32,
+                px: 1.3,
+                borderRadius: '6px',
+                bgcolor: '#FEF2F2',
+                color: '#DC2626',
+                border: '1px solid #FECACA',
+                fontWeight: 700,
+                fontSize: '0.76rem',
+                textTransform: 'none',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                boxShadow: '0 1px 2px rgba(220, 38, 38, 0.08)',
+                '&:hover': {
+                  bgcolor: '#FEE2E2',
+                  borderColor: '#F87171',
+                  color: '#B91C1C',
+                  boxShadow: '0 2px 4px rgba(220, 38, 38, 0.15)',
+                },
+              }}
+            >
+              Clear Filters{activeFilterCount > 1 ? ` (${activeFilterCount})` : ''}
+            </Button>
+          </Tooltip>
+        ) : (
+          <Tooltip title="Clear filters & reload all calls" arrow>
+            <IconButton
+              size="small"
+              onClick={onClearAll}
+              sx={{
+                height: 32,
+                width: 32,
+                borderRadius: '6px',
+                bgcolor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                color: '#64748B',
+                flexShrink: 0,
+                transition: 'all 0.15s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                '&:hover': {
+                  bgcolor: '#F1F5F9',
+                  borderColor: '#94A3B8',
+                  color: '#0F172A',
+                },
+              }}
+            >
+              <FilterAltOffIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Right: Help Icon */}

@@ -14,88 +14,151 @@ import {
   SquaresFour,
   SidebarSimple,
   Buildings,
+  CaretLeft,
+  CaretRight,
 } from '@phosphor-icons/react';
 
 export default function CompanyAvatarRail({
+  open = true,
+  onClose,
+  onOpen,
+  isCallsOpen = true,
+  onOpenCalls,
   companies = [],
   selectedCompany = 'all',
   onSelectCompany,
+  onClearAll,
   totalCallsCount = 0,
   isLoading = false,
 }) {
   const [viewMode, setViewMode] = useState('list'); // 'list' (expanded) | 'circle' (compact)
 
   const isListMode = viewMode === 'list';
+  const targetWidth = isListMode ? 190 : 58;
 
   return (
     <Box
       sx={{
-        width: isListMode ? 190 : 58,
-        minWidth: isListMode ? 190 : 58,
-        maxWidth: isListMode ? 190 : 58,
+        width: open ? targetWidth : 0,
+        minWidth: open ? targetWidth : 0,
+        maxWidth: open ? targetWidth : 0,
         bgcolor: '#F8FAFC',
-        borderRight: '1px solid #E5E7EB',
+        borderRight: open ? '1px solid #E5E7EB' : 'none',
         borderTopLeftRadius: '12px',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         userSelect: 'none',
         height: '100%',
-        transition: 'width 0.2s ease, min-width 0.2s ease',
+        transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.2s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        flexShrink: 0,
       }}
     >
-      {/* Exact 48px Header aligned with Voice Calls and ChatHeader */}
       <Box
         sx={{
-          height: 48,
-          minHeight: 48,
-          maxHeight: 48,
+          width: targetWidth,
+          minWidth: targetWidth,
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: isListMode ? 'space-between' : 'center',
-          px: isListMode ? 1.5 : 0.8,
-          borderBottom: '1px solid #F1F5F9',
-          bgcolor: '#FFFFFF',
+          flexDirection: 'column',
+          transition: 'width 0.2s ease',
         }}
       >
-        {isListMode ? (
-          <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Buildings size={16} weight="bold" color="#6900C6" />
-              <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>
-                Companies
-              </Typography>
+        {/* Exact 48px Header aligned with Voice Calls and ChatHeader */}
+        <Box
+          sx={{
+            height: 48,
+            minHeight: 48,
+            maxHeight: 48,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isListMode ? 'space-between' : 'center',
+            px: isListMode ? 1.5 : 0.8,
+            borderBottom: '1px solid #F1F5F9',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          {isListMode ? (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Buildings size={16} weight="bold" color="#6900C6" />
+                <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>
+                  Companies
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                {onOpenCalls && !isCallsOpen && (
+                  <Tooltip title="Show Calls List">
+                    <IconButton
+                      size="small"
+                      onClick={onOpenCalls}
+                      sx={{ p: 0.4, color: '#6900C6', bgcolor: '#EDE9FE', borderRadius: '4px', '&:hover': { bgcolor: '#DDD6FE' } }}
+                    >
+                      <CaretRight size={15} weight="bold" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title="Compact Icon Rail">
+                  <IconButton
+                    size="small"
+                    onClick={() => setViewMode('circle')}
+                    sx={{ p: 0.4, color: '#64748B', '&:hover': { bgcolor: '#F1F5F9', color: '#6900C6' } }}
+                  >
+                    <SquaresFour size={15} weight="bold" />
+                  </IconButton>
+                </Tooltip>
+                {onClose && (
+                  <Tooltip title="Collapse Companies">
+                    <IconButton
+                      size="small"
+                      onClick={onClose}
+                      sx={{ p: 0.4, color: '#64748B', '&:hover': { bgcolor: '#F1F5F9', color: '#6900C6' } }}
+                    >
+                      <CaretLeft size={15} weight="bold" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2 }}>
+              <Tooltip title="Expand Companies">
+                <IconButton
+                  size="small"
+                  onClick={() => setViewMode('list')}
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    bgcolor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '6px',
+                    color: '#64748B',
+                    '&:hover': { bgcolor: '#EDE9FE', color: '#6900C6', borderColor: '#C4B5FD' },
+                  }}
+                >
+                  <SidebarSimple size={15} weight="bold" />
+                </IconButton>
+              </Tooltip>
+              {onClose && (
+                <Tooltip title="Collapse Companies">
+                  <IconButton
+                    size="small"
+                    onClick={onClose}
+                    sx={{
+                      width: 20,
+                      height: 28,
+                      p: 0,
+                      color: '#94A3B8',
+                      '&:hover': { color: '#6900C6' },
+                    }}
+                  >
+                    <CaretLeft size={13} weight="bold" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
-            {/* <Tooltip title="Collapse Companies">
-              <IconButton
-                size="small"
-                onClick={() => setViewMode('circle')}
-                sx={{ p: 0.4, color: '#64748B', '&:hover': { bgcolor: '#F1F5F9', color: '#6900C6' } }}
-              >
-                <SidebarSimple size={16} weight="bold" />
-              </IconButton>
-            </Tooltip> */}
-          </>
-        ) : (
-          <Tooltip title="Expand Companies">
-            <IconButton
-              size="small"
-              onClick={() => setViewMode('list')}
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: '#F8FAFC',
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                color: '#64748B',
-                '&:hover': { bgcolor: '#EDE9FE', color: '#6900C6', borderColor: '#C4B5FD' },
-              }}
-            >
-              <SidebarSimple size={16} weight="bold" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Box>
+          )}
+        </Box>
 
       {/* Main Content Area */}
       <Box sx={{ flex: 1, width: '100%', overflow: 'hidden', 
@@ -133,7 +196,10 @@ export default function CompanyAvatarRail({
                 const isAllSelected = !selectedCompany || selectedCompany === 'all' || (Array.isArray(selectedCompany) && selectedCompany.length === 0);
                 return (
                   <Box
-                    onClick={() => onSelectCompany('all')}
+                    onClick={() => {
+                      onSelectCompany('all');
+                      if (onClearAll) onClearAll();
+                    }}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -349,6 +415,7 @@ export default function CompanyAvatarRail({
             </Box>
           )}
         </SimpleBar>
+      </Box>
       </Box>
     </Box>
   );

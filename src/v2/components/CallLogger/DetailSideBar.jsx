@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Drawer, Box, Typography, IconButton, Chip } from "@mui/material";
+import { Drawer, Box, Typography, IconButton, Chip, Button, Tooltip } from "@mui/material";
 import {
   X,
   ReceiptText,
@@ -9,6 +9,7 @@ import {
   Clock8,
   MoreHorizontal,
   Paperclip,
+  MessageSquare,
 } from "lucide-react";
 import { ThemeProvider } from "@mui/material/styles";
 import { SideBarTheme } from "../../libs/DateTheme";
@@ -83,6 +84,36 @@ export default function CallLogDetailsSidebar({
           Call Detail
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Tooltip title="Open in New Call Chat (New Tab)" placement="bottom" arrow>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<MessageSquare size={14} />}
+              onClick={() => {
+                const sr = defaultCallLogData?.sr || defaultCallLogData?.id;
+                if (sr) {
+                  window.open(`/newCall?sr=${sr}`, "_blank");
+                }
+              }}
+              sx={{
+                textTransform: "none",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: "#6900C6",
+                borderColor: "rgba(105, 0, 198, 0.3)",
+                bgcolor: "rgba(105, 0, 198, 0.04)",
+                py: 0.3,
+                px: 1,
+                borderRadius: "6px",
+                "&:hover": {
+                  bgcolor: "rgba(105, 0, 198, 0.1)",
+                  borderColor: "#6900C6",
+                },
+              }}
+            >
+              Open Chat
+            </Button>
+          </Tooltip>
           <IconButton
             onClick={onClose}
             size="small"

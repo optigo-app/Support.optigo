@@ -45,8 +45,9 @@ import { separateFollowUpsAndForwarded } from "../../utils/callLogUtils";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CallIcon from "@mui/icons-material/Call";
+import ChatRoundedIcon from "@mui/icons-material/ChatRounded";
 import { openAddFollowUpModal } from "../../rxjs/tableUiStore";
-
+import QuestionAnswerRoundedIcon from '@mui/icons-material/QuestionAnswerRounded';
 
 // Localized Cell Components to prevent full-grid re-renders on menu toggle
 const PriorityCell = React.memo(
@@ -447,8 +448,8 @@ const ForwardCell = React.memo(({ row, value, showNotification }) => {
                           {fu.ForwardedEmp
                             ? `➡ ${fu.ForwardedEmp}`
                             : fu.CreatedBy
-                            ? `· ${fu.CreatedBy}`
-                            : ""}
+                              ? `· ${fu.CreatedBy}`
+                              : ""}
                         </Typography>
                         <Typography
                           sx={{
@@ -594,14 +595,71 @@ export const getCallColumns = ({
                   flexShrink: 0,
                   animation: "pulseDot 2s infinite ease-in-out",
                   "@keyframes pulseDot": {
-                    "0%": { transform: "scale(0.95)", boxShadow: "0 0 0 0 rgba(105, 0, 198, 0.6)" },
-                    "70%": { transform: "scale(1.15)", boxShadow: "0 0 0 4px rgba(105, 0, 198, 0)" },
-                    "100%": { transform: "scale(0.95)", boxShadow: "0 0 0 0 rgba(105, 0, 198, 0)" },
+                    "0%": {
+                      transform: "scale(0.95)",
+                      boxShadow: "0 0 0 0 rgba(105, 0, 198, 0.6)",
+                    },
+                    "70%": {
+                      transform: "scale(1.15)",
+                      boxShadow: "0 0 0 4px rgba(105, 0, 198, 0)",
+                    },
+                    "100%": {
+                      transform: "scale(0.95)",
+                      boxShadow: "0 0 0 0 rgba(105, 0, 198, 0)",
+                    },
                   },
                 }}
                 title="New message / comment"
               />
             )}
+          </Box>
+        );
+      },
+    },
+    {
+      field: "chat",
+      headerName: "Chat",
+      width: 55,
+      sortable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => {
+        const sr = params?.row?.sr || params?.row?.id;
+        return (
+          <Box
+            sx={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Tooltip title="Open Chat in New Tab" placement="top" arrow>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (sr) {
+                    window.open(`/newCall?sr=${sr}`, "_blank");
+                  }
+                }}
+                sx={{
+                  color: "#6a00c671",
+                  bgcolor: "rgba(105, 0, 198, 0.08)",
+                  border: "1px solid rgba(105, 0, 198, 0.2)",
+                  p: "3px",
+                  transition: "all 0.15s ease",
+                  "&:hover": {
+                    bgcolor: "rgba(105, 0, 198, 0.18)",
+                    borderColor: "#6a00c6e8",
+                    transform: "scale(1.08)",
+                  },
+                }}
+              >
+               <QuestionAnswerRoundedIcon/>
+              </IconButton>
+            </Tooltip>
           </Box>
         );
       },
@@ -869,12 +927,16 @@ export const getCallColumns = ({
                       overflowY: "auto",
                       pr: 0.5,
                       "&::-webkit-scrollbar": { width: "4px" },
-                      "&::-webkit-scrollbar-track": { background: "transparent" },
+                      "&::-webkit-scrollbar-track": {
+                        background: "transparent",
+                      },
                       "&::-webkit-scrollbar-thumb": {
                         background: "#cbd5e1",
                         borderRadius: "4px",
                       },
-                      "&::-webkit-scrollbar-thumb:hover": { background: "#94a3b8" },
+                      "&::-webkit-scrollbar-thumb:hover": {
+                        background: "#94a3b8",
+                      },
                     }}
                   >
                     <Box
@@ -1020,7 +1082,9 @@ export const getCallColumns = ({
                   }}
                 >
                   {viewMode !== "followUp-Completed" && pendingCount > 0 && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.4 }}
+                    >
                       <Typography
                         sx={{ fontSize: 12, fontWeight: 800, color: "#d32f2f" }}
                       >
@@ -1057,7 +1121,9 @@ export const getCallColumns = ({
                       </Typography>
                     )}
                   {viewMode !== "followUp-Pending" && completedCount > 0 && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.4 }}
+                    >
                       <Typography
                         sx={{ fontSize: 12, fontWeight: 800, color: "#2e7d32" }}
                       >
@@ -1080,9 +1146,7 @@ export const getCallColumns = ({
                 variant="caption"
                 color="text.secondary"
                 sx={{ mr: 0.5 }}
-              >
-                
-              </Typography>
+              ></Typography>
             )}
 
             <IconButton

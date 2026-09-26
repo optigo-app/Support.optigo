@@ -15,6 +15,8 @@ import FollowUpCallCard from './FollowUpCallCard';
 import AttachmentPill from './AttachmentPill';
 import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
 import { useCallLog } from '../../context/UseCallLog';
+import MentionChip from './MentionChip';
+import { buildMentionRegex, findEmployeeByName, getEmployeesList } from './utils/mentionUtils';
 
 export default function MessageItem({ message }) {
   const navigate = useNavigate();
@@ -71,7 +73,7 @@ export default function MessageItem({ message }) {
                 boxShadow: '0 2px 8px rgba(105, 0, 198, 0.2)',
               }}
             >
-              {renderFormattedMessage(message.content)}
+              {renderFormattedMessage(message.content, true)}
             </Paper>
           )}
 
@@ -167,29 +169,46 @@ export default function MessageItem({ message }) {
               maxWidth: 580,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Ticket size={16} color="#0284C7" weight="bold" />
-                <Typography sx={{ fontSize: '0.85rem', fontWeight: 750, color: '#0369A1' }}>
-                  Upgraded to Helpdesk Ticket
-                </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, minWidth: 0, flex: 1 }}>
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '6px',
+                    bgcolor: '#E0F2FE',
+                    color: '#0284C7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    mt: 0.2,
+                  }}
+                >
+                  <Ticket size={16} color="#0284C7" weight="bold" />
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, color: '#0369A1', lineHeight: 1.3 }}>
+                    {tData.ticketTitle || 'Upgraded to Helpdesk Ticket'}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 550, mt: 0.2 }}>
+                    Helpdesk Ticket {tData.ticketId ? `• #${tData.ticketId}` : ''}
+                  </Typography>
+                </Box>
               </Box>
               <Chip
                 label="In Ticket"
                 size="small"
                 sx={{
-                  height: 18,
-                  fontSize: '0.65rem',
+                  height: 20,
+                  fontSize: '0.7rem',
                   fontWeight: 800,
                   bgcolor: '#0284C7',
                   color: '#FFFFFF',
+                  borderRadius: '4px',
                 }}
               />
             </Box>
-
-            <Typography sx={{ fontSize: '0.82rem', color: '#334155', fontWeight: 550 }}>
-              {tData.ticketTitle || 'Call converted to support ticket'}
-            </Typography>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', pt: 0.3 }}>
               {tData.company && (
@@ -329,29 +348,46 @@ export default function MessageItem({ message }) {
               maxWidth: 580,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <CheckSquare size={16} color="#15803D" weight="bold" />
-                <Typography sx={{ fontSize: '0.85rem', fontWeight: 750, color: '#15803D' }}>
-                  Task Created in iTask
-                </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, minWidth: 0, flex: 1 }}>
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '6px',
+                    bgcolor: '#DCFCE7',
+                    color: '#15803D',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    mt: 0.2,
+                  }}
+                >
+                  <CheckSquare size={16} color="#15803D" weight="bold" />
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, color: '#166534', lineHeight: 1.3 }}>
+                    {task.taskName || 'Call converted to iTask task'}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 550, mt: 0.2 }}>
+                    iTask Task {task.taskId ? `• #${task.taskId}` : ''}
+                  </Typography>
+                </Box>
               </Box>
               <Chip
                 label="Linked"
                 size="small"
                 sx={{
-                  height: 18,
-                  fontSize: '0.65rem',
+                  height: 20,
+                  fontSize: '0.7rem',
                   fontWeight: 800,
                   bgcolor: '#15803D',
                   color: '#FFFFFF',
+                  borderRadius: '4px',
                 }}
               />
             </Box>
-
-            <Typography sx={{ fontSize: '0.82rem', color: '#334155', fontWeight: 550 }}>
-              {task.taskName || 'Call converted to iTask task'}
-            </Typography>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', pt: 0.3 }}>
               {task.customerName && (
@@ -723,18 +759,22 @@ export default function MessageItem({ message }) {
   );
 }
 
-function renderFormattedMessage(text) {
+export function renderFormattedMessage(text, isOutgoing = false) {
   if (!text) return '';
 
+  const employees = getEmployeesList();
+  const mentionRegex = buildMentionRegex(employees);
   const lines = text.split('\n');
 
   return lines.map((line, lineIdx) => {
-    const tokens = line.split(/(https?:\/\/[^\s]+|@\w+(?:\s+\w+)?)/g);
+    const tokens = line.split(mentionRegex);
 
     return (
       <Box key={lineIdx} component="span" sx={{ display: 'block' }}>
         {tokens.map((token, tokenIdx) => {
-          if (token.match(/^https?:\/\//)) {
+          if (!token) return null;
+
+          if (token.match(/^https?:\/\//i)) {
             return (
               <Box
                 key={tokenIdx}
@@ -743,7 +783,7 @@ function renderFormattedMessage(text) {
                 target="_blank"
                 rel="noreferrer"
                 sx={{
-                  color: '#0284C7',
+                  color: isOutgoing ? '#BAE6FD' : '#0284C7',
                   textDecoration: 'none',
                   fontWeight: 500,
                   '&:hover': { textDecoration: 'underline' },
@@ -755,21 +795,16 @@ function renderFormattedMessage(text) {
           }
 
           if (token.startsWith('@')) {
+            const rawName = token.slice(1).trim();
+            const matchedEmp = findEmployeeByName(rawName, employees);
+
             return (
-              <Box
+              <MentionChip
                 key={tokenIdx}
-                component="span"
-                sx={{
-                  bgcolor: '#EDE9FE',
-                  color: '#6900C6',
-                  fontWeight: 700,
-                  px: 0.5,
-                  py: 0.1,
-                  borderRadius: '3px',
-                }}
-              >
-                {token}
-              </Box>
+                name={token}
+                employee={matchedEmp}
+                isOutgoing={isOutgoing}
+              />
             );
           }
 

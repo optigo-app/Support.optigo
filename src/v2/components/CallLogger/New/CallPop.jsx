@@ -23,6 +23,7 @@ import { truncateByWords, truncateByChars } from "../../../libs/data";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
+import ChatRoundedIcon from "@mui/icons-material/ChatRounded";
 import Slide from "@mui/material/Slide";
 import Stack from "@mui/material/Stack";
 import { findCompanyAndClosestOwner } from "../../../libs/helper";
@@ -333,6 +334,29 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                                     <Tooltip title="Details" placement="top">
                                         <IconButton onClick={() => { setActiveTab("Details"); onDetailsToggle(); }} size="medium" sx={{ bgcolor: "#f1f5f9", color: "#475569", width: 45, height: 45, "&:hover": { bgcolor: "#e2e8f0", color: "#1e293b" } }}>
                                             <ArticleRoundedIcon sx={{ fontSize: 24 }} />
+                                        </IconButton>
+                                    </Tooltip>
+
+                                    {/* Open Chat in New Tab */}
+                                    <Tooltip title="Open Chat in New Tab" placement="top">
+                                        <IconButton
+                                            onClick={() => {
+                                                const sr = CurrentCall?.sr || CurrentCall?.id;
+                                                if (sr) {
+                                                    window.open(`/newCall?sr=${sr}`, '_blank');
+                                                }
+                                            }}
+                                            size="medium"
+                                            sx={{
+                                                bgcolor: "#f5f3ff",
+                                                color: "#6900C6",
+                                                width: 45,
+                                                height: 45,
+                                                border: "1px solid rgba(105, 0, 198, 0.2)",
+                                                "&:hover": { bgcolor: "#ede9fe", color: "#581c87", borderColor: "#6900C6" }
+                                            }}
+                                        >
+                                            <ChatRoundedIcon sx={{ fontSize: 24 }} />
                                         </IconButton>
                                     </Tooltip>
 

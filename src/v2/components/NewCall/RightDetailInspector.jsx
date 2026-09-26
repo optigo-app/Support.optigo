@@ -23,6 +23,7 @@ import {
   User,
   Copy,
   Check,
+  Globe,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import AttachmentPill from './AttachmentPill';
@@ -239,6 +240,45 @@ export default function RightDetailInspector({
 
   const rec = activeThread?.rawRecord || {};
 
+  const sourceInfo = useMemo(() => {
+    const rawSource = (rec?.topicRaisedBy || activeThread?.topicRaisedBy || '').trim().toLowerCase();
+    if (rawSource === 'optigocarely') {
+      return {
+        label: 'OptigoCarely',
+        descriptionText: 'This call was raised by OptigoCarely',
+        backgroundColor: '#D1FAE5',
+        color: '#065F46',
+        border: '#A7F3D0',
+      };
+    }
+    if (rawSource === 'helpdesk') {
+      return {
+        label: 'help.optigoapps.com',
+        descriptionText: 'This call was raised by help.optigoapps.com',
+        backgroundColor: '#FEF3C7',
+        color: '#92400E',
+        border: '#FDE68A',
+      };
+    }
+    const custom = (rec?.topicRaisedBy || activeThread?.topicRaisedBy || '').trim();
+    if (custom) {
+      return {
+        label: custom,
+        descriptionText: `Raised via ${custom}`,
+        backgroundColor: '#DBEAFE',
+        color: '#1D4ED8',
+        border: '#BFDBFE',
+      };
+    }
+    return {
+      label: 'Csystem',
+      descriptionText: 'This call was created internally by Csystem',
+      backgroundColor: '#DBEAFE',
+      color: '#1D4ED8',
+      border: '#BFDBFE',
+    };
+  }, [rec?.topicRaisedBy, activeThread?.topicRaisedBy]);
+
   const handleCopyCallSummary = () => {
     const summary = `Call #${rec.sr || activeThread?.sr || ''} | ${rec.company || activeThread?.company || ''} | Caller: ${rec.callBy || activeThread?.name || ''} | Agent: ${rec.receivedBy || rec.AssignedEmpName || ''} | Status: ${rec.status || ''}`;
     navigator.clipboard.writeText(summary);
@@ -305,13 +345,13 @@ export default function RightDetailInspector({
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8 }}>
             <Typography sx={{ fontSize: 13.5, fontWeight: 750, color: '#1D1D1F', letterSpacing: '-0.015em' }}>
-              {isCompanyView ? 'Company Profile' : 'Call Inspector'}
+              {isCompanyView ? 'Company Profile' : 'Call Detail'}
             </Typography>
-            {!isCompanyView && (rec.sr || activeThread?.sr) && (
+            {/* {!isCompanyView && (rec.sr || activeThread?.sr) && (
               <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#86868B', fontVariantNumeric: 'tabular-nums' }}>
                 #{rec.sr || activeThread?.sr}
               </Typography>
-            )}
+            )} */}
           </Box>
         </Box>
 
@@ -861,12 +901,47 @@ export default function RightDetailInspector({
                       </Box>
                     </Box>
 
-                    {/* Company Account Name */}
-                    <Box>
-                      <Typography sx={{ fontSize: 16, fontWeight: 750, color: '#1D1D1F', letterSpacing: '-0.015em', lineHeight: 1.25 }}>
-                        {rec.company || activeThread?.company || 'Client Account'}
-                      </Typography>
-                    </Box>
+                    {/* Call Title & Account Details */}
+                    {(() => {
+                      const callTitle = (rec.description || activeThread?.description || rec.Descr || '').trim();
+                      const callerName = (rec.callBy || activeThread?.name || rec.CustomerName || '').trim();
+                      const companyName = (rec.company || activeThread?.company || '').trim();
+
+                      return (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.35 }}>
+                          <Typography
+                            sx={{
+                              fontSize: 16,
+                              fontWeight: 800,
+                              color: '#0F172A',
+                              letterSpacing: '-0.015em',
+                              lineHeight: 1.3,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {callTitle || (rec.sr || activeThread?.sr ? `Voice Call #${rec.sr || activeThread?.sr}` : 'Voice Call')}
+                          </Typography>
+
+                          {(callerName || companyName) && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
+                              {callerName && (
+                                <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#475569' }}>
+                                  {callerName}
+                                </Typography>
+                              )}
+                              {callerName && companyName && (
+                                <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#94A3B8' }} />
+                              )}
+                              {companyName && (
+                                <Typography sx={{ fontSize: 12, fontWeight: 550, color: '#64748B' }}>
+                                  {companyName}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      );
+                    })()}
 
                     {/* Dual Status Badges */}
                     {(() => {
@@ -918,21 +993,25 @@ export default function RightDetailInspector({
                       </Box>
                     )}
 
-                    {/* Description Note */}
-                    {(rec.description || activeThread?.description) && (
-                      <Box
-                        sx={{
-                          p: 1.2,
-                          bgcolor: '#F8FAFC',
-                          borderRadius: '8px',
-                          border: '1px solid #E2E8F0',
-                        }}
-                      >
-                        <Typography sx={{ fontSize: 12, color: '#334155', lineHeight: 1.45 }}>
-                          {rec.description || activeThread?.description}
-                        </Typography>
-                      </Box>
-                    )}
+                    {/* Extended Description Note (if longer/detailed) */}
+                    {(() => {
+                      const noteText = (rec.description || activeThread?.description || '').trim();
+                      if (!noteText || noteText.length <= 40) return null;
+                      return (
+                        <Box
+                          sx={{
+                            p: 1.2,
+                            bgcolor: '#F8FAFC',
+                            borderRadius: '8px',
+                            border: '1px solid #E2E8F0',
+                          }}
+                        >
+                          <Typography sx={{ fontSize: 12, color: '#334155', lineHeight: 1.45 }}>
+                            {noteText}
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
                   </Box>
 
                   {/* Participants Section */}
@@ -1050,7 +1129,7 @@ export default function RightDetailInspector({
                         letterSpacing: '0.06em',
                       }}
                     >
-                      Call Telemetry
+                      Call Details
                     </Typography>
 
                     <Box sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', overflow: 'hidden' }}>
@@ -1115,17 +1194,31 @@ export default function RightDetailInspector({
                         </Box>
                       </Box>
 
-                      {/* Channel / Source */}
+                      {/* Source */}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.1, px: 1.4 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: '#86868B' }}>
-                          <PhoneCall size={14} weight="bold" />
+                          <Globe size={14} weight="bold" />
                           <Typography sx={{ fontSize: 11.5, color: '#6E6E73', fontWeight: 550 }}>
-                            Channel
+                            Source
                           </Typography>
                         </Box>
-                        <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#1D1D1F' }}>
-                          {rec.callSourceLabel || 'VoIP Entry'}
-                        </Typography>
+                        <Tooltip title={sourceInfo.descriptionText} arrow placement="left">
+                          <Chip
+                            label={sourceInfo.label}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              bgcolor: sourceInfo.backgroundColor,
+                              color: sourceInfo.color,
+                              border: `1px solid ${sourceInfo.border}`,
+                              borderRadius: '4px',
+                              cursor: 'default',
+                              '& .MuiChip-label': { px: 0.8 },
+                            }}
+                          />
+                        </Tooltip>
                       </Box>
                     </Box>
                   </Box>

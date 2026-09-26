@@ -122,19 +122,22 @@ export default function CustomMultiSelectDropdown({
     return `${title} (${activeArr.length})`;
   }, [selectedValues, normalizedOptions, title]);
 
+  const hasSelected = Array.isArray(selectedValues) && selectedValues.length > 0;
+
   return (
     <>
       {/* Clean Light Mode Trigger Button */}
       <Button
         onClick={handleOpen}
-        endIcon={<CaretDown size={13} color="#475569" weight="bold" />}
+        endIcon={<CaretDown size={13} color={hasSelected ? '#2563EB' : '#475569'} weight="bold" />}
         sx={{
           height: 32,
           px: 1.4,
-          bgcolor: '#FFFFFF',
-          border: '1px solid #CBD5E1',
+          bgcolor: hasSelected ? '#EFF6FF' : '#FFFFFF',
+          border: '1px solid',
+          borderColor: hasSelected ? '#93C5FD' : '#CBD5E1',
           borderRadius: '5px',
-          color: '#1E293B',
+          color: hasSelected ? '#1D4ED8' : '#1E293B',
           fontSize: '0.78rem',
           fontWeight: 650,
           textTransform: 'none',
@@ -142,15 +145,43 @@ export default function CustomMultiSelectDropdown({
           flexShrink: 0,
           whiteSpace: 'nowrap',
           transition: 'all 0.15s ease-in-out',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+          boxShadow: hasSelected ? '0 1px 3px rgba(37, 99, 235, 0.15)' : '0 1px 2px rgba(0,0,0,0.04)',
           '&:hover': {
-            bgcolor: '#F8FAFC',
-            borderColor: '#94A3B8',
+            bgcolor: hasSelected ? '#DBEAFE' : '#F8FAFC',
+            borderColor: hasSelected ? '#60A5FA' : '#94A3B8',
           },
           ...triggerStyle,
         }}
       >
-        {triggerLabel}
+        <span>{triggerLabel}</span>
+        {hasSelected && (
+          <Box
+            component="span"
+            title="Clear this filter"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTempSelected([]);
+              if (onChange) onChange([]);
+            }}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              ml: 0.7,
+              p: 0.25,
+              borderRadius: '50%',
+              color: '#2563EB',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease, color 0.15s ease',
+              '&:hover': {
+                bgcolor: '#BFDBFE',
+                color: '#1E40AF',
+              },
+            }}
+          >
+            <X size={11} weight="bold" />
+          </Box>
+        )}
       </Button>
 
       {/* Production Grade Aesthetic Popover Menu */}
