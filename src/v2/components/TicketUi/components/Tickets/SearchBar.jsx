@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { InputBase, IconButton, Badge, Box } from "@mui/material";
 import { styled, alpha } from "@mui/material/styles";
 import { Search as SearchIcon, X as CloseIcon } from "lucide-react";
 import { useUrlFilters } from "../../../../hooks/useFilters";
 import { Subject } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
+import SearchHelperPopover from "./SearchHelperPopover";
 
 const Search = styled("div")(({ theme }) => ({
 	position: "relative",
@@ -36,19 +37,21 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 	"& .MuiInputBase-input": {
 		padding: theme.spacing(1, 1, 1, 0),
 		paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-		paddingRight: `2em`,
+		paddingRight: 64,
 		transition: theme.transitions.create("width"),
 		width: "100%",
 	},
 }));
 
-const ClearButton = styled(IconButton)(({ theme }) => ({
+const SearchActions = styled(Box)(({ theme }) => ({
 	position: "absolute",
-	right: 4,
+	right: 6,
 	top: "50%",
 	transform: "translateY(-50%)",
-	padding: 4,
-	color: "#6B778C",
+	display: "flex",
+	alignItems: "center",
+	gap: 2,
+	zIndex: 2,
 }));
 
 const SearchBar = ({ filterTicketCount }) => {
@@ -101,6 +104,13 @@ const SearchBar = ({ filterTicketCount }) => {
 		if (inputRef.current) inputRef.current.focus();
 	};
 
+	const handleApplyExample = useCallback((exampleQuery) => {
+		setValue(exampleQuery);
+		searchSubject$.current.next(exampleQuery);
+		updateFiltersRef.current({ searchQuery: exampleQuery, search: exampleQuery });
+		if (inputRef.current) inputRef.current.focus();
+	}, []);
+
 	const showResultBadge = Boolean(value || hasFilters);
 
 	return (
@@ -141,17 +151,33 @@ const SearchBar = ({ filterTicketCount }) => {
 					value={value}
 					onChange={handleChange}
 					disableUnderline
-					placeholder="Search tickets ..."
+					placeholder="Search tickets ... (@me, !name, #tag)"
 					inputProps={{ "aria-label": "search tickets" }}
 				/>
 			</Badge>
-			{value && (
-				<ClearButton size="medium" onClick={handleClear}>
-					<CloseIcon size={16} />
-				</ClearButton>
-			)}
+			<SearchActions>
+				{value && (
+					<IconButton
+						size="small"
+						onClick={handleClear}
+						title="Clear search"
+						sx={{
+							p: "3px",
+							color: "#6B778C",
+							"&:hover": {
+								color: "#172B4D",
+								backgroundColor: "rgba(9, 30, 66, 0.08)",
+							},
+						}}
+					>
+						<CloseIcon size={15} />
+					</IconButton>
+				)}
+				<SearchHelperPopover onApplySearch={handleApplyExample} currentQuery={value} />
+			</SearchActions>
 		</Search>
 	);
 };
 
 export default React.memo(SearchBar);
+
