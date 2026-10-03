@@ -161,6 +161,8 @@ export default function ModernMenu() {
     ];
     KEYS.forEach((k) => localStorage.removeItem(k));
     localStorage.removeItem("app_active_skey");
+    localStorage.removeItem("app_direct_credentials");
+    localStorage.removeItem("app_current_user");
     sessionStorage.clear();
     removeSkeyCookie();
     window.location.href = "/login";

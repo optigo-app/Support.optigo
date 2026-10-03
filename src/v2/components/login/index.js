@@ -364,6 +364,8 @@ export default function LoginPage() {
                 fullWidth
                 onClick={() => {
                   localStorage.removeItem("app_active_skey");
+                  localStorage.removeItem("app_direct_credentials");
+                  localStorage.removeItem("app_current_user");
                   const KEYS = [
                     "call_recording_time", "current_call_data", "call_is_paused",
                     "call_paused_duration", "call_pause_start_time", "call_sliders_state",
@@ -371,6 +373,7 @@ export default function LoginPage() {
                   ];
                   KEYS.forEach((k) => localStorage.removeItem(k));
                   sessionStorage.clear();
+                  removeSkeyCookie();
                   window.location.reload();
                 }}
                 sx={{

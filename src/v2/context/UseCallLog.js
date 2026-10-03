@@ -64,11 +64,23 @@ const appendCommentToCallRecord = (callRecord, commentPayload) => {
   const rawCommentText =
     commentPayload.Comments ?? commentPayload.comment ?? commentPayload.text ?? "";
 
+  const getLocalISOString = () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const padMs = (n) => String(n).padStart(3, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${padMs(now.getMilliseconds())}`;
+  };
+
+  const rawTime = (commentPayload.CreatedDate || commentPayload.time || getLocalISOString())
+    .toString()
+    .replace(/Z$/i, "")
+    .replace(" ", "T");
+
   const commentItem = {
     id: commentPayload.id || Date.now(),
     text: rawCommentText,
     comment: rawCommentText,
-    time: commentPayload.CreatedDate || commentPayload.time || new Date().toISOString(),
+    time: rawTime,
     Name: commentPayload.Name || commentPayload.CreatedByName || "Support User",
     CreatedBy: commentPayload.CreatedBy,
     IsClient: commentPayload.IsClient ?? 0,
@@ -92,7 +104,9 @@ const appendCommentToCallRecord = (callRecord, commentPayload) => {
       return true;
     }
     const sameText = (c.text || c.comment || "").trim() === commentItem.text.trim();
-    const timeDiff = Math.abs(new Date(c.time || 0) - new Date(commentItem.time || 0));
+    const cCleanTime = (c.time || "").toString().replace(/Z$/i, "").replace(" ", "T");
+    const itemCleanTime = (commentItem.time || "").toString().replace(/Z$/i, "").replace(" ", "T");
+    const timeDiff = Math.abs(new Date(cCleanTime || 0) - new Date(itemCleanTime || 0));
     if (sameText && (timeDiff < 10000 || !c.time)) {
       return true;
     }
@@ -765,8 +779,8 @@ export function CallLogProvider(props) {
           setCallLog((prev) =>
             Array.isArray(prev)
               ? prev.map((c) =>
-                  c.sr === updatedCallData.sr ? updatedCallData : c,
-                )
+                c.sr === updatedCallData.sr ? updatedCallData : c,
+              )
               : prev,
           );
         }
@@ -874,7 +888,7 @@ export function CallLogProvider(props) {
             success: false,
             error: new Error(
               rdStatus?.stat_msg?.replace(/"/g, "") ||
-                "Failed to end follow-up call",
+              "Failed to end follow-up call",
             ),
           };
         }
@@ -1055,7 +1069,7 @@ export function CallLogProvider(props) {
         );
         console.log(data, "data");
         triggerRefresh();
-      } catch (error) {}
+      } catch (error) { }
     },
     [updateCallLog, currentTime],
   );
@@ -1193,11 +1207,23 @@ export function CallLogProvider(props) {
       const rawText =
         commentData.Comments ?? commentData.comment ?? commentData.text ?? "";
 
+      const getLocalISOString = () => {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const padMs = (n) => String(n).padStart(3, "0");
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${padMs(now.getMilliseconds())}`;
+      };
+
+      const rawTime = (commentData.CreatedDate || commentData.time || getLocalISOString())
+        .toString()
+        .replace(/Z$/i, "")
+        .replace(" ", "T");
+
       const commentItem = {
         id: commentData.id || Date.now(),
         text: rawText,
         comment: rawText,
-        time: commentData.CreatedDate || commentData.time || new Date().toISOString(),
+        time: rawTime,
         Name: commentData.Name || commentData.CreatedByName || "Support User",
         CreatedBy: commentData.CreatedBy,
         IsClient: commentData.IsClient ?? 0,
@@ -1226,9 +1252,9 @@ export function CallLogProvider(props) {
           return prevLog.map((c) =>
             String(c.sr) === String(callId) || String(c.id) === String(callId)
               ? {
-                  ...appendCommentToCallRecord(c, commentData),
-                  hasNewComment: isFromOtherUser ? true : c.hasNewComment,
-                }
+                ...appendCommentToCallRecord(c, commentData),
+                hasNewComment: isFromOtherUser ? true : c.hasNewComment,
+              }
               : c,
           );
         });

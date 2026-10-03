@@ -132,6 +132,8 @@ const AccountPopover = ({ anchorEl, open, onClose }) => {
       localStorage.removeItem(key);
     }
     localStorage.removeItem("app_active_skey");
+    localStorage.removeItem("app_direct_credentials");
+    localStorage.removeItem("app_current_user");
     sessionStorage.clear();
     removeSkeyCookie();
     window.location.href = `${getAppBasePath()}/login`;

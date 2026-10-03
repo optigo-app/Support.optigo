@@ -17,51 +17,90 @@ export const isValidDate = (d) => {
   ) {
     return false;
   }
-  const dj = dayjs(trimmed);
+  const clean = trimmed.replace(/Z$/i, '').replace(' ', 'T');
+  const dj = dayjs(clean);
   if (!dj.isValid()) return false;
   const yr = dj.year();
   return yr > 1901 && yr < 3000;
 };
 
 /**
+ * Generates local ISO timestamp string (YYYY-MM-DDTHH:mm:ss.sss) WITHOUT trailing 'Z'.
+ * Ensures local Indian time (IST) is preserved without UTC offset conversion.
+ */
+export const getLocalISOString = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const padMs = (n) => String(n).padStart(3, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${padMs(date.getMilliseconds())}`;
+};
+
+/**
+ * Strips trailing 'Z' and normalizes date string to local ISO format.
+ */
+export const normalizeDateString = (d) => {
+  if (!d) return '';
+  return String(d).replace(/Z$/i, '').replace(' ', 'T');
+};
+
+/**
  * Formats full date-time matching standard Call Logger views: "Sep 1, 2026, 11:20 AM"
+ * Strips trailing 'Z' so it is treated as local time (IST).
  */
 export const formatCallDateTime = (d) => {
   if (!isValidDate(d)) return '—';
-  return dayjs(d).format('MMM D, YYYY, h:mm A');
+  const clean = typeof d === 'string' ? d.replace(/Z$/i, '').replace(' ', 'T') : d;
+  return dayjs(clean).format('MMM D, YYYY, h:mm A');
 };
 
 /**
  * Formats time strictly to 12-hour AM/PM: "11:20 AM"
+ * Strips trailing 'Z' so it is treated as local time (IST), matching database on refresh.
  */
-export const formatTimeOnly = (rawTime, fallbackDateStr) => {
-  if (rawTime && typeof rawTime === 'string') {
-    const trimmed = rawTime.trim();
-    if (trimmed.includes(':')) {
-      const parsed = dayjs(trimmed, [
-        'HH:mm:ss',
-        'HH:mm',
-        'h:mm A',
-        'hh:mm A',
-        'YYYY-MM-DD HH:mm:ss',
-      ]);
-      if (parsed.isValid()) {
-        return parsed.format('h:mm A');
+export const formatFriendlyTime = (rawTime, fallbackDateStr) => {
+  const timeVal = rawTime || fallbackDateStr;
+  if (!timeVal) return '12:00 PM';
+
+  if (typeof timeVal === 'string') {
+    const trimmed = timeVal.trim();
+
+    // 1. Time only string e.g. "15:45", "9:30", "15:45:00", "10:30 AM"
+    if (/^\d{1,2}:\d{2}(:\d{2})?(\s*[AaPp][Mm])?$/.test(trimmed)) {
+      if (/[AaPp][Mm]/i.test(trimmed)) return trimmed;
+      const [hStr, mStr] = trimmed.split(':');
+      const h = parseInt(hStr, 10);
+      if (!isNaN(h)) {
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return `${h12}:${mStr.slice(0, 2)} ${ampm}`;
       }
     }
+
+    // 2. Full datetime or ISO string with or without 'Z': "2026-10-03T10:38:58.573Z", "2026-10-03 10:38:58"
+    // Strip trailing 'Z' so it is treated as local time (IST), matching database on refresh.
+    const cleanDateStr = trimmed.replace(/Z$/i, '').replace(' ', 'T');
+    const d = new Date(cleanDateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
   }
-  if (fallbackDateStr && isValidDate(fallbackDateStr)) {
-    return dayjs(fallbackDateStr).format('h:mm A');
+
+  const d = new Date(timeVal);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
+
   return '12:00 PM';
 };
+
+export const formatTimeOnly = formatFriendlyTime;
 
 /**
  * Formats date header group: "Tuesday, September 1"
  */
 export const formatDateGroup = (d) => {
   if (!isValidDate(d)) return 'Recent';
-  return dayjs(d).format('dddd, MMMM D');
+  const clean = typeof d === 'string' ? d.replace(/Z$/i, '').replace(' ', 'T') : d;
+  return dayjs(clean).format('dddd, MMMM D');
 };
 
 /**
@@ -69,7 +108,8 @@ export const formatDateGroup = (d) => {
  */
 export const getEpochMs = (d, fallbackMs = 0) => {
   if (!isValidDate(d)) return fallbackMs;
-  return dayjs(d).valueOf();
+  const clean = typeof d === 'string' ? d.replace(/Z$/i, '').replace(' ', 'T') : d;
+  return dayjs(clean).valueOf();
 };
 
 export { dayjs };

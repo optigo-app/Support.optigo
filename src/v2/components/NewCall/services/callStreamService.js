@@ -1,7 +1,7 @@
 import { BehaviorSubject, combineLatest } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { hasRealTicket } from '../utils/ticketStatusUtils';
-import { isValidDate } from '../utils/dateUtils';
+import { isValidDate, formatFriendlyTime, getLocalISOString } from '../utils/dateUtils';
 
 /**
  * Normalizes a raw call record from live API into a clean thread item.
@@ -578,11 +578,17 @@ class CallStreamService {
     const activeId = this.activeThreadId$.getValue();
     const currentUserId = this.currentUser$.getValue()?.id;
 
+    // Strip trailing 'Z' so it is treated as local Indian time (IST), matching database on refresh.
+    const rawTime = (commentObj.time || commentObj.CreatedDate || getLocalISOString())
+      .toString()
+      .replace(/Z$/i, '')
+      .replace(' ', 'T');
+
     const normalizedComment = {
       id: commentObj.id || Date.now(),
       text: commentObj.text ?? commentObj.comment ?? commentObj.Comments ?? '',
       comment: commentObj.text ?? commentObj.comment ?? commentObj.Comments ?? '',
-      time: commentObj.time || commentObj.CreatedDate || new Date().toISOString(),
+      time: rawTime,
       Name: commentObj.Name || commentObj.CreatedByName || 'Support Agent',
       CreatedBy: commentObj.CreatedBy,
       IsClient: commentObj.IsClient ?? 0,
@@ -622,7 +628,9 @@ class CallStreamService {
           return true;
         }
         const sameText = (c.text || c.comment || '').trim() === normalizedComment.text.trim();
-        const timeDiff = Math.abs(new Date(c.time || 0) - new Date(normalizedComment.time || 0));
+        const cCleanTime = (c.time || '').toString().replace(/Z$/i, '').replace(' ', 'T');
+        const normCleanTime = (normalizedComment.time || '').toString().replace(/Z$/i, '').replace(' ', 'T');
+        const timeDiff = Math.abs(new Date(cCleanTime || 0) - new Date(normCleanTime || 0));
         if (sameText && (timeDiff < 10000 || !c.time)) {
           return true;
         }
@@ -653,7 +661,8 @@ class CallStreamService {
       let displayTime = t.timestamp;
       try {
         if (normalizedComment.time) {
-          const d = new Date(normalizedComment.time);
+          const cleanTime = String(normalizedComment.time).replace(/Z$/i, '').replace(' ', 'T');
+          const d = new Date(cleanTime);
           if (!isNaN(d.getTime())) {
             displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           }

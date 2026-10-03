@@ -118,6 +118,12 @@ export function parseTokenPayload(token) {
  */
 export function getAllDetectedSessions() {
   const tokens = getAllSkeyTokens();
+  try {
+    const local = localStorage.getItem("app_active_skey");
+    if (local && !tokens.includes(local)) {
+      tokens.push(local);
+    }
+  } catch (_) {}
   const sessions = [];
   const seenUserIds = new Set();
 
@@ -179,6 +185,7 @@ export function purgeAllSkeyCookies() {
 
 /**
  * Sets a single canonical `skey` cookie while ensuring no conflicting duplicates exist.
+ * Configured with a 30-day persistence to prevent overnight session loss on browser close.
  */
 export function syncActiveSkeyCookie(token) {
   if (!token) {
@@ -186,13 +193,14 @@ export function syncActiveSkeyCookie(token) {
     return;
   }
   purgeAllSkeyCookies();
-  Cookies.set("skey", token, { path: "/", sameSite: "Lax" });
+  Cookies.set("skey", token, { path: "/", expires: 30, sameSite: "Lax" });
 }
 
 /**
  * Primary token accessor:
  * Checks localStorage ("app_active_skey") first.
- * If not in localStorage, falls back to the best unexpired token from cookies.
+ * If not in localStorage, falls back to detected cookie sessions or saved accounts.
+ * Returns the token string even if near/at expiry so caller can auto-renew with backend.
  */
 export function getActiveAuthToken() {
   if (typeof window === "undefined") return null;
@@ -201,7 +209,7 @@ export function getActiveAuthToken() {
     const local = localStorage.getItem("app_active_skey");
     if (local && typeof local === "string" && local.trim()) {
       const parsed = parseTokenPayload(local);
-      if (parsed && !parsed.isExpired) {
+      if (parsed?.userId) {
         return local.trim();
       }
     }
@@ -209,10 +217,21 @@ export function getActiveAuthToken() {
 
   // Fallback: examine all tokens from cookies
   const detected = getAllDetectedSessions();
-  const valid = detected.find((s) => !s.isExpired);
+  const valid = detected.find((s) => !s.isExpired) || detected[0];
   if (valid?.skey) {
     return valid.skey;
   }
+
+  // Fallback: check saved accounts list
+  try {
+    const saved = JSON.parse(localStorage.getItem("saved_accounts_list") || "[]");
+    if (Array.isArray(saved) && saved.length > 0) {
+      const sorted = saved.sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
+      if (sorted[0]?.skey) {
+        return sorted[0].skey;
+      }
+    }
+  } catch (_) {}
 
   // Last resort: standard cookie
   return Cookies.get("skey") || null;
@@ -238,11 +257,15 @@ export function setActiveAuthSession(token) {
 
 /**
  * Completely clears the active user session:
- * Clears localStorage token and purges all cookies.
+ * Clears localStorage tokens, direct credentials, and purges all cookies.
  */
 export function clearActiveAuthSession() {
   try {
     localStorage.removeItem("app_active_skey");
+    localStorage.removeItem("app_direct_credentials");
+    localStorage.removeItem("app_current_user");
+    sessionStorage.removeItem("direct_token_credentials");
+    sessionStorage.removeItem("currentUser");
   } catch (_) {}
   purgeAllSkeyCookies();
 }

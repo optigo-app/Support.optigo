@@ -32,7 +32,7 @@ import AcceptCallModal from '../CallLogger/AcceptCallModal';
 import { acceptCallModal$ } from '../../rxjs/tableUiStore';
 import { globalSearchQuery$, setGlobalSearchQuery } from '../../rxjs/globalSearchStore';
 import { formatLocalDateToYYYYMMDD } from './AirbnbDateRangePicker';
-import { formatTimeOnly, formatDateGroup, isValidDate, getEpochMs } from './utils/dateUtils';
+import { formatFriendlyTime, formatTimeOnly, formatDateGroup, isValidDate, getEpochMs, getLocalISOString } from './utils/dateUtils';
 import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
 import { filesUploadApi } from '../../apis/UploadFille';
 import { useSocketEvent } from '../../hooks/useSocketListener';
@@ -710,7 +710,7 @@ export default function ChatWorkspace() {
 
     const dateFormatted = formatDateGroup(rec.date || rec.callStart);
     const baseStartTime = getEpochMs(rec.callStart || rec.date, Date.now());
-    const mainCallTime = formatTimeOnly(rec.time, rec.callStart);
+    const mainCallTime = formatFriendlyTime(rec.time, rec.callStart);
 
     const items = [
       {
@@ -802,8 +802,8 @@ export default function ChatWorkspace() {
           );
 
           const fuTimeFormatted = effectiveDateStr
-            ? formatTimeOnly(null, effectiveDateStr)
-            : formatTimeOnly(null, rec.callClosed || rec.callStart);
+            ? formatFriendlyTime(null, effectiveDateStr)
+            : formatFriendlyTime(null, rec.callClosed || rec.callStart);
 
           const fuDescr =
             fu.Description ||
@@ -895,7 +895,7 @@ export default function ChatWorkspace() {
           commentsList.forEach((cItem, cIdx) => {
             const commentText = cItem.text || cItem.comment || '';
             const cTimeFormatted = cItem.time
-              ? formatTimeOnly(null, cItem.time)
+              ? formatFriendlyTime(null, cItem.time)
               : mainCallTime;
 
             const cDateFormatted = formatDateGroup(cItem.time || rec.date || rec.callStart);
@@ -951,7 +951,7 @@ export default function ChatWorkspace() {
     const hasTicket = hasRealTicket(rec);
     if (hasTicket) {
       const ticketTime = rec.Ticket_CreatedDate && isValidDate(rec.Ticket_CreatedDate)
-        ? formatTimeOnly(null, rec.Ticket_CreatedDate)
+        ? formatFriendlyTime(null, rec.Ticket_CreatedDate)
         : mainCallTime;
       const ticketDate = rec.Ticket_CreatedDate && isValidDate(rec.Ticket_CreatedDate)
         ? formatDateGroup(rec.Ticket_CreatedDate)
@@ -1349,7 +1349,7 @@ export default function ChatWorkspace() {
         callStreamService.patchComment(callLogSr, {
           text: messageContent,
           img: uploadedUrl || '',
-          time: new Date().toISOString(),
+          time: getLocalISOString(),
           Name: senderName,
         });
       }

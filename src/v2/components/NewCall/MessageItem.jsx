@@ -571,9 +571,9 @@ export default function MessageItem({ message }) {
             <Chip
               label={
                 message.record?.topicRaisedBy &&
-                message.record?.topicRaisedBy.toLowerCase() !== (message.record?.company || '').toLowerCase()
-                  ? `${message.record.topicRaisedBy} • #${message.record?.sr || ''}`
-                  : `Primary Voice Call • #${message.record?.sr || ''}`
+                  message.record?.topicRaisedBy.toLowerCase() !== (message.record?.company || '').toLowerCase()
+                  ? message.record.topicRaisedBy
+                  : 'Main Call'
               }
               size="small"
               sx={{
@@ -647,38 +647,57 @@ export default function MessageItem({ message }) {
             <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>
               {message.sender}
             </Typography>
-            <Chip
-              label="Comment"
-              size="small"
+            <Box
               sx={{
-                height: 18,
-                fontSize: 9.5,
-                fontWeight: 750,
-                bgcolor: '#F3E8FF',
-                color: '#6900C6',
-                border: '1px solid #DDD6FE',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
               }}
-            />
-            <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, ml: 'auto' }}>
-              {message.time}
-            </Typography>
+            >
+              <Chip
+                label="Comment"
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: 9.5,
+                  fontWeight: 750,
+                  bgcolor: '#F3E8FF',
+                  color: '#6900C6',
+                  border: '1px solid #DDD6FE',
+                }}
+              />
+              <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>
+                {message.time}
+              </Typography>
+            </Box>
           </Box>
 
-          <Typography
-            component="div"
-            sx={{
-              fontSize: 13,
-              color: '#334155',
-              lineHeight: 1.45,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {renderFormattedMessage(message.content)}
-          </Typography>
+          {message.content && (
+            <Paper
+              elevation={0}
+              sx={{
+                display: 'inline-block',
+                p: 1.2,
+                px: 1.6,
+                bgcolor: '#F8FAFC',
+                color: '#1E293B',
+                border: '1px solid #E2E8F0',
+                borderRadius: '4px 14px 14px 14px',
+                fontSize: 13,
+                lineHeight: 1.5,
+                wordBreak: 'break-word',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+                maxWidth: '85%',
+              }}
+            >
+              {renderFormattedMessage(message.content)}
+            </Paper>
+          )}
 
           {message.attachment && (
-            <AttachmentPill attachment={message.attachment} />
+            <Box sx={{ mt: 0.6 }}>
+              <AttachmentPill attachment={message.attachment} />
+            </Box>
           )}
         </Box>
       </Box>
@@ -733,26 +752,37 @@ export default function MessageItem({ message }) {
           <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
             {message.sender}
           </Typography>
-          <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, ml: 'auto' }}>
+          <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>
             {message.time}
           </Typography>
         </Box>
 
-        <Typography
-          component="div"
-          sx={{
-            fontSize: 13.5,
-            color: '#1E293B',
-            lineHeight: 1.5,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {renderFormattedMessage(message.content)}
-        </Typography>
+        {message.content && (
+          <Paper
+            elevation={0}
+            sx={{
+              display: 'inline-block',
+              p: 1.2,
+              px: 1.6,
+              bgcolor: '#F8FAFC',
+              color: '#1E293B',
+              border: '1px solid #E2E8F0',
+              borderRadius: '4px 14px 14px 14px',
+              fontSize: 13.5,
+              lineHeight: 1.5,
+              wordBreak: 'break-word',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+              maxWidth: '85%',
+            }}
+          >
+            {renderFormattedMessage(message.content)}
+          </Paper>
+        )}
 
         {message.attachment && (
-          <AttachmentPill attachment={message.attachment} />
+          <Box sx={{ mt: 0.6 }}>
+            <AttachmentPill attachment={message.attachment} />
+          </Box>
         )}
       </Box>
     </Box>

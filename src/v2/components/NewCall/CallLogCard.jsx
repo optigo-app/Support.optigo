@@ -200,7 +200,7 @@ export default function CallLogCard({ record = {} }) {
                 letterSpacing: '-0.01em',
               }}
             >
-              {descriptionText || (record.sr ? `Primary Voice Call #${record.sr}` : 'Primary Voice Call')}
+              {descriptionText || 'Main Call'}
             </Typography>
 
             <Box
@@ -215,33 +215,27 @@ export default function CallLogCard({ record = {} }) {
                 flexWrap: 'wrap',
               }}
             >
-              <span>Voice Call {record.sr ? `• #${record.sr}` : ''}</span>
-              {durationStr !== '—' && (
-                <>
-                  <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#CBD5E1' }} />
-                  <Tooltip title="Click to edit call duration" arrow>
-                    <Box
-                      component="span"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDurationModal(record);
-                      }}
-                      sx={{
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 0.35,
-                        color: '#0284C7',
-                        fontWeight: 700,
-                        '&:hover': { textDecoration: 'underline' },
-                      }}
-                    >
-                      <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
-                      <span>{durationStr}</span>
-                    </Box>
-                  </Tooltip>
-                </>
-              )}
+              <Tooltip title="Click to edit call duration" arrow>
+                <Box
+                  component="span"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDurationModal(record);
+                  }}
+                  sx={{
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.35,
+                    color: isRunning ? '#EF4444' : '#0284C7',
+                    fontWeight: 700,
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                >
+                  <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
+                  <span>{durationStr !== '—' ? durationStr : '00:00:00'}</span>
+                </Box>
+              </Tooltip>
             </Box>
           </Box>
         </Box>

@@ -9,6 +9,7 @@ import {
   syncActiveSkeyCookie,
   parseTokenPayload,
 } from "../utils/AuthUtils";
+import { createJWT } from "../utils/jwt";
 import { getAppBasePath } from "../utils/AppBasePath";
 import { BaseAPI } from "../apis/BaseAPI";
 import Cookies from "js-cookie";
@@ -71,11 +72,15 @@ export function AuthProvider({ children }) {
     });
     sessionStorage.removeItem("direct_token_credentials");
     sessionStorage.removeItem("currentUser");
+    localStorage.removeItem("app_direct_credentials");
+    localStorage.removeItem("app_current_user");
   };
 
   const switchAccount = (skey) => {
     setActiveAuthSession(skey);
     sessionStorage.clear();
+    localStorage.removeItem("app_direct_credentials");
+    localStorage.removeItem("app_current_user");
     window.location.href = `${getAppBasePath()}/`;
   };
 
@@ -91,7 +96,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("saved_accounts_list", JSON.stringify(updated));
   };
 
-  const getToken = async (userId) => {
+  const getToken = async (userId, fallbackCredentials = null) => {
     try {
       const res = await BaseAPI.getToken(userId);
       if (res?.rd1?.[0] && res?.rd?.[0]) {
@@ -102,14 +107,49 @@ export function AuthProvider({ children }) {
         SetCompanyInfo({ ...res?.rd?.[0], ...res?.rd1[0] });
         setUser(user);
         sessionStorage.setItem("currentUser", JSON.stringify(user));
+        localStorage.setItem("app_current_user", JSON.stringify(user));
         setToken(res.rd[0]);
         const rights = res?.rd3 ?? [];
         setUserRights(rights);
         sessionStorage.setItem("UserRights", JSON.stringify(rights));
 
-        // Save account metadata in saved accounts list
+        // Auto-refresh or create persistent active session token so all tabs & next day work seamlessly
         try {
-          const activeSkey = getActiveAuthToken();
+          let activeSkey = getActiveAuthToken();
+          let needsRenewal = false;
+
+          if (activeSkey) {
+            const parsed = parseTokenPayload(activeSkey);
+            if (!parsed || parsed.isExpired) {
+              needsRenewal = true;
+            }
+          } else {
+            needsRenewal = true;
+          }
+
+          if (needsRenewal) {
+            try {
+              const freshJwt = await createJWT({
+                userid: user.userid || userId,
+                yearcode:
+                  res.rd[0]?.yearcode ||
+                  res.rd1[0]?.yearcode ||
+                  fallbackCredentials?.yc ||
+                  "",
+                svid:
+                  res.rd[0]?.svid ||
+                  fallbackCredentials?.sv ||
+                  "1",
+              });
+              if (freshJwt) {
+                activeSkey = freshJwt;
+                setActiveAuthSession(freshJwt);
+              }
+            } catch (jwtErr) {
+              console.warn("Could not generate fresh JWT:", jwtErr);
+            }
+          }
+
           if (activeSkey) {
             setActiveAuthSession(activeSkey);
             const savedList = JSON.parse(
@@ -179,6 +219,27 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  // Cross-tab synchronization via storage event
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "app_active_skey") {
+        if (e.newValue) {
+          syncActiveSkeyCookie(e.newValue);
+        } else if (
+          !e.newValue &&
+          !sessionStorage.getItem("direct_token_credentials") &&
+          !localStorage.getItem("app_direct_credentials")
+        ) {
+          // Explicit logout from another tab
+          clearState();
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready
@@ -186,26 +247,25 @@ export function AuthProvider({ children }) {
           const messageChannel = new MessageChannel();
           messageChannel.port1.onmessage = (event) => {
             if (event.data === "CHECK_COOKIE") {
-              if (sessionStorage.getItem("direct_token_credentials")) {
+              if (
+                sessionStorage.getItem("direct_token_credentials") ||
+                localStorage.getItem("app_direct_credentials")
+              ) {
                 return;
               }
               const appActiveSkey = localStorage.getItem("app_active_skey");
               if (appActiveSkey) {
                 const parsed = parseTokenPayload(appActiveSkey);
-                if (!parsed || parsed.isExpired) {
-                  console.log("Active session token expired in background check");
-                  clearState();
-                  clearActiveAuthSession();
-                } else {
+                if (parsed?.userId) {
                   // Background healing: ensure cookie matches valid active localStorage token
                   const activeCookie = Cookies.get("skey");
                   if (!activeCookie || activeCookie !== appActiveSkey) {
                     syncActiveSkeyCookie(appActiveSkey);
                   }
                 }
-              } else {
-                clearState();
               }
+              // IMPORTANT: Never call clearActiveAuthSession() here in a background timer!
+              // That would wipe shared cookies/localStorage and log out all open tabs.
             }
           };
 
@@ -284,15 +344,22 @@ export function AuthProvider({ children }) {
                 "direct_token_credentials",
                 JSON.stringify(directCredentials),
               );
+              localStorage.setItem(
+                "app_direct_credentials",
+                JSON.stringify(directCredentials),
+              );
             }
           } catch (err) {
             console.error("Failed to parse direct token credentials from URL:", err);
           }
         }
 
+        // Check sessionStorage first, then fallback to localStorage so duplicated tabs and new tabs inherit it
         if (!directCredentials) {
           try {
-            const stored = sessionStorage.getItem("direct_token_credentials");
+            const stored =
+              sessionStorage.getItem("direct_token_credentials") ||
+              localStorage.getItem("app_direct_credentials");
             if (stored) {
               directCredentials = JSON.parse(stored);
             }
@@ -319,10 +386,34 @@ export function AuthProvider({ children }) {
         if (activeToken) {
           cookieUser = GetCredentialsFromCookie(activeToken);
           if (cookieUser) {
-            // Heal/sync cookie to eliminate any duplicate ghost cookies across paths/domains
+            // Heal/sync cookie with 30-day persistence to eliminate ghost duplicates
             syncActiveSkeyCookie(activeToken);
           }
         }
+
+        // Fallback: If no directCredentials and no cookieUser, check saved accounts
+        if (!directCredentials && !cookieUser) {
+          try {
+            const savedList = JSON.parse(
+              localStorage.getItem("saved_accounts_list") || "[]",
+            );
+            if (Array.isArray(savedList) && savedList.length > 0) {
+              const bestAccount = savedList.sort(
+                (a, b) => (b.lastActive || 0) - (a.lastActive || 0),
+              )[0];
+              if (bestAccount?.skey) {
+                const creds = GetCredentialsFromCookie(bestAccount.skey);
+                if (creds) {
+                  cookieUser = creds;
+                  setActiveAuthSession(bestAccount.skey);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Failed checking saved accounts fallback:", e);
+          }
+        }
+
         const effectiveUser = directCredentials || cookieUser;
 
         if (effectiveUser) {
@@ -341,7 +432,7 @@ export function AuthProvider({ children }) {
             callLog: callLogInitialized,
           });
 
-          await getToken(effectiveUser.userId);
+          await getToken(effectiveUser.userId, effectiveUser);
         } else {
           console.log("No active app session found");
           clearState();
