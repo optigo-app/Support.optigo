@@ -95,8 +95,8 @@ export default function CallLogCard({ record = {} }) {
 
   const isLivePrimary = Boolean(
     activeCall &&
-      !activeCall.isFollowUp &&
-      String(activeCall.sr) === String(record.sr)
+    !activeCall.isFollowUp &&
+    String(activeCall.sr) === String(record.sr)
   );
 
   const hasTicket = hasRealTicket(record);
@@ -133,13 +133,13 @@ export default function CallLogCard({ record = {} }) {
   const endStr = hasRealClosed
     ? formatCallDateTime(closedRaw)
     : isLivePrimary
-    ? 'In Progress'
-    : '—';
+      ? 'In Progress'
+      : '—';
   const durationStr = hasRealDuration
     ? durationRaw
     : isLivePrimary
-    ? 'Running...'
-    : '—';
+      ? 'Running...'
+      : '—';
 
   const descriptionText = (record.description || record.Description || '').trim();
   const callerText = record.callerName || record.callBy || record.company || 'Client Caller';
@@ -301,7 +301,7 @@ export default function CallLogCard({ record = {} }) {
               <Typography sx={{ fontSize: '0.82rem', color: '#D97706', fontWeight: 700 }}>
                 Unassigned
               </Typography>
-              <Button
+              {/* <Button
                 size="small"
                 variant="contained"
                 disabled={isAccepting}
@@ -321,7 +321,7 @@ export default function CallLogCard({ record = {} }) {
                 }}
               >
                 {isAccepting ? 'Assigning...' : 'Accept Call'}
-              </Button>
+              </Button> */}
             </Box>
           ) : (
             <Typography sx={{ fontSize: '0.82rem', color: '#1E293B', fontWeight: 700 }}>
@@ -368,8 +368,8 @@ export default function CallLogCard({ record = {} }) {
               record.topicRaisedBy.toLowerCase() === 'optigocarely'
                 ? 'OptigoCarely'
                 : record.topicRaisedBy.toLowerCase() === 'helpdesk'
-                ? 'help.optigoapps.com'
-                : record.topicRaisedBy
+                  ? 'help.optigoapps.com'
+                  : record.topicRaisedBy
             }
             size="small"
             sx={{
@@ -380,14 +380,14 @@ export default function CallLogCard({ record = {} }) {
                 record.topicRaisedBy.toLowerCase() === 'optigocarely'
                   ? '#DCFCE7'
                   : record.topicRaisedBy.toLowerCase() === 'helpdesk'
-                  ? '#FEF3C7'
-                  : '#DBEAFE',
+                    ? '#FEF3C7'
+                    : '#DBEAFE',
               color:
                 record.topicRaisedBy.toLowerCase() === 'optigocarely'
                   ? '#15803D'
                   : record.topicRaisedBy.toLowerCase() === 'helpdesk'
-                  ? '#92400E'
-                  : '#1D4ED8',
+                    ? '#92400E'
+                    : '#1D4ED8',
               borderRadius: '4px',
               '& .MuiChip-label': { px: 0.7 },
             }}
@@ -464,7 +464,7 @@ export default function CallLogCard({ record = {} }) {
       </Box>
 
       {/* Unassigned / Queue Call: Accept Call Action Row */}
-      {isUnassigned && (
+      {/* {isUnassigned && (
         <Box
           sx={{
             mt: 1,
@@ -505,7 +505,7 @@ export default function CallLogCard({ record = {} }) {
             {isAccepting ? 'Accepting...' : 'Accept Call'}
           </Button>
         </Box>
-      )}
+      )} */}
     </Paper>
   );
 }

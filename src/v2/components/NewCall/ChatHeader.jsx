@@ -1,5 +1,5 @@
 'use client';
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -949,16 +949,16 @@ export default function ChatHeader({
             (raw.callClosed || raw.CallClosed || activeThread?.callClosed) &&
             (raw.callClosed || raw.CallClosed || activeThread?.callClosed) !== '1900-01-01T00:00:00'
           ) && (
-            <MenuItem
-              onClick={() => {
-                setProfileAnchor(null);
-                if (activeThread) openDurationModal(activeThread?.rawRecord || activeThread);
-              }}
-              sx={{ fontSize: 13, fontWeight: 600, color: '#0284C7' }}
-            >
-              Edit Call Duration & Timing
-            </MenuItem>
-          )}
+              <MenuItem
+                onClick={() => {
+                  setProfileAnchor(null);
+                  if (activeThread) openDurationModal(activeThread?.rawRecord || activeThread);
+                }}
+                sx={{ fontSize: 13, fontWeight: 600, color: '#0284C7' }}
+              >
+                Edit Call Duration & Timing
+              </MenuItem>
+            )}
           <MenuItem onClick={handleCopyCallInfo} sx={{ fontSize: 13, fontWeight: 550 }}>
             {resolvedTicketId ? `Copy call info & ticket ID (#${resolvedTicketId})` : 'Copy call info & ticket ID'}
           </MenuItem>

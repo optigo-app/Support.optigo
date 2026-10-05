@@ -219,20 +219,11 @@ export function AuthProvider({ children }) {
     return true;
   };
 
-  // Cross-tab synchronization via storage event
+  // Cross-tab synchronization: logout in one tab logs out all tabs
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === "app_active_skey") {
-        if (e.newValue) {
-          syncActiveSkeyCookie(e.newValue);
-        } else if (
-          !e.newValue &&
-          !sessionStorage.getItem("direct_token_credentials") &&
-          !localStorage.getItem("app_direct_credentials")
-        ) {
-          // Explicit logout from another tab
-          clearState();
-        }
+      if (e.key === "cl_auth_event" && String(e.newValue || "").startsWith("logout")) {
+        clearState();
       }
     };
 
@@ -247,25 +238,8 @@ export function AuthProvider({ children }) {
           const messageChannel = new MessageChannel();
           messageChannel.port1.onmessage = (event) => {
             if (event.data === "CHECK_COOKIE") {
-              if (
-                sessionStorage.getItem("direct_token_credentials") ||
-                localStorage.getItem("app_direct_credentials")
-              ) {
-                return;
-              }
-              const appActiveSkey = localStorage.getItem("app_active_skey");
-              if (appActiveSkey) {
-                const parsed = parseTokenPayload(appActiveSkey);
-                if (parsed?.userId) {
-                  // Background healing: ensure cookie matches valid active localStorage token
-                  const activeCookie = Cookies.get("skey");
-                  if (!activeCookie || activeCookie !== appActiveSkey) {
-                    syncActiveSkeyCookie(appActiveSkey);
-                  }
-                }
-              }
+              // Session lives in our own cookie (cl_auth_token); nothing to heal here.
               // IMPORTANT: Never call clearActiveAuthSession() here in a background timer!
-              // That would wipe shared cookies/localStorage and log out all open tabs.
             }
           };
 
@@ -386,33 +360,13 @@ export function AuthProvider({ children }) {
         if (activeToken) {
           cookieUser = GetCredentialsFromCookie(activeToken);
           if (cookieUser) {
-            // Heal/sync cookie with 30-day persistence to eliminate ghost duplicates
+            // Refresh our own cookie (extends expiry when "remember me" is on)
             syncActiveSkeyCookie(activeToken);
           }
         }
 
-        // Fallback: If no directCredentials and no cookieUser, check saved accounts
-        if (!directCredentials && !cookieUser) {
-          try {
-            const savedList = JSON.parse(
-              localStorage.getItem("saved_accounts_list") || "[]",
-            );
-            if (Array.isArray(savedList) && savedList.length > 0) {
-              const bestAccount = savedList.sort(
-                (a, b) => (b.lastActive || 0) - (a.lastActive || 0),
-              )[0];
-              if (bestAccount?.skey) {
-                const creds = GetCredentialsFromCookie(bestAccount.skey);
-                if (creds) {
-                  cookieUser = creds;
-                  setActiveAuthSession(bestAccount.skey);
-                }
-              }
-            }
-          } catch (e) {
-            console.warn("Failed checking saved accounts fallback:", e);
-          }
-        }
+        // NOTE: No auto-login from saved accounts or the shared `skey` cookie.
+        // Those are only offered as choices on the login screen.
 
         const effectiveUser = directCredentials || cookieUser;
 

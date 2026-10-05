@@ -185,8 +185,8 @@ const CommentCard = ({ index, comment, handleToggleCollapse, openAttachmentId, u
                   bgcolor: comment?.isOfficeUseOnly
                     ? "#FF8B00"
                     : comment?.Name?.toLowerCase() === user?.fullName?.toLowerCase()
-                    ? "#4FC3F7"
-                    : "#0052CC",
+                      ? "#4FC3F7"
+                      : "#0052CC",
                   textTransform: "uppercase",
                   width: 34,
                   height: 34,
@@ -238,7 +238,7 @@ const CommentCard = ({ index, comment, handleToggleCollapse, openAttachmentId, u
               wordBreak: "break-word",
               overflowWrap: "anywhere",
               maxWidth: "100%",
-              textAlign: isClient ? "left" : "right",
+              textAlign: "left",
             }}
             fontSize={13.5}
           >

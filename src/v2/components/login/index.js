@@ -2,7 +2,8 @@ import { useRef, useState, useEffect } from "react";
 import {
   Box, Typography, IconButton, Button, TextField, Link, Container,
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  Paper, Avatar, List, ListItemButton, ListItemText, ListItemAvatar, Divider
+  Paper, Avatar, List, ListItemButton, ListItemText, ListItemAvatar, Divider,
+  Checkbox, FormControlLabel
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOffRounded";
@@ -14,7 +15,7 @@ import Cookies from "js-cookie";
 import { createJWT } from "../../utils/jwt.js";
 import MetaWrapper from "../../meta/MetaWrapper.jsx";
 import { useAuth } from "../../context/UseAuth";
-import { removeSkeyCookie, setActiveAuthSession } from "../../utils/AuthUtils";
+import { removeSkeyCookie, setActiveAuthSession, getRememberMe } from "../../utils/AuthUtils";
 
 const THEME_GREEN = "rgb(253, 238, 19)";
 const TEXT_COLOR = "#2d2d2d";
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMeState] = useState(() => getRememberMe());
   
   const { user, detectedSession, detectedSessions = [] } = useAuth();
   
@@ -103,7 +105,7 @@ export default function LoginPage() {
       if (!tokenData) throw new Error("Invalid credentials");
       const jwtToken = await createJWT(tokenData);
 
-      setActiveAuthSession(jwtToken);
+      setActiveAuthSession(jwtToken, rememberMe);
       redirectAndClose();
     } catch (err) {
       setErrors({ password: err.message || "Login failed" });
@@ -147,7 +149,7 @@ export default function LoginPage() {
   const handleConfirmUseExisting = () => {
     setDuplicateOpen(false);
     if (duplicateData) {
-      setActiveAuthSession(duplicateData.skey);
+      setActiveAuthSession(duplicateData.skey, rememberMe);
 
       // Update last active
       try {
@@ -835,6 +837,19 @@ export default function LoginPage() {
                 </Typography>
               )}
             </Box>
+
+            <FormControlLabel
+              id="remember-me"
+              control={
+                <Checkbox
+                  size="small"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMeState(e.target.checked)}
+                />
+              }
+              label="Remember me"
+              sx={{ "& .MuiTypography-root": { fontSize: "14px", color: "#555" } }}
+            />
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
               <Button

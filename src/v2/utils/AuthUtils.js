@@ -5,6 +5,33 @@ const AllowedDomains = ["localhost", "http://calllog.web/", "http://calllog.web/
 
 const ALLOWED_COMPANY = "optigohub";
 
+// Our OWN app session cookie. The shared `skey` cookie belongs to other
+// Optigo domains and must only be READ (to suggest a session), never written/removed.
+export const APP_AUTH_COOKIE = "cl_auth_token";
+const REMEMBER_ME_KEY = "cl_remember_me";
+const AUTH_EVENT_KEY = "cl_auth_event";
+const REMEMBER_DAYS = 30;
+
+function broadcastAuthEvent(type) {
+  try {
+    localStorage.setItem(AUTH_EVENT_KEY, `${type}:${Date.now()}`);
+  } catch (_) {}
+}
+
+export function getRememberMe() {
+  try {
+    return localStorage.getItem(REMEMBER_ME_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function setRememberMe(remember) {
+  try {
+    localStorage.setItem(REMEMBER_ME_KEY, remember ? "1" : "0");
+  } catch (_) {}
+}
+
 // if (process.env.NODE_ENV === "development" || AllowedDomains.some((domain) => window.location.hostname.includes(domain))) {
 //   Cookies.set("skey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpdGFzayIsImF1ZCI6ImFtVnVhWE5BWldjdVkyOXQiLCJleHAiOjE3NDYxODg3NDgsInVpZCI6ImFtVnVhWE5BWldjdVkyOXQiLCJ5YyI6ImUzdHVlbVZ1ZlgxN2V6SXdmWDE3ZTI5eVlXbHNNalY5Zlh0N2IzSmhhV3d5TlgxOSIsInN2IjoiMCJ9.Ui_Taj21Fb8oDWvhEc8IwHJZTeFxUos46Jb6H4Iyk8M", { path: "/" });
 //   // Cookies.set("skey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpdGFzayIsImF1ZCI6IllXMXlkWFJBWldjdVkyOXQiLCJleHAiOjE3NDcxMzk2ODYsInVpZCI6IllXMXlkWFJBWldjdVkyOXQiLCJ5YyI6ImUzdHVlbVZ1ZlgxN2V6SXdmWDE3ZTI5eVlXbHNNalY5Zlh0N2IzSmhhV3d5TlgxOSIsInN2IjoiMCJ9.m4NonzyJfWdM0frEq1Cn4h1ABThBa1wgosx8Z7Mg5VI", { path: "/" });
@@ -113,17 +140,12 @@ export function parseTokenPayload(token) {
 }
 
 /**
- * Reads all `skey` tokens from cookies and returns parsed session objects.
+ * Reads all shared `skey` tokens from cookies (READ-ONLY) and returns parsed session objects.
+ * Used only to SUGGEST a session on the login screen - never for auto-login.
  * Deduplicated by userId / email.
  */
 export function getAllDetectedSessions() {
   const tokens = getAllSkeyTokens();
-  try {
-    const local = localStorage.getItem("app_active_skey");
-    if (local && !tokens.includes(local)) {
-      tokens.push(local);
-    }
-  } catch (_) {}
   const sessions = [];
   const seenUserIds = new Set();
 
@@ -150,8 +172,8 @@ export function getAllDetectedSessions() {
 }
 
 /**
- * Exhaustively purges all `skey` cookies across every possible path and domain variant.
- * This completely cleans up phantom/ghost duplicate cookies.
+ * Purges OUR app auth cookie (cl_auth_token) across path/domain variants.
+ * Does NOT touch the shared `skey` cookie used by other domains.
  */
 export function purgeAllSkeyCookies() {
   if (typeof document === "undefined") return;
@@ -172,10 +194,10 @@ export function purgeAllSkeyCookies() {
       try {
         const opts = { path: p };
         if (d) opts.domain = d;
-        Cookies.remove("skey", opts);
+        Cookies.remove(APP_AUTH_COOKIE, opts);
 
         // Direct manual cookie header expire fallback
-        let expireStr = `skey=; Path=${p}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+        let expireStr = `${APP_AUTH_COOKIE}=; Path=${p}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
         if (d) expireStr += `; Domain=${d}`;
         document.cookie = expireStr;
       } catch (_) {}
@@ -184,80 +206,52 @@ export function purgeAllSkeyCookies() {
 }
 
 /**
- * Sets a single canonical `skey` cookie while ensuring no conflicting duplicates exist.
- * Configured with a 30-day persistence to prevent overnight session loss on browser close.
+ * Writes OUR app auth cookie.
+ * - Remember me ON  -> persistent cookie (30 days)
+ * - Remember me OFF -> session cookie (cleared when browser closes)
  */
 export function syncActiveSkeyCookie(token) {
-  if (!token) {
-    purgeAllSkeyCookies();
-    return;
-  }
   purgeAllSkeyCookies();
-  Cookies.set("skey", token, { path: "/", expires: 30, sameSite: "Lax" });
+  if (!token) return;
+  const opts = { path: "/", sameSite: "Lax" };
+  if (getRememberMe()) opts.expires = REMEMBER_DAYS;
+  Cookies.set(APP_AUTH_COOKIE, token, opts);
 }
 
 /**
- * Primary token accessor:
- * Checks localStorage ("app_active_skey") first.
- * If not in localStorage, falls back to detected cookie sessions or saved accounts.
- * Returns the token string even if near/at expiry so caller can auto-renew with backend.
+ * Primary token accessor: ONLY our own app cookie.
+ * The shared `skey` cookie is intentionally NOT used here, so logging in on
+ * another Optigo domain does not auto-login this app, and logout sticks.
  */
 export function getActiveAuthToken() {
   if (typeof window === "undefined") return null;
-
-  try {
-    const local = localStorage.getItem("app_active_skey");
-    if (local && typeof local === "string" && local.trim()) {
-      const parsed = parseTokenPayload(local);
-      if (parsed?.userId) {
-        return local.trim();
-      }
-    }
-  } catch (_) {}
-
-  // Fallback: examine all tokens from cookies
-  const detected = getAllDetectedSessions();
-  const valid = detected.find((s) => !s.isExpired) || detected[0];
-  if (valid?.skey) {
-    return valid.skey;
-  }
-
-  // Fallback: check saved accounts list
-  try {
-    const saved = JSON.parse(localStorage.getItem("saved_accounts_list") || "[]");
-    if (Array.isArray(saved) && saved.length > 0) {
-      const sorted = saved.sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
-      if (sorted[0]?.skey) {
-        return sorted[0].skey;
-      }
-    }
-  } catch (_) {}
-
-  // Last resort: standard cookie
-  return Cookies.get("skey") || null;
+  const tok = Cookies.get(APP_AUTH_COOKIE);
+  if (tok && parseTokenPayload(tok)?.userId) return tok.trim();
+  return null;
 }
 
 /**
- * Sets the active user session atomically:
- * 1. Writes to localStorage ("app_active_skey")
- * 2. Purges conflicting cookies and synchronizes a single canonical cookie
+ * Sets the active app session in our own cookie.
+ * @param {string} token
+ * @param {boolean} [remember] - if provided, updates the "remember me" preference.
  */
-export function setActiveAuthSession(token) {
+export function setActiveAuthSession(token, remember) {
   if (!token) {
     clearActiveAuthSession();
     return;
   }
+  if (typeof remember === "boolean") setRememberMe(remember);
   try {
-    localStorage.setItem("app_active_skey", token);
-  } catch (err) {
-    console.warn("Failed to set app_active_skey in localStorage:", err);
-  }
+    // Legacy cleanup: token used to be persisted here, which broke logout.
+    localStorage.removeItem("app_active_skey");
+  } catch (_) {}
   syncActiveSkeyCookie(token);
+  broadcastAuthEvent("login");
 }
 
 /**
- * Completely clears the active user session:
- * Clears localStorage tokens, direct credentials, and purges all cookies.
+ * Completely clears the active app session (our cookie + local state).
+ * Leaves the shared `skey` cookie untouched so other domains stay logged in.
  */
 export function clearActiveAuthSession() {
   try {
@@ -268,6 +262,7 @@ export function clearActiveAuthSession() {
     sessionStorage.removeItem("currentUser");
   } catch (_) {}
   purgeAllSkeyCookies();
+  broadcastAuthEvent("logout");
 }
 
 /**

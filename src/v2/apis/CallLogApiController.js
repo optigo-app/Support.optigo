@@ -290,6 +290,7 @@ class CallLogApi extends BaseAPI {
         mode: "CALLSTART",
         params,
         functionName: "CALLSTART",
+        socketEvent: "CALLSTART",
       });
       return response;
     } catch (error) {
@@ -338,6 +339,7 @@ class CallLogApi extends BaseAPI {
         mode: "CALLEND",
         params,
         functionName: "CALLEND",
+        socketEvent: "CALLEND",
       });
       return response;
     } catch (error) {
