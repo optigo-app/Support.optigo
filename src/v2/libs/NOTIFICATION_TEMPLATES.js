@@ -4,11 +4,11 @@ import notificationIcons from "../assets/notfi";
 const capitalizeWords = (str) =>
   str
     ? str
-        .split(" ")
-        .map(
-          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-        )
-        .join(" ")
+      .split(" ")
+      .map(
+        (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+      )
+      .join(" ")
     : "";
 
 const formatName = (name) => {
@@ -130,12 +130,31 @@ export const NOTIFICATION_TEMPLATES = {
   },
 
   TICKET_COMMENT: (data) => {
-    const commenter = formatName(data?.CreatedByName || data?.CreatedBy || data?.username) || "Unknown User";
-    const comment = data?.Comments || "-";
+    const commenter =
+      formatName(
+        data?.CreatedByName ||
+        data?.CreatedBy ||
+        data?.username
+      ) || "Unknown User";
+
+    let latestComment = "-";
+
+    try {
+      const comments =
+        typeof data?.comments === "string"
+          ? JSON.parse(data.comments)
+          : data?.comments || [];
+
+      latestComment = comments?.length
+        ? comments[comments.length - 1]?.message || "-"
+        : "-";
+    } catch (error) {
+      console.error("Failed to parse ticket comments:", error);
+    }
 
     return {
-      title: `New Comment on Ticket #${data?.TicketNo}`,
-      body: `By: ${commenter}\nComment: ${comment}`,
+      title: `New Comment on Ticket #${data?.TicketNo || ""}`,
+      body: `By: ${commenter}\nComment: ${latestComment}`,
       icon: notificationIcons.comment,
       badge: "/ic_stat_o.png",
       vibrate: [100, 50, 100],
@@ -143,7 +162,6 @@ export const NOTIFICATION_TEMPLATES = {
       renotify: true,
     };
   },
-
   CLOSE_TICKET: (data) => {
     const company = capitalizeWords(data?.companyname) || "Unknown Company";
     const closer = formatName(data?.LastUpdatedBy) || "Unknown User";
@@ -177,7 +195,7 @@ export const NOTIFICATION_TEMPLATES = {
           if (latest?.Name) commenter = formatName(latest.Name) || commenter;
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     return {
       title: `New Comment - Call #${callId}`,
