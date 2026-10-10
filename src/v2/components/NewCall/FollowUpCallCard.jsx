@@ -35,6 +35,8 @@ import { isValidDate, formatCallDateTime } from './utils/dateUtils';
 import { getStatusColor } from '../../libs/data';
 import { openDurationModal } from './rxjs/newCallEvents';
 
+import { useAuth } from '../../context/UseAuth';
+
 const getStatusChipColors = (statusText = '') => {
   const { color } = getStatusColor(statusText);
   switch (color) {
@@ -56,6 +58,7 @@ const getStatusChipColors = (statusText = '') => {
 };
 
 export default function FollowUpCallCard({ followup = {}, callerName = 'Client' }) {
+  const { user } = useAuth();
   const {
     startFollowUpCall,
     pauseFollowUpCall,
@@ -125,10 +128,10 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
     (followup.CallDuration && followup.CallDuration !== '00:00:00'
       ? followup.CallDuration
       : followup.callDuration && followup.callDuration !== '00:00:00'
-      ? followup.callDuration
-      : followup.duration && followup.duration !== '00:00:00'
-      ? followup.duration
-      : localEndData?.duration) || '00:00:00';
+        ? followup.callDuration
+        : followup.duration && followup.duration !== '00:00:00'
+          ? followup.duration
+          : localEndData?.duration) || '00:00:00';
 
   const fuDescr = (
     followup.Description ||
@@ -164,9 +167,9 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
 
   const isCurrentRunning = Boolean(
     activeCall &&
-      activeCall.isFollowUp &&
-      fuId &&
-      String(activeCall.followUpId) === String(fuId)
+    activeCall.isFollowUp &&
+    fuId &&
+    String(activeCall.followUpId) === String(fuId)
   );
 
   const isPaused = isCurrentRunning && activeCall?.isPaused;
@@ -189,13 +192,13 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
   const endStr = hasRealClosed
     ? formatCallDateTime(fuClosed)
     : isCurrentRunning
-    ? 'In Progress'
-    : '—';
+      ? 'In Progress'
+      : '—';
   const durationStr = hasRealDuration
     ? fuDuration
     : isCurrentRunning
-    ? 'Recording...'
-    : '—';
+      ? 'Recording...'
+      : '—';
 
   // Determine display status label and chip styling
   const displayStatus =
@@ -232,12 +235,12 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
           Descr: trimmed,
         });
 
-        toast.success('Description updated');
+        // toast.success('Description updated');
         if (triggerRefresh) triggerRefresh();
       }
     } catch (err) {
       console.error('Error saving description:', err);
-      toast.error('Failed to update description');
+      // toast.error('Failed to update description');
     } finally {
       setIsEditingDescr(false);
     }
@@ -264,19 +267,19 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
           InternalStatus: statusLabel,
         });
 
-        toast.success(`Status updated to "${statusLabel}"`);
+        // toast.success(`Status updated to "${statusLabel}"`);
         if (triggerRefresh) triggerRefresh();
       }
     } catch (err) {
       console.error('Error updating status:', err);
-      toast.error('Failed to update status');
+      // toast.error('Failed to update status');
     }
   };
 
   // Confirm Transfer handler
   const handleConfirmTransfer = async () => {
     if (!selectedEmp) {
-      toast.error('Please select an employee');
+      // toast.error('Please select an employee');
       return;
     }
     const empId = Number(
@@ -302,13 +305,13 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
           EmpId: empId,
         });
 
-        toast.success(`Transferred to ${empName}`);
+        // toast.success(`Transferred to ${empName}`);
         if (triggerRefresh) triggerRefresh();
         setTransferAnchorEl(null);
       }
     } catch (err) {
       console.error('Error transferring:', err);
-      toast.error('Failed to transfer follow-up');
+      // toast.error('Failed to transfer follow-up');
     } finally {
       setIsTransferring(false);
     }
@@ -354,7 +357,7 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
         followUpId: fuId,
         callStart: new Date().toISOString(),
       });
-      toast.success('Follow-Up Call Started');
+      // toast.success('Follow-Up Call Started');
       if (triggerRefresh) triggerRefresh();
     } catch (err) {
       console.error('Error starting follow-up:', err);
@@ -407,17 +410,17 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
               descr: fuDescr,
               statusId: 2,
             });
-          } catch (_) {}
+          } catch (_) { }
         }
       }
       if (setActiveFollowUp) {
         setActiveFollowUp(null);
       }
-      toast.success('Follow-Up Call Ended');
+      // toast.success('Follow-Up Call Ended');
       if (triggerRefresh) triggerRefresh();
     } catch (err) {
       console.error('Error ending follow-up:', err);
-      toast.error('Failed to properly complete follow-up');
+      // toast.error('Failed to properly complete follow-up');
     }
   };
 
@@ -430,13 +433,13 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
         bgcolor: isCurrentRunning
           ? '#F0FDF4'
           : isForward
-          ? '#FAF5FF'
-          : '#FFFFFF',
+            ? '#FAF5FF'
+            : '#FFFFFF',
         border: isCurrentRunning
           ? '1.5px solid #10B981'
           : isForward
-          ? '1px solid #DDD6FE'
-          : '1px solid #E2E8F0',
+            ? '1px solid #DDD6FE'
+            : '1px solid #E2E8F0',
         borderRadius: '10px',
         p: 1.5,
         boxShadow: isCurrentRunning
@@ -462,24 +465,23 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
               bgcolor: isCurrentRunning
                 ? '#10B981'
                 : isCompleted
-                ? isForward
-                  ? '#EDE9FE'
-                  : '#DCFCE7'
-                : '#FEF3C7',
+                  ? isForward
+                    ? '#EDE9FE'
+                    : '#DCFCE7'
+                  : '#FEF3C7',
               color: isCurrentRunning
                 ? '#FFFFFF'
                 : isCompleted
-                ? isForward
-                  ? '#6900C6'
-                  : '#15803D'
-                : '#D97706',
-              border: `1px solid ${
-                isCurrentRunning
+                  ? isForward
+                    ? '#6900C6'
+                    : '#15803D'
+                  : '#D97706',
+              border: `1px solid ${isCurrentRunning
                   ? '#059669'
                   : isForward
-                  ? '#DDD6FE'
-                  : '#BBF7D0'
-              }`,
+                    ? '#DDD6FE'
+                    : '#BBF7D0'
+                }`,
             }}
           >
             {isForward ? (
@@ -995,7 +997,11 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
           Transfer Follow-Up • #{fuId}
         </Typography>
         <Autocomplete
-          options={forwardOption.length > 0 ? forwardOption : EMPLOYEE_LIST}
+          options={(forwardOption.length > 0 ? forwardOption : EMPLOYEE_LIST).filter((emp) => {
+            if (!user?.id) return true;
+            const empId = emp?.userid || emp?.userId || emp?.EmpId || (String(emp?.id || '').includes(',') ? emp.id.split(',')[1] : emp?.id);
+            return String(empId) !== String(user.id);
+          })}
           getOptionLabel={(opt) => opt.person || opt.EmpName || opt.name || opt.firstname || ''}
           value={selectedEmp}
           onChange={(_, val) => setSelectedEmp(val)}

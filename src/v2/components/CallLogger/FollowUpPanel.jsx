@@ -39,6 +39,7 @@ import { useSubject, followUpMode$, toggleFollowUpMode } from "../../rxjs/layout
 import { followUpEdit$ } from "../../rxjs/tableUiStore";
 import { separateFollowUpsAndForwarded } from "../../utils/callLogUtils";
 import { HeaderHeight } from "../_ui/HeaderWrapper";
+import { useAuth } from "../../context/UseAuth";
 
 const stringToColor = (string) => {
   if (!string) return "#1A73E8";
@@ -61,6 +62,7 @@ const FollowUpEditPopover = ({
   editFollowUpCall,
   showNotification,
   CurrentCall,
+  user,
 }) => {
   const editState = useSubject(followUpEdit$);
   const { open, type, fu, anchorEl } = editState;
@@ -237,7 +239,11 @@ const FollowUpEditPopover = ({
         {type === "forward" && (
           <Autocomplete
             fullWidth
-            options={forwardOption || []}
+            options={(forwardOption || []).filter((opt) => {
+              if (!user?.id) return true;
+              const empId = opt?.id?.split(",")?.[1] || opt?.EmpId || opt?.userid;
+              return String(empId) !== String(user.id);
+            })}
             getOptionLabel={(option) => option?.person || ""}
             groupBy={(option) => option?.designation || "Other"}
             value={forward}
@@ -328,6 +334,7 @@ const FollowUpPanel = ({
   }, []);
 
   const { STATUS_LIST, forwardOption, editFollowUpCall } = useCallLog();
+  const { user } = useAuth();
 
   // === MENU STATE ===
   const [menuAnchor, setMenuAnchor] = useState(null); // { anchorEl, fu }
@@ -1377,6 +1384,7 @@ const FollowUpPanel = ({
         editFollowUpCall={editFollowUpCall}
         showNotification={showNotification}
         CurrentCall={CurrentCall}
+        user={user}
       />
     </>
   );

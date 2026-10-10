@@ -11,7 +11,6 @@ import AttachmentCard from "./AttachmentCard";
 import CreateRoundedIcon from "@mui/icons-material/CreateRounded";
 import EditCommentPopover from "./EditCommentPopover";
 import { useState } from "react";
-import PersonPinRoundedIcon from "@mui/icons-material/PersonPinRounded";
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 
 const CommentBox = styled(Box)(({ theme }) => ({

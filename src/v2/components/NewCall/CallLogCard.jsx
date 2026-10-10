@@ -42,6 +42,7 @@ function getChipColor(statusName) {
 }
 
 export default function CallLogCard({ record = {} }) {
+  console.log(record, "record")
   const [activeCall, setActiveCall] = useState(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const [localReceivedBy, setLocalReceivedBy] = useState(null);
@@ -66,7 +67,7 @@ export default function CallLogCard({ record = {} }) {
       }
 
       if (result && result.success === false) {
-        toast.error(result.error?.message || 'Failed to accept call');
+        // toast.error(result.error?.message || 'Failed to accept call');
         return;
       }
 
@@ -81,11 +82,11 @@ export default function CallLogCard({ record = {} }) {
         AssignedEmpName: userName,
       });
 
-      toast.success(`Call #${record.sr} accepted and assigned to you!`);
+      // toast.success(`Call #${record.sr} accepted and assigned to you!`);
       if (callLogCtx?.triggerRefresh) callLogCtx.triggerRefresh();
     } catch (err) {
       console.error('Error accepting call:', err);
-      toast.error('Failed to accept call');
+      // toast.error('Failed to accept call');
     } finally {
       setIsAccepting(false);
     }
@@ -142,10 +143,11 @@ export default function CallLogCard({ record = {} }) {
       : '—';
 
   const descriptionText = (record.description || record.Description || '').trim();
-  const callerText = record.callerName || record.callBy || record.company || 'Client Caller';
-  const rawReceived = (localReceivedBy || record.receivedBy || record.AssignedEmpName || (record.agentName !== 'Support Desk' ? record.agentName : '') || '').trim();
+  const callerText = record.callerName || record.callBy;
+  const rawReceived = (localReceivedBy || record.receivedBy || record.AssignedEmpName || '').trim();
   const isUnassigned = !rawReceived || rawReceived.toLowerCase() === 'support desk' || rawReceived.toLowerCase() === 'unassigned';
   const agentText = isUnassigned ? 'Unassigned' : rawReceived;
+
 
   return (
     <Paper
@@ -200,7 +202,7 @@ export default function CallLogCard({ record = {} }) {
                 letterSpacing: '-0.01em',
               }}
             >
-              {descriptionText || 'Main Call'}
+              {descriptionText || 'No Description'}
             </Typography>
 
             <Box

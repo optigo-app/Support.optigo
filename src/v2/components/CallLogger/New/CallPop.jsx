@@ -135,6 +135,11 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
 
     const isFollowUpActive = !!activeFollowUp && activeFollowUp.callLogId === CurrentCall?.sr && !isFollowUpCompleted;
 
+    const isRegularCallActive = Boolean(
+        (CurrentCall?.callStart || recordingTime > 0 || callStatusValue?.isRunning) &&
+        !CurrentCall?.callClosed
+    );
+
     const disableCloseBtn = (!CurrentCall?.callStart || (CurrentCall?.callStart && !CurrentCall?.CallDuration) || (CurrentCall?.callClosed && CurrentCall?.CallDuration));
 
     // ── UI CHANGE 2026-05-07: Replaced tall vertical card with flat horizontal pill bar ──
@@ -167,8 +172,8 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                         {/* Status dot */}
                         <Box sx={{
                             width: 9, height: 9, borderRadius: "50%", flexShrink: 0,
-                            bgcolor: (CurrentCall?.callClosed && !isFollowUpActive) ? "#4caf50" : isPaused ? "#ff9800" : isFollowUpActive ? "#ff9800" : "#ef4444",
-                            animation: (!(CurrentCall?.callClosed && !isFollowUpActive) && !isPaused) || (isFollowUpActive && recordingTime > 0 && !isPaused) ? "pulse 1.5s infinite" : "none",
+                            bgcolor: (CurrentCall?.callClosed && !isFollowUpActive) ? "#4caf50" : isPaused ? "#ff9800" : isFollowUpActive ? "#ff9800" : isRegularCallActive ? "#4caf50" : "#ef4444",
+                            animation: (!(CurrentCall?.callClosed && !isFollowUpActive) && !isPaused && (isRegularCallActive || isFollowUpActive)) ? "pulse 1.5s infinite" : "none",
                         }} />
                         {/* Client name */}
                         <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap" }}>
@@ -180,7 +185,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                         <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: (CurrentCall?.callClosed && !isFollowUpActive) ? "#4caf50" : isPaused ? "#ff9800" : isFollowUpActive ? "#ff9800" : "#334155", whiteSpace: "nowrap" }}>
                             {isFollowUpActive
                                 ? (recordingTime > 0 ? formatTime(recordingTime) : "Follow-Up")
-                                : (CurrentCall?.callClosed ? "Done" : recordingTime > 0 ? formatTime(recordingTime) : "Ready")
+                                : (CurrentCall?.callClosed ? "Done" : (isRegularCallActive || recordingTime > 0) ? formatTime(recordingTime) : "Ready")
                             }
                         </Typography>
                     </Box>
@@ -228,13 +233,13 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                                 }}>
                                     <Box sx={{
                                         width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-                                        bgcolor: (CurrentCall?.callClosed && !isFollowUpActive) ? "#4caf50" : isPaused ? "#ff9800" : isFollowUpActive ? "#ff9800" : "#ef4444",
-                                        animation: (!(CurrentCall?.callClosed && !isFollowUpActive) && !isPaused) || (isFollowUpActive && recordingTime > 0 && !isPaused) ? "pulse 1.5s infinite" : "none",
+                                        bgcolor: (CurrentCall?.callClosed && !isFollowUpActive) ? "#4caf50" : isPaused ? "#ff9800" : isFollowUpActive ? "#ff9800" : isRegularCallActive ? "#4caf50" : "#ef4444",
+                                        animation: (!(CurrentCall?.callClosed && !isFollowUpActive) && !isPaused && (isRegularCallActive || isFollowUpActive)) ? "pulse 1.5s infinite" : "none",
                                     }} />
                                     <Typography sx={{ fontSize: "0.88rem", fontWeight: 700, color: (CurrentCall?.callClosed && !isFollowUpActive) ? "#4caf50" : isPaused ? "#ff9800" : isFollowUpActive ? "#ff9800" : "#334155", lineHeight: 1 }}>
                                         {isFollowUpActive
                                             ? (recordingTime > 0 ? formatTime(recordingTime) : "Start Follow-Up")
-                                            : (CurrentCall?.callClosed ? "Completed" : recordingTime > 0 ? formatTime(recordingTime) : "Ready to start")
+                                            : (CurrentCall?.callClosed ? "Completed" : (isRegularCallActive || recordingTime > 0) ? formatTime(recordingTime) : "Ready to start")
                                         }
                                     </Typography>
 
@@ -297,7 +302,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", px: 1.25, py: 0.9, gap: 0.5 }}>
 
                                     {/* Start Call */}
-                                    {!CurrentCall?.callStart && !CurrentCall?.callClosed && !isFollowUpActive && (
+                                    {!isRegularCallActive && !CurrentCall?.callClosed && !isFollowUpActive && (
                                         <Tooltip title="Start Call" placement="top">
                                             <IconButton onClick={() => onStartCall(CurrentCall?.sr)} sx={{ bgcolor: "#2e7d32", color: "#fff", width: 45, height: 45, "&:hover": { bgcolor: "#1b5e20" }, boxShadow: "0 2px 6px rgba(46,125,50,0.32)" }}>
                                                 <CallIcon sx={{ fontSize: 24 }} />
@@ -315,7 +320,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                                     )}
 
                                     {/* Pause / Resume */}
-                                    {((CurrentCall?.callStart && !CurrentCall?.callClosed) || (isFollowUpActive && recordingTime > 0)) && (
+                                    {(isRegularCallActive || (isFollowUpActive && recordingTime > 0)) && (
                                         <Tooltip title={isPaused ? "Resume" : "Pause"} placement="top">
                                             <IconButton onClick={isPaused ? onResume : onPause} size="medium" sx={{ bgcolor: "#f1f5f9", color: "#475569", width: 45, height: 45, "&:hover": { bgcolor: "#e2e8f0", color: "#1e293b" } }}>
                                                 {isPaused ? <PlayArrowRoundedIcon sx={{ fontSize: 24 }} /> : <PauseRoundedIcon sx={{ fontSize: 24 }} />}
@@ -385,7 +390,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                                                 <CheckCircleRoundedIcon sx={{ fontSize: 24 }} />
                                             </IconButton>
                                         </Tooltip>
-                                    ) : ((CurrentCall?.callStart && !CurrentCall?.callClosed) || (isFollowUpActive && recordingTime > 0)) && (
+                                    ) : (isRegularCallActive || (isFollowUpActive && recordingTime > 0)) && (
                                         <Tooltip title={isFollowUpActive ? "End Follow-Up" : "End Call"} placement="top">
                                             <IconButton onClick={HandleEndCall} size="medium" sx={{ bgcolor: "#ef4444", color: "#fff", width: 45, height: 45, boxShadow: "0 2px 8px rgba(239,68,68,0.32)", "&:hover": { bgcolor: "#dc2626" } }}>
                                                 <CallEndRoundedIcon sx={{ fontSize: 24 }} />

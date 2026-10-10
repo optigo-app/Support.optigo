@@ -254,19 +254,19 @@ export default function NewCallDurationModal() {
   const handleSave = async () => {
     try {
       if (!callStart || !callEnd || !callStart.isValid() || !callEnd.isValid()) {
-        toast.error("Please enter valid start and end dates");
+        // toast.error("Please enter valid start and end dates");
         return;
       }
 
       const diffSeconds = callEnd.diff(callStart, "second");
       if (diffSeconds <= 0) {
-        toast.error("End time must be after start time");
+        // toast.error("End time must be after start time");
         return;
       }
 
       const callId = targetCall?.sr || targetCall?.id || targetCall?.CallLogid;
       if (!callId) {
-        toast.error("No call ID found to update");
+        // toast.error("No call ID found to update");
         return;
       }
 
@@ -286,15 +286,15 @@ export default function NewCallDurationModal() {
           callClosed: formatted.callEnd,
           CallDuration: formatted.duration,
         });
-        toast.success("Call duration updated successfully");
+        // toast.success("Call duration updated successfully");
         if (triggerRefresh) triggerRefresh();
         handleClose();
       } else {
-        toast.error(data?.message || "Failed to update call duration");
+        // toast.error(data?.message || "Failed to update call duration");
       }
     } catch (error) {
       console.error("Error updating call duration:", error);
-      toast.error("Error updating call duration");
+      // toast.error("Error updating call duration");
     } finally {
       setLoading(false);
     }

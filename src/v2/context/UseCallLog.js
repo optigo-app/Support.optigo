@@ -441,12 +441,21 @@ export function CallLogProvider(props) {
   const addCall = useCallback(
     async (call, isConcurrent) => {
       try {
+        const fwdId = call?.forward || "";
+        let deptIdStr = "";
+        let empIdStr = fwdId;
+        if (fwdId.includes(",")) {
+          const parts = fwdId.split(",");
+          deptIdStr = parts[0] === "undefined" || parts[0] === "null" ? "" : parts[0];
+          empIdStr = parts[1] || "";
+        }
+
         const data = await CallLogApi.addCall({
           appID: call?.appname,
           createdBy: call?.receivedBy,
           customerName: call?.callBy,
-          deptId: call?.forward && call?.forward?.split(",")[0],
-          empId: call?.forward && call?.forward?.split(",")[1],
+          deptId: deptIdStr,
+          empId: empIdStr,
           description: call?.description,
           entryDate: call?.date,
           projectID: call?.company,

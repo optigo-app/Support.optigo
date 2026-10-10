@@ -12,6 +12,10 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 	const [saving, setSaving] = useState(false);
 	const { editCall, APPNAME_LIST, currentCall, companyOptions, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, setCurrentCall, CALL_TYPE_MASTER } = useCallLog();
 	const { user } = useAuth();
+
+	console.log(forwardOption, "forwardOption")
+
+
 	useEffect(() => {
 		if (open && callData) {
 			const companyObj = companyOptions?.find((option) => option?.label?.split("/")?.[0]?.toLocaleLowerCase() === callData?.company?.toLocaleLowerCase() || null);
@@ -19,7 +23,7 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 			const callTypeObj = CALL_TYPE_MASTER?.find(
 				(option) =>
 					option?.label?.toLowerCase() === callData?.CallType?.toLowerCase() ||
-				option?.value === callData?.CallType
+					option?.value === callData?.CallType
 			);
 			let receivedByValue = null;
 			if (callData?.receivedBy) {
@@ -79,7 +83,7 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 
 			});
 		}
-	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption ,currentCall]);
+	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption, currentCall]);
 
 	const handleChange = (field) => {
 		return (event, newValue) => {
@@ -121,14 +125,23 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 				forward: formData?.forwardTo?.id || "",
 				callType: formData?.callType?.value || "",
 			};
+			const fwdId = submitData?.forwardTo?.id || submitData?.forward || "";
+			let empId = fwdId;
+			let deptId = "";
+			if (fwdId.includes(",")) {
+				const parts = fwdId.split(",");
+				deptId = parts[0] === "undefined" || parts[0] === "null" ? "" : parts[0];
+				empId = parts[1] || "";
+			}
+
 			const result = await editCall(callData?.sr, {
 				CreatedBy: user?.id,
 				CustomerName: submitData?.callBy || "",
 				PriorityId: submitData?.priority?.value || "",
 				ParentId: submitData?.parentId || "",
 				Descr: submitData?.description || "",
-				EmpId: submitData?.forwardTo?.id?.split(",")[1] || submitData?.forward?.split(",")[1] || "",
-				DeptId: submitData?.forwardTo?.id?.split(",")[0] || submitData?.forward?.split(",")[0] || "",
+				EmpId: empId,
+				DeptId: deptId,
 				StatusId: submitData?.status?.value || "",
 				Estatus: submitData?.Estatus?.value || "",
 				calldetails: submitData?.callDetails || "",
@@ -299,7 +312,11 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 
 						<Autocomplete
 							fullWidth
-							options={forwardOption || []}
+							options={(forwardOption || []).filter((opt) => {
+								if (!user?.id) return true;
+								const empId = opt?.id?.split(",")?.[1] || opt?.EmpId || opt?.userid;
+								return String(empId) !== String(user.id);
+							})}
 							value={formData?.forwardTo || null}
 							getOptionLabel={(option) => {
 								if (!option) return "";

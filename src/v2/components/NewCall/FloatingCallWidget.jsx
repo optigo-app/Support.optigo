@@ -148,7 +148,7 @@ export default function FloatingCallWidget() {
       } else if (activeCall.sr && PauseCall) {
         await PauseCall(activeCall.sr);
       }
-      toast.info('Call Timer Paused');
+      // toast.info('Call Timer Paused');
     } else {
       const pauseDuration = activeCall.pausedAt ? now - activeCall.pausedAt : 0;
       const totalPausedMs = (activeCall.pausedDurationMs || 0) + pauseDuration;
@@ -162,20 +162,20 @@ export default function FloatingCallWidget() {
       } else if (activeCall.sr && ResumeCall) {
         await ResumeCall(activeCall.sr);
       }
-      toast.info('Call Timer Resumed');
+      // toast.info('Call Timer Resumed');
     }
   };
 
   const handleToggleMute = () => {
     const newMuted = !activeCall.isMuted;
     callStreamService.updateActiveCall({ isMuted: newMuted });
-    toast.info(newMuted ? 'Microphone Muted' : 'Microphone Unmuted');
+    // toast.info(newMuted ? 'Microphone Muted' : 'Microphone Unmuted');
   };
 
   const handleAddParticipant = () => {
-    toast.info('Add Participant', {
-      description: 'Opening team call invite panel...',
-    });
+    // toast.info('Add Participant', {
+    //   description: 'Opening team call invite panel...',
+    // });
   };
 
   const handleEndCall = async () => {
@@ -238,9 +238,9 @@ export default function FloatingCallWidget() {
 
     if (triggerRefresh) triggerRefresh();
 
-    toast.success('Call Ended', {
-      description: `Call with ${endingCall?.callerName || 'Client'} ended. Duration: ${formattedDuration}`,
-    });
+    // toast.success('Call Ended', {
+    //   description: `Call with ${endingCall?.callerName || 'Client'} ended. Duration: ${formattedDuration}`,
+    // });
   };
 
   return (

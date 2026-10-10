@@ -95,19 +95,19 @@ export default function NewCallAddModal() {
     e?.preventDefault();
 
     if (!formData.company) {
-      toast.error('Please select or enter a Company / Client');
+      // toast.error('Please select or enter a Company / Client');
       return;
     }
 
     const callerName = (formData.customerName || '').trim();
     if (!callerName) {
-      toast.error('Caller / Contact person is required');
+      // toast.error('Caller / Contact person is required');
       return;
     }
 
     const desc = (formData.description || '').trim();
     if (!desc) {
-      toast.error('Please provide a Call Description / Purpose');
+      // toast.error('Please provide a Call Description / Purpose');
       return;
     }
 
@@ -249,12 +249,12 @@ export default function NewCallAddModal() {
       // Select 'all' so new call is displayed in sidebar list
       callStreamService.selectCompany('all');
 
-      toast.success(`Call logged successfully for ${resolvedCompanyName || resolvedProjectId}`);
+      // toast.success(`Call logged successfully for ${resolvedCompanyName || resolvedProjectId}`);
       if (triggerRefresh) triggerRefresh();
       closeAddCallModal();
     } catch (err) {
       console.error('Error logging call:', err);
-      toast.error(err?.message || 'An error occurred while logging the call');
+      // toast.error(err?.message || 'An error occurred while logging the call');
     } finally {
       setLoading(false);
     }

@@ -395,7 +395,7 @@ const MessageComposer = React.memo(function MessageComposer({
         if (result?.success) {
           const newTaskId = result?.data?.rd?.[0]?.TaskId || result?.data?.rd?.[0]?.id || result?.taskId || 1;
           callStreamService.patchPrimaryCall(callLogId, { TaskId: newTaskId, taskId: newTaskId });
-          toast.success('Task successfully created in iTask');
+          // toast.success('Task successfully created in iTask');
         }
       } catch (err) {
         console.error('Error creating iTask:', err);
@@ -415,7 +415,7 @@ const MessageComposer = React.memo(function MessageComposer({
       const res = await UpdateCall(callId, { callType: typeVal });
       if (res?.success) {
         callStreamService.patchPrimaryCall(activeThread?.sr, { CallType: typeVal, callType: typeVal });
-        toast.success(`Call Type updated to ${typeVal}`);
+        // toast.success(`Call Type updated to ${typeVal}`);
       }
     } catch (err) {
       console.error('Error updating call type:', err);

@@ -65,7 +65,7 @@ export default function CallLogCard({ record = {} }) {
       }
 
       if (result && result.success === false) {
-        toast.error(result.error?.message || 'Failed to accept call');
+        // toast.error(result.error?.message || 'Failed to accept call');
         return;
       }
 
@@ -80,11 +80,11 @@ export default function CallLogCard({ record = {} }) {
         AssignedEmpName: userName,
       });
 
-      toast.success(`Call #${record.sr} accepted and assigned to you!`);
+      // toast.success(`Call #${record.sr} accepted and assigned to you!`);
       if (callLogCtx?.triggerRefresh) callLogCtx.triggerRefresh();
     } catch (err) {
       console.error('Error accepting call:', err);
-      toast.error('Failed to accept call');
+      // toast.error('Failed to accept call');
     } finally {
       setIsAccepting(false);
     }

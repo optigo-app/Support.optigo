@@ -227,8 +227,17 @@ export default function NewCallEditModal() {
 
       const sr = callData?.sr || callData?.id;
       if (!sr) {
-        toast.error('Missing call log reference');
+        // toast.error('Missing call log reference');
         return;
+      }
+
+      const fwdId = submitData?.forwardTo?.id || submitData?.forward || '';
+      let empId = fwdId;
+      let deptId = '';
+      if (fwdId.includes(',')) {
+        const parts = fwdId.split(',');
+        deptId = parts[0] === 'undefined' || parts[0] === 'null' ? '' : parts[0];
+        empId = parts[1] || '';
       }
 
       const payload = {
@@ -237,14 +246,8 @@ export default function NewCallEditModal() {
         PriorityId: submitData?.priority?.value || '',
         ParentId: submitData?.parentId || '',
         Descr: submitData?.description || '',
-        EmpId:
-          submitData?.forwardTo?.id?.split(',')?.[1] ||
-          submitData?.forward?.split(',')?.[1] ||
-          '',
-        DeptId:
-          submitData?.forwardTo?.id?.split(',')?.[0] ||
-          submitData?.forward?.split(',')?.[0] ||
-          '',
+        EmpId: empId,
+        DeptId: deptId,
         StatusId: submitData?.status?.value || '',
         Estatus: submitData?.Estatus?.value || '',
         calldetails: submitData?.callDetails || submitData?.description || '',
@@ -259,7 +262,7 @@ export default function NewCallEditModal() {
           result?.msg?.stat_msg ||
           result?.error?.message ||
           'You do not have permission to edit this call.';
-        toast.error(errorMsg);
+        // toast.error(errorMsg);
         return;
       }
 
@@ -282,12 +285,12 @@ export default function NewCallEditModal() {
         AssignedEmpName: formData?.forwardTo?.person || callData?.AssignedEmpName,
       });
 
-      toast.success('Call log updated successfully');
+      // toast.success('Call log updated successfully');
       if (triggerRefresh) triggerRefresh();
       closeEditCallModal();
     } catch (error) {
       console.error('Error editing call:', error);
-      toast.error('An error occurred while saving.');
+      // toast.error('An error occurred while saving.');
     } finally {
       setSaving(false);
     }

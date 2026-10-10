@@ -1,6 +1,7 @@
 import React from "react";
 import ChatWorkspace from "./ChatWorkspace";
 import { Box } from "@mui/material";
+import CreateServiceDialog from "../_ui/test/dia";
 
 const NewCallDashboard = () => {
   return (
@@ -10,10 +11,11 @@ const NewCallDashboard = () => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        boxSizing:'border-box'
+        boxSizing: 'border-box'
       }}
     >
       <ChatWorkspace />
+      {/* <CreateServiceDialog /> */}
     </Box>
   );
 };

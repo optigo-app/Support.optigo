@@ -1,6 +1,7 @@
 import React from "react";
-import { Snackbar, Alert, Button } from "@mui/material";
+import { Snackbar, Alert } from "@mui/material";
 import { useNotificationManager } from "../../../context/NotificationManager";
+import AestheticNotificationModal from "./Permission.Dialog";
 
 const NotificationUI = () => {
   const {
@@ -13,30 +14,18 @@ const NotificationUI = () => {
 
   return (
     <>
-      {/* Prompt for enabling notifications */}
-      <Snackbar
+      {/* Centered Aesthetic Notification Modal */}
+      <AestheticNotificationModal
         open={promptOpen}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         onClose={() => setPromptOpen(false)}
-      >
-        <Alert
-          severity="info"
-          sx={{ display: "flex", alignItems: "center" }}
-          action={
-            <Button size="small" onClick={requestPermission}>
-              Enable
-            </Button>
-          }
-        >
-          🔔 Enable notifications for real-time updates
-        </Alert>
-      </Snackbar>
+        onEnable={requestPermission}
+      />
 
       {/* Already enabled notification */}
       <Snackbar
         open={enabledOpen}
         autoHideDuration={3000}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
         onClose={() => setEnabledOpen(false)}
       >
         <Alert severity="success">Notifications are already enabled.</Alert>

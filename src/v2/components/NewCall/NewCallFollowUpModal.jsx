@@ -42,11 +42,11 @@ export default function NewCallFollowUpModal() {
   const handleSubmit = async (e) => {
     e?.preventDefault();
     if (!description.trim()) {
-      toast.error('Please enter a follow-up description');
+      // toast.error('Please enter a follow-up description');
       return;
     }
     if (!targetCall?.sr) {
-      toast.error('No target call selected');
+      // toast.error('No target call selected');
       return;
     }
 
@@ -55,7 +55,7 @@ export default function NewCallFollowUpModal() {
       // 1. Add follow-up call
       const res = await addFollowUpCall(targetCall.sr);
       if (!res?.success) {
-        toast.error(res?.error?.message || 'Failed to create follow-up');
+        // toast.error(res?.error?.message || 'Failed to create follow-up');
         return;
       }
 
@@ -89,13 +89,13 @@ export default function NewCallFollowUpModal() {
         });
       }
 
-      toast.success('Follow-up recorded successfully');
+      // toast.success('Follow-up recorded successfully');
 
       if (triggerRefresh) triggerRefresh();
       closeAddFollowUpModal();
     } catch (err) {
       console.error('Error saving follow-up:', err);
-      toast.error('An error occurred while saving follow-up');
+      // toast.error('An error occurred while saving follow-up');
     } finally {
       setIsSubmitting(false);
     }

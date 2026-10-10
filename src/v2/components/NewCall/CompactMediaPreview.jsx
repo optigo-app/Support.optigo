@@ -47,7 +47,7 @@ export default function CompactMediaPreview({ attachment, filename, imgUrl }) {
     if (previewFile) {
       setOpenLightbox(true);
     } else {
-      toast.info(`Preview not available for ${rawName}`);
+      // toast.info(`Preview not available for ${rawName}`);
     }
   };
 
@@ -55,9 +55,9 @@ export default function CompactMediaPreview({ attachment, filename, imgUrl }) {
     e?.stopPropagation();
     if (initialMediaUrl) {
       window.open(initialMediaUrl, '_blank');
-      toast.success(`Opening ${rawName}`);
+      // toast.success(`Opening ${rawName}`);
     } else {
-      toast.info(`No URL available for ${rawName}`);
+      // toast.info(`No URL available for ${rawName}`);
     }
   };
 

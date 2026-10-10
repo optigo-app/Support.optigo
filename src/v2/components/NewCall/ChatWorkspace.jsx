@@ -129,7 +129,6 @@ export default function ChatWorkspace() {
     };
     callStreamService.addNewCall(createdThreadRecord, true);
     callStreamService.selectCompany('all');
-    toast.success(`Call logged successfully for ${companyLabel}`);
     if (callLogCtx?.triggerRefresh) {
       callLogCtx.triggerRefresh();
     }
@@ -156,37 +155,91 @@ export default function ChatWorkspace() {
     const currentThreads = callStreamService.threads$.getValue();
     if (!currentThreads || currentThreads.length === 0) return;
 
-      const liveMap = new Map();
-      for (const rec of liveCallLog) {
-        const key = String(rec.sr || rec.id || '');
-        if (key) liveMap.set(key, rec);
-      }
+    const liveMap = new Map();
+    for (const rec of liveCallLog) {
+      const key = String(rec.sr || rec.id || '');
+      if (key) liveMap.set(key, rec);
+    }
 
-      let hasChanges = false;
-      const merged = currentThreads.map((t) => {
-        const key = String(t.sr || t.id || '');
-        const fresh = liveMap.get(key);
-        if (!fresh) return t;
+    let hasChanges = false;
+    const merged = currentThreads.map((t) => {
+      const key = String(t.sr || t.id || '');
+      const fresh = liveMap.get(key);
+      if (!fresh) return t;
 
-        // Check if anything meaningful changed (including comments!)
-        const changed =
-          fresh.description !== (t.rawRecord?.description || t.rawRecord?.Descr) ||
-          fresh.FollowUpList !== t.rawRecord?.FollowUpList ||
-          fresh.comment !== t.rawRecord?.comment ||
-          fresh.callClosed !== t.callClosed ||
-          fresh.callStart !== t.callStart ||
-          fresh.Estatus !== (t.rawRecord?.Estatus || t.estatus) ||
-          fresh.status !== t.status;
+      // Check if anything meaningful changed (including comments!)
+      const changed =
+        fresh.description !== (t.rawRecord?.description || t.rawRecord?.Descr) ||
+        fresh.FollowUpList !== t.rawRecord?.FollowUpList ||
+        fresh.comment !== t.rawRecord?.comment ||
+        fresh.callClosed !== t.callClosed ||
+        fresh.callStart !== t.callStart ||
+        fresh.Estatus !== (t.rawRecord?.Estatus || t.estatus) ||
+        fresh.status !== t.status;
 
-        if (!changed) return t;
-        hasChanges = true;
+      if (!changed) return t;
+      hasChanges = true;
 
-        // Re-normalize only the updated fields, keeping the thread shape and unread state intact
-        const isUnread =
-          callStreamService.unreadThreadIds.has(t.id) ||
-          callStreamService.unreadThreadIds.has(String(t.sr)) ||
-          callStreamService.unreadThreadIds.has(`call-${t.sr}`) ||
-          Boolean(t.unread);
+      // Re-normalize only the updated fields, keeping the thread shape and unread state intact
+      const isUnread =
+        callStreamService.unreadThreadIds.has(t.id) ||
+        callStreamService.unreadThreadIds.has(String(t.sr)) ||
+        callStreamService.unreadThreadIds.has(`call-${t.sr}`) ||
+        Boolean(t.unread);
+
+        const finalFollowUps = (() => {
+          if (!fresh.FollowUpList) return t.followUps;
+          try {
+            const parsed = typeof fresh.FollowUpList === 'string'
+              ? JSON.parse(fresh.FollowUpList)
+              : fresh.FollowUpList;
+            if (!Array.isArray(parsed)) return t.followUps;
+
+            // Merge server data with local optimistic data
+            return parsed.map((serverFu) => {
+              const serverId = String(serverFu.Id ?? serverFu.id ?? serverFu.followUpCallId);
+              const localFu = (t.followUps || []).find(
+                (l) => String(l.Id ?? l.id ?? l.followUpCallId) === serverId
+              );
+              if (!localFu) return serverFu;
+
+              const merged = { ...serverFu };
+
+              // Preserve Description
+              const serverDescr = (serverFu.Description || serverFu.Descr || '').trim();
+              const localDescr = (localFu.Description || localFu.Descr || '').trim();
+              if (!serverDescr && localDescr) {
+                merged.Description = localDescr;
+                merged.Descr = localDescr;
+              }
+
+              // Preserve Duration
+              const serverDur = serverFu.CallDuration || serverFu.callDuration;
+              const localDur = localFu.CallDuration || localFu.callDuration;
+              if ((!serverDur || serverDur === '00:00:00') && localDur && localDur !== '00:00:00') {
+                merged.CallDuration = localDur;
+              }
+
+              // Preserve Closed Date
+              const serverClosed = serverFu.CallClosed || serverFu.callClosed;
+              const localClosed = localFu.CallClosed || localFu.callClosed;
+              if ((!serverClosed || serverClosed.startsWith('1900-01-01')) && localClosed && !localClosed.startsWith('1900-01-01')) {
+                merged.CallClosed = localClosed;
+              }
+
+              // Preserve Status
+              const serverStatus = serverFu.InternalStatusId ?? serverFu.StatusId;
+              const localStatus = localFu.InternalStatusId ?? localFu.StatusId;
+              if ((!serverStatus || serverStatus === 0) && localStatus) {
+                merged.InternalStatusId = localFu.InternalStatusId;
+                merged.InternalStatus = localFu.InternalStatus;
+                merged.StatusId = localFu.StatusId;
+              }
+
+              return merged;
+            });
+          } catch { return t.followUps; }
+        })();
 
         return {
           ...t,
@@ -206,22 +259,18 @@ export default function ChatWorkspace() {
               return Array.isArray(parsed) ? parsed : t.comments;
             } catch { return t.comments; }
           })(),
-          followUps: (() => {
-            if (!fresh.FollowUpList) return t.followUps;
-            try {
-              const parsed = typeof fresh.FollowUpList === 'string'
-                ? JSON.parse(fresh.FollowUpList)
-                : fresh.FollowUpList;
-              return Array.isArray(parsed) ? parsed : t.followUps;
-            } catch { return t.followUps; }
-          })(),
-          rawRecord: { ...t.rawRecord, ...fresh },
+          followUps: finalFollowUps,
+          rawRecord: { 
+            ...t.rawRecord, 
+            ...fresh,
+            FollowUpList: JSON.stringify(finalFollowUps) 
+          },
         };
-      });
+    });
 
-      if (hasChanges) {
-        callStreamService.threads$.next(merged);
-      }
+    if (hasChanges) {
+      callStreamService.threads$.next(merged);
+    }
   }, [liveCallLog]);
 
   // 2b. Initial Dedicated Fetch for NewCall (completely independent of CallLogger)
@@ -390,8 +439,8 @@ export default function ChatWorkspace() {
       topBarCompany && topBarCompany !== 'all'
         ? topBarCompany
         : selectedCompany && selectedCompany !== 'all'
-        ? selectedCompany
-        : '';
+          ? selectedCompany
+          : '';
     if (activeCompany) {
       newParams.set('company', Array.isArray(activeCompany) ? activeCompany.join(',') : activeCompany);
     }
@@ -672,10 +721,10 @@ export default function ChatWorkspace() {
     if (!isValidCallPayload(data)) return;
     callStreamService.addNewCall(data, false);
     const caller = data.callBy || data.company || 'Client';
-    toast.info(`New Incoming Call #${data.sr}`, {
-      description: `From ${caller} • ${data.description || data.appname || 'Voice call logged'}`,
-      duration: 5000,
-    });
+    // toast.info(`New Incoming Call #${data.sr}`, {
+    //   description: `From ${caller} • ${data.description || data.appname || 'Voice call logged'}`,
+    //   duration: 5000,
+    // });
   });
 
   useSocketEvent('AcceptCall', (data) => {
@@ -697,10 +746,10 @@ export default function ChatWorkspace() {
     const forwardedTo = (data.ForwardedEmp || data.forward?.person || '').trim().toLowerCase();
 
     if (currentUserName && forwardedTo && currentUserName === forwardedTo) {
-      toast.warning(`Call #${data.sr} Forwarded to You`, {
-        description: `From ${data.callBy || data.company || 'Client'} (${data.company || ''})`,
-        duration: 6000,
-      });
+      // toast.warning(`Call #${data.sr} Forwarded to You`, {
+      //   description: `From ${data.callBy || data.company || 'Client'} (${data.company || ''})`,
+      //   duration: 6000,
+      // });
     }
   });
 
@@ -789,8 +838,8 @@ export default function ChatWorkspace() {
           const effectiveDateStr = hasRealStart
             ? rawCallStart
             : hasRealCreated
-            ? rawCreated
-            : '';
+              ? rawCreated
+              : '';
 
           const fuStartMs = getEpochMs(
             effectiveDateStr,
@@ -911,20 +960,20 @@ export default function ChatWorkspace() {
 
             const attachmentData = hasAttachment
               ? {
-                  id: cItem.id || cIdx + 1,
-                  filename: filenameFromUrl ? `${filenameFromUrl}` : `Attachment_${cItem.id || '58'}`,
-                  subTitle: 'Image file',
-                  fileType: 'Image file',
-                  type: 'image',
-                  imgUrl: cItem.img,
-                  text: commentText,
-                }
+                id: cItem.id || cIdx + 1,
+                filename: filenameFromUrl ? `${filenameFromUrl}` : `Attachment_${cItem.id || '58'}`,
+                subTitle: 'Image file',
+                fileType: 'Image file',
+                type: 'image',
+                imgUrl: cItem.img,
+                text: commentText,
+              }
               : null;
 
             const isCurrentUser = Boolean(
               user?.firstname &&
               (cItem.Name || '').toLowerCase().trim() ===
-                `${user.firstname} ${user.lastname || ''}`.toLowerCase().trim()
+              `${user.firstname} ${user.lastname || ''}`.toLowerCase().trim()
             );
 
             items.push({
@@ -943,7 +992,7 @@ export default function ChatWorkspace() {
               sortTime: cSortTime,
             });
           });
-        } catch (_) {}
+        } catch (_) { }
       }
     }
 
@@ -963,16 +1012,16 @@ export default function ChatWorkspace() {
         items.push({
           id: `ticket-card-${rec.sr || 'main'}-${callId}`,
           dateGroup: ticketDate,
-          sender: rec.receivedBy || rec.AssignedEmpName || 'Support Team',
+          sender: rec.receivedBy || rec.AssignedEmpName,
           time: ticketTime,
           isTicketCard: true,
           sortTime: baseStartTime + 400,
           ticketData: {
             ticketId: resolvedTicketNo,
             ticketCreatedDate: rec.Ticket_CreatedDate || '',
-            ticketTitle: rec.description || rec.Descr || 'Helpdesk Ticket',
+            ticketTitle: rec.description || rec.Descr || '',
             appname: rec.appname || rec.company || '',
-            createdBy: rec.receivedBy || rec.AssignedEmpName || 'Support Agent',
+            createdBy: rec.receivedBy || rec.AssignedEmpName,
             company: rec.company || '',
             sr: rec.sr,
             rawRecord: rec,
@@ -990,7 +1039,7 @@ export default function ChatWorkspace() {
       items.push({
         id: `itask-card-${rec.sr || 'main'}-${callId}`,
         dateGroup: dateFormatted,
-        sender: rec.receivedBy || rec.AssignedEmpName || 'Support Team',
+        sender: rec.receivedBy || rec.AssignedEmpName,
         time: mainCallTime,
         isiTaskCard: true,
         sortTime: baseStartTime + 500,
@@ -998,7 +1047,7 @@ export default function ChatWorkspace() {
           taskId: rec.TaskId || rec.taskId,
           taskName: rec.description || rec.Descr || 'Call Task in iTask',
           customerName: rec.company || '',
-          assignedTo: rec.receivedBy || rec.AssignedEmpName || 'Support Agent',
+          assignedTo: rec.receivedBy || rec.AssignedEmpName,
           sr: rec.sr,
           rawRecord: rec,
         },
@@ -1166,13 +1215,13 @@ export default function ChatWorkspace() {
         setIsLoading(false);
       });
 
-    toast.info('All filters cleared');
+    // toast.info('All filters cleared');
   }, [navigate, location.pathname, debouncedFilterCallLog]);
 
   // Start Live VoIP Support Call & push call record via RxJS Stream
   const handleStartCall = useCallback(async () => {
     if (!activeThread) {
-      toast.error('Select a conversation to start a call');
+      // toast.error('Select a conversation to start a call');
       return;
     }
 
@@ -1184,12 +1233,12 @@ export default function ChatWorkspace() {
             result.error?.message ||
             result.msg?.stat_msg ||
             'You cannot start this call.';
-          toast.error(errMsg);
+          // toast.error(errMsg);
           return;
         }
       } catch (err) {
         console.error('startCall API error:', err);
-        toast.error(err?.message || 'Failed to start call');
+        // toast.error(err?.message || 'Failed to start call');
         return;
       }
     }
@@ -1210,9 +1259,7 @@ export default function ChatWorkspace() {
 
     const callData = callStreamService.startCall(activeThread);
     if (callData) {
-      toast.success('Live VoIP Call Started', {
-        description: `Connected with ${callData.callerName} (${callData.company})`,
-      });
+
     }
   }, [activeThread, callLogCtx, user]);
 
@@ -1223,12 +1270,11 @@ export default function ChatWorkspace() {
     try {
       const res = await callLogCtx.AcceptQueueCall(acceptCallState.callId);
       if (res && !res.success) {
-        toast.error(res.error?.message || 'Failed to accept call');
+        // toast.error(res.error?.message || 'Failed to accept call');
       } else if (res && res.success) {
-        toast.success('Call accepted successfully');
         const userName = user?.firstname
           ? `${user.firstname} ${user.lastname || ''}`.trim()
-          : user?.name || 'Support Executive';
+          : user?.name || 'unknown';
         callStreamService.patchPrimaryCall(acceptCallState.callId, {
           receivedBy: userName,
           AssignedEmpName: userName,
@@ -1239,7 +1285,7 @@ export default function ChatWorkspace() {
         callLogCtx?.triggerRefresh?.();
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to accept call');
+      // toast.error(err.message || 'Failed to accept call');
     } finally {
       setIsAcceptingQueue(false);
       acceptCallModal$.next(null);
@@ -1318,7 +1364,7 @@ export default function ChatWorkspace() {
           };
         } catch (uploadErr) {
           console.error('File upload failed:', uploadErr);
-          toast.error('Failed to upload attachment');
+          // toast.error('Failed to upload attachment');
           return;
         }
       } else if (fileOrAttachment) {
@@ -1362,11 +1408,10 @@ export default function ChatWorkspace() {
           } else {
             await CallLogApi.addCallComments(callLogSr, messageContent, uploadedUrl || '', user?.id, 0);
           }
-          toast.success('Comment posted');
           if (callLogCtx?.triggerRefresh) callLogCtx.triggerRefresh();
         } catch (error) {
           console.error('Error posting comment:', error);
-          toast.error('Could not save comment to server');
+          // toast.error('Could not save comment to server');
         }
       }
     },
@@ -1377,7 +1422,7 @@ export default function ChatWorkspace() {
     const currentFiltered = threads;
 
     if (currentFiltered.length === 0) {
-      toast.error('No call logs to export for selected filters');
+      // toast.error('No call logs to export for selected filters');
       return;
     }
 
@@ -1406,7 +1451,6 @@ export default function ChatWorkspace() {
     link.click();
     document.body.removeChild(link);
 
-    toast.success(`Exported ${currentFiltered.length} calls as CSV`);
   }, [threads]);
 
   return (
@@ -1558,7 +1602,7 @@ export default function ChatWorkspace() {
         onClose={closeAddCallModal}
         defaultCompany=""
         onSuccess={handleCallAdded}
-        onRecordToggle={() => {}}
+        onRecordToggle={() => { }}
       />
       <NewCallFollowUpModal />
       <NewCallEditModal />

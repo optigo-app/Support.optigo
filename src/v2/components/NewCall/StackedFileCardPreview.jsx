@@ -53,9 +53,9 @@ export default function StackedFileCardPreview({ attachment, filename, imgUrl, f
 
   const handleDownload = (e) => {
     e.stopPropagation();
-    toast.success(`Downloading ${rawName}`, {
-      description: 'Saved to downloads folder...',
-    });
+    // toast.success(`Downloading ${rawName}`, {
+    //   description: 'Saved to downloads folder...',
+    // });
   };
 
   return (

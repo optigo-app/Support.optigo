@@ -16,12 +16,7 @@ import { callStreamService } from '../../services/callStreamService';
 import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
 import CallLogApi from '../../apis/CallLogApiController';
-import {
-  openAddCallModal,
-  closeAddCallModal,
-  addCallModal$,
-  useNewCallSubject,
-} from './rxjs/newCallEvents';
+import {  openAddCallModal,  closeAddCallModal,  addCallModal$,  useNewCallSubject} from './rxjs/newCallEvents';
 import CallLogDrawer from '../CallLogger/SideBar';
 import NewCallFollowUpModal from './NewCallFollowUpModal';
 import NewCallEditModal from './NewCallEditModal';

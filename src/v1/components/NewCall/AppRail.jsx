@@ -75,9 +75,9 @@ export default function AppRail({ activeTab = 'call_log', setActiveTab }) {
 
   const handleStatusChange = (newStatus) => {
     callStreamService.setUserStatus(newStatus);
-    toast.success(`Status updated to ${newStatus.toUpperCase()}`, {
-      description: `Your status is now ${newStatus === 'active' ? 'Active & Available' : newStatus === 'away' ? 'Set as Away' : 'Do Not Disturb'}`,
-    });
+    // toast.success(`Status updated to ${newStatus.toUpperCase()}`, {
+    //   description: `Your status is now ${newStatus === 'active' ? 'Active & Available' : newStatus === 'away' ? 'Set as Away' : 'Do Not Disturb'}`,
+    // });
   };
 
   const getStatusColor = (status) => {
@@ -383,7 +383,7 @@ export default function AppRail({ activeTab = 'call_log', setActiveTab }) {
         <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.3 }}>
           <Box
             onClick={() => {
-              toast.info('Account Settings', { description: 'Opening User Profile Preferences...' });
+              // toast.info('Account Settings', { description: 'Opening User Profile Preferences...' });
               handleCloseProfile();
             }}
             sx={{
@@ -406,7 +406,7 @@ export default function AppRail({ activeTab = 'call_log', setActiveTab }) {
 
           <Box
             onClick={() => {
-              toast.info('Notification Preferences', { description: 'Opening Alert Settings...' });
+              // toast.info('Notification Preferences', { description: 'Opening Alert Settings...' });
               handleCloseProfile();
             }}
             sx={{
@@ -435,7 +435,7 @@ export default function AppRail({ activeTab = 'call_log', setActiveTab }) {
         <Box sx={{ p: 1 }}>
           <Box
             onClick={() => {
-              toast.warning('Signing Out', { description: 'Redirecting to login portal...' });
+              // toast.warning('Signing Out', { description: 'Redirecting to login portal...' });
               handleCloseProfile();
             }}
             sx={{

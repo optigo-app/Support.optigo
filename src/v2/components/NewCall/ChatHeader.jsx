@@ -145,7 +145,7 @@ export default function ChatHeader({
       }
 
       if (result && result.success === false) {
-        toast.error(result.error?.message || 'Failed to accept call');
+        // toast.error(result.error?.message || 'Failed to accept call');
         return;
       }
 
@@ -158,11 +158,11 @@ export default function ChatHeader({
         AssignedEmpName: userName,
       });
 
-      toast.success(`Call #${activeThread.sr} accepted and assigned to you!`);
+      // toast.success(`Call #${activeThread.sr} accepted and assigned to you!`);
       if (triggerRefresh) triggerRefresh();
     } catch (err) {
       console.error('Error accepting call:', err);
-      toast.error('Failed to accept call');
+      // toast.error('Failed to accept call');
     } finally {
       setIsAcceptingHeader(false);
     }
@@ -307,14 +307,14 @@ export default function ChatHeader({
         document.execCommand('copy');
         document.body.removeChild(textarea);
       }
-      toast.success(
-        resolvedTicketId
-          ? `Copied Call #${callId} & Ticket #${resolvedTicketId} info to clipboard`
-          : `Copied Call #${callId} info to clipboard`
-      );
+      // toast.success(
+      //   resolvedTicketId
+      //     ? `Copied Call #${callId} & Ticket #${resolvedTicketId} info to clipboard`
+      //     : `Copied Call #${callId} info to clipboard`
+      // );
     } catch (err) {
       console.error('Failed to copy call info:', err);
-      toast.error('Failed to copy information to clipboard');
+      // toast.error('Failed to copy information to clipboard');
     }
   };
 
@@ -322,7 +322,7 @@ export default function ChatHeader({
     setExtStatusAnchor(null);
     if (!activeThread?.sr && !activeThread?.id) return;
     if (!isCallEnded) {
-      toast.error('Cannot change status while call is still active. Please end the call first.');
+      // toast.error('Cannot change status while call is still active. Please end the call first.');
       return;
     }
     const statusVal = opt.value || opt.id || opt.label;
@@ -344,23 +344,23 @@ export default function ChatHeader({
           const errorMsg =
             res?.msg?.stat_msg ||
             'You do not have permission to change the External Status.';
-          toast.error(errorMsg);
+          // toast.error(errorMsg);
           return;
         }
         callStreamService.updateCallStatus(activeThread.id, {
           estatus: statusLabel,
           estatusId: statusVal,
         });
-        toast.success('The External status is updated.');
+        // toast.success('The External status is updated.');
       } catch (e) {
-        toast.error(e?.message || 'Failed to update external status');
+        // toast.error(e?.message || 'Failed to update external status');
       }
     } else {
       callStreamService.updateCallStatus(activeThread.id, {
         estatus: statusLabel,
         estatusId: statusVal,
       });
-      toast.success('The External status is updated.');
+      // toast.success('The External status is updated.');
     }
   };
 
@@ -368,7 +368,7 @@ export default function ChatHeader({
     setIntStatusAnchor(null);
     if (!activeThread?.sr && !activeThread?.id) return;
     if (!isCallEnded) {
-      toast.error('Cannot change status while call is still active. Please end the call first.');
+      // toast.error('Cannot change status while call is still active. Please end the call first.');
       return;
     }
     const statusVal = opt.value || opt.id || opt.label;
@@ -390,23 +390,23 @@ export default function ChatHeader({
           const errorMsg =
             res?.msg?.stat_msg ||
             'You do not have permission to change the Internal Status.';
-          toast.error(errorMsg);
+          // toast.error(errorMsg);
           return;
         }
         callStreamService.updateCallStatus(activeThread.id, {
           status: statusLabel,
           statusId: statusVal,
         });
-        toast.success('The Internal status is updated.');
+        // toast.success('The Internal status is updated.');
       } catch (e) {
-        toast.error(e?.message || 'Failed to update internal status');
+        // toast.error(e?.message || 'Failed to update internal status');
       }
     } else {
       callStreamService.updateCallStatus(activeThread.id, {
         status: statusLabel,
         statusId: statusVal,
       });
-      toast.success('The Internal status is updated.');
+      // toast.success('The Internal status is updated.');
     }
   };
 
@@ -427,23 +427,23 @@ export default function ChatHeader({
           const errorMsg =
             res?.msg?.stat_msg ||
             'You do not have permission to change the Priority.';
-          toast.error(errorMsg);
+          // toast.error(errorMsg);
           return;
         }
         callStreamService.updateCallStatus(activeThread.id, {
           priority: priorityLabel,
           priorityId: priorityVal,
         });
-        toast.success('The Priority is updated.');
+        // toast.success('The Priority is updated.');
       } catch (e) {
-        toast.error(e?.message || 'Failed to update priority');
+        // toast.error(e?.message || 'Failed to update priority');
       }
     } else {
       callStreamService.updateCallStatus(activeThread.id, {
         priority: priorityLabel,
         priorityId: priorityVal,
       });
-      toast.success('The Priority is updated.');
+      // toast.success('The Priority is updated.');
     }
   };
 
@@ -460,12 +460,12 @@ export default function ChatHeader({
           feedback: `Customer Rating: ${newRating} Stars`,
           ratingByCustomer: newRating,
         });
-        toast.success(`Rating updated to ${newRating} Stars`);
+        // toast.success(`Rating updated to ${newRating} Stars`);
       } catch (e) {
-        toast.error('Failed to save rating');
+        // toast.error('Failed to save rating');
       }
     } else {
-      toast.success(`Rating updated to ${newRating} Stars`);
+      // toast.success(`Rating updated to ${newRating} Stars`);
     }
   };
 
@@ -730,8 +730,20 @@ export default function ChatHeader({
             </Box>
             */}
 
-            {/* Sleek Slack-Style Status Buttons */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 0.5 }}>
+            {/* Modern Segmented Status Tray (Inspired by reference pill/segmented controls) */}
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.6,
+                p: '3px 4px',
+                bgcolor: '#F8FAFC',
+                borderRadius: '30px',
+                border: '1px solid #E2E8F0',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.03)',
+                ml: 0.5,
+              }}
+            >
               {/* External Status Pill */}
               <Tooltip
                 title={
@@ -743,7 +755,6 @@ export default function ChatHeader({
                 <Box
                   onClick={(e) => {
                     if (!isCallEnded) {
-                      toast.info('Status options are disabled until the call has ended.');
                       return;
                     }
                     setExtStatusAnchor(e.currentTarget);
@@ -752,28 +763,49 @@ export default function ChatHeader({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.6,
-                    px: 1,
-                    py: 0.3,
-                    borderRadius: '16px',
+                    px: 1.2,
+                    py: 0.4,
+                    height: 26,
+                    borderRadius: '20px',
                     bgcolor: extConfig.bg,
-                    border: `1px solid ${extConfig.border}`,
+                    border: `1.5px solid ${extConfig.border}`,
                     cursor: !isCallEnded ? 'not-allowed' : 'pointer',
-                    opacity: !isCallEnded ? 0.6 : 1,
-                    transition: 'all 0.15s ease',
+                    opacity: !isCallEnded ? 0.65 : 1,
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    transition: 'all 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
                     '&:hover': !isCallEnded
                       ? {}
-                      : { opacity: 0.85, transform: 'translateY(-0.5px)' },
+                      : {
+                        boxShadow: '0 3px 8px -1px rgba(0,0,0,0.1)',
+                        transform: 'translateY(-0.5px)',
+                        filter: 'brightness(0.97)',
+                      },
                   }}
                 >
-                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: extConfig.dotColor }} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 750, color: extConfig.color }}>
+                  <Box
+                    sx={{
+                      width: 6.5,
+                      height: 6.5,
+                      borderRadius: '50%',
+                      bgcolor: extConfig.dotColor,
+                      boxShadow: `0 0 0 2px ${extConfig.bg}`,
+                    }}
+                  />
+                  <Typography
+                    sx={{
+                      fontSize: 11.5,
+                      fontWeight: 750,
+                      color: extConfig.color,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
                     {currentExtStatus}
                   </Typography>
                   <CaretDown
-                    size={9}
+                    size={10}
                     weight="bold"
                     color={extConfig.color}
-                    style={{ opacity: !isCallEnded ? 0.35 : 1 }}
+                    style={{ opacity: !isCallEnded ? 0.4 : 0.85 }}
                   />
                 </Box>
               </Tooltip>
@@ -789,7 +821,6 @@ export default function ChatHeader({
                 <Box
                   onClick={(e) => {
                     if (!isCallEnded) {
-                      toast.info('Status options are disabled until the call has ended.');
                       return;
                     }
                     setIntStatusAnchor(e.currentTarget);
@@ -798,56 +829,52 @@ export default function ChatHeader({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.6,
-                    px: 1,
-                    py: 0.3,
-                    borderRadius: '16px',
+                    px: 1.2,
+                    py: 0.4,
+                    height: 26,
+                    borderRadius: '20px',
                     bgcolor: intConfig.bg,
-                    border: `1px solid ${intConfig.border}`,
+                    border: `1.5px solid ${intConfig.border}`,
                     cursor: !isCallEnded ? 'not-allowed' : 'pointer',
-                    opacity: !isCallEnded ? 0.6 : 1,
-                    transition: 'all 0.15s ease',
+                    opacity: !isCallEnded ? 0.65 : 1,
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    transition: 'all 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
                     '&:hover': !isCallEnded
                       ? {}
-                      : { opacity: 0.85, transform: 'translateY(-0.5px)' },
+                      : {
+                        boxShadow: '0 3px 8px -1px rgba(0,0,0,0.1)',
+                        transform: 'translateY(-0.5px)',
+                        filter: 'brightness(0.97)',
+                      },
                   }}
                 >
-                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: intConfig.dotColor }} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 750, color: intConfig.color }}>
+                  <Box
+                    sx={{
+                      width: 6.5,
+                      height: 6.5,
+                      borderRadius: '50%',
+                      bgcolor: intConfig.dotColor,
+                      boxShadow: `0 0 0 2px ${intConfig.bg}`,
+                    }}
+                  />
+                  <Typography
+                    sx={{
+                      fontSize: 11.5,
+                      fontWeight: 750,
+                      color: intConfig.color,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
                     {currentIntStatus}
                   </Typography>
                   <CaretDown
-                    size={9}
+                    size={10}
                     weight="bold"
                     color={intConfig.color}
-                    style={{ opacity: !isCallEnded ? 0.35 : 1 }}
+                    style={{ opacity: !isCallEnded ? 0.4 : 0.85 }}
                   />
                 </Box>
               </Tooltip>
-
-              {/* Rating Pill */}
-              {/* <Tooltip title={currentRating > 0 ? `Rated ${currentRating} Stars (Click to edit)` : 'Rate this call'}>
-                <Box
-                  onClick={(e) => setRatingAnchor(e.currentTarget)}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.4,
-                    px: 0.9,
-                    py: 0.3,
-                    borderRadius: '16px',
-                    bgcolor: currentRating > 0 ? '#FFFBEB' : '#F8FAFC',
-                    border: currentRating > 0 ? '1px solid #FDE68A' : '1px solid #E2E8F0',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    '&:hover': { bgcolor: '#FEF3C7' },
-                  }}
-                >
-                  <Star size={12} weight="fill" color={currentRating > 0 ? '#D97706' : '#94A3B8'} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 750, color: currentRating > 0 ? '#92400E' : '#64748B' }}>
-                    {currentRating > 0 ? `${currentRating}.0` : 'Rate'}
-                  </Typography>
-                </Box>
-              </Tooltip> */}
 
               {/* Priority Pill */}
               <Tooltip title="Click to change Priority">
@@ -856,54 +883,37 @@ export default function ChatHeader({
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 0.4,
-                    px: 0.9,
-                    py: 0.3,
-                    borderRadius: '16px',
+                    gap: 0.5,
+                    px: 1.2,
+                    py: 0.4,
+                    height: 26,
+                    borderRadius: '20px',
                     bgcolor: priConfig.bg,
-                    border: `1px solid ${priConfig.border}`,
+                    border: `1.5px solid ${priConfig.border}`,
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    '&:hover': { opacity: 0.85, transform: 'translateY(-0.5px)' },
-                  }}
-                >
-                  <Lightning size={12} weight="fill" color={priConfig.dotColor} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 750, color: priConfig.color }}>
-                    {currentPriority}
-                  </Typography>
-                  <CaretDown size={9} weight="bold" color={priConfig.color} />
-                </Box>
-              </Tooltip>
-
-              {/* Customer Rating Chip & Menu Trigger */}
-              {/* <Tooltip title="Customer Rating (Click to update)" arrow>
-                <Box
-                  onClick={(e) => setRatingAnchor(e.currentTarget)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.4,
-                    px: 0.8,
-                    py: 0.2,
-                    borderRadius: '12px',
-                    bgcolor: currentRating > 0 ? '#FEF3C7' : '#F8FAFC',
-                    border: `1px solid ${currentRating > 0 ? '#FDE68A' : '#E2E8F0'}`,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    transition: 'all 0.15s ease',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    transition: 'all 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
                     '&:hover': {
-                      bgcolor: '#FDF0CD',
-                      borderColor: '#FCD34D',
+                      boxShadow: '0 3px 8px -1px rgba(0,0,0,0.1)',
+                      transform: 'translateY(-0.5px)',
+                      filter: 'brightness(0.97)',
                     },
                   }}
                 >
-                  <Star size={12} weight={currentRating > 0 ? 'fill' : 'regular'} color={currentRating > 0 ? '#D97706' : '#94A3B8'} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 750, color: currentRating > 0 ? '#92400E' : '#64748B' }}>
-                    {currentRating > 0 ? `${currentRating} ★` : 'Rating'}
+                  <Lightning size={12} weight="fill" color={priConfig.dotColor} />
+                  <Typography
+                    sx={{
+                      fontSize: 11.5,
+                      fontWeight: 750,
+                      color: priConfig.color,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {currentPriority}
                   </Typography>
-                  <CaretDown size={9} weight="bold" color={currentRating > 0 ? '#92400E' : '#64748B'} />
+                  <CaretDown size={10} weight="bold" color={priConfig.color} style={{ opacity: 0.85 }} />
                 </Box>
-              </Tooltip> */}
+              </Tooltip>
 
               {/* Escalation / Forwarded Indicator */}
               {isForwarded && (
@@ -912,12 +922,14 @@ export default function ChatHeader({
                   label="Forwarded"
                   size="small"
                   sx={{
-                    height: 20,
+                    height: 22,
                     bgcolor: '#FAF5FF',
                     color: '#6900C6',
                     border: '1px solid #DDD6FE',
-                    fontWeight: 750,
-                    fontSize: 9.5,
+                    fontWeight: 800,
+                    fontSize: 10,
+                    borderRadius: '20px',
+                    px: 0.3,
                   }}
                 />
               )}
@@ -970,11 +982,17 @@ export default function ChatHeader({
           open={Boolean(extStatusAnchor)}
           onClose={() => setExtStatusAnchor(null)}
           PaperProps={{
-            sx: { borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 190, p: 0.5 },
+            sx: {
+              borderRadius: '16px',
+              boxShadow: '0 16px 40px -6px rgba(15,23,42,0.14), 0 4px 16px -2px rgba(15,23,42,0.06)',
+              minWidth: 200,
+              p: 0.8,
+              border: '1px solid #F1F5F9',
+            },
           }}
         >
-          <Typography sx={{ px: 1.5, py: 0.6, fontSize: 11, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>
-            Update External Status
+          <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            External Status
           </Typography>
           {(ESTATUS_LIST.length > 0 ? ESTATUS_LIST : EXTERNAL_STATUS_FALLBACK)
             .filter((opt) => {
@@ -992,17 +1010,28 @@ export default function ChatHeader({
                   onClick={() => handleUpdateExtStatus(opt)}
                   sx={{
                     fontSize: 12.5,
-                    fontWeight: isSelected ? 800 : 550,
+                    fontWeight: isSelected ? 700 : 500,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1,
-                    borderRadius: '6px',
+                    gap: 1.2,
+                    borderRadius: '10px',
+                    px: 1.5,
+                    py: 0.85,
                     my: 0.2,
-                    bgcolor: isSelected ? '#F1F5F9' : 'transparent',
+                    color: isSelected ? '#0F172A' : '#475569',
+                    bgcolor: isSelected ? '#F8FAFC' : 'transparent',
+                    border: isSelected ? '1px solid #E2E8F0' : '1px solid transparent',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#F1F5F9',
+                    },
                   }}
                 >
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
-                  {label}
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor, boxShadow: `0 0 6px ${itemStyle.dotColor}66` }} />
+                  <span style={{ flex: 1 }}>{label}</span>
+                  {isSelected && (
+                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0EA5E9' }} />
+                  )}
                 </MenuItem>
               );
             })}
@@ -1014,11 +1043,17 @@ export default function ChatHeader({
           open={Boolean(intStatusAnchor)}
           onClose={() => setIntStatusAnchor(null)}
           PaperProps={{
-            sx: { borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 190, p: 0.5 },
+            sx: {
+              borderRadius: '16px',
+              boxShadow: '0 16px 40px -6px rgba(15,23,42,0.14), 0 4px 16px -2px rgba(15,23,42,0.06)',
+              minWidth: 200,
+              p: 0.8,
+              border: '1px solid #F1F5F9',
+            },
           }}
         >
-          <Typography sx={{ px: 1.5, py: 0.6, fontSize: 11, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>
-            Update Internal Status
+          <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Internal Status
           </Typography>
           {(STATUS_LIST.length > 0 ? STATUS_LIST : INTERNAL_STATUS_FALLBACK)
             .filter((opt) => {
@@ -1036,17 +1071,28 @@ export default function ChatHeader({
                   onClick={() => handleUpdateIntStatus(opt)}
                   sx={{
                     fontSize: 12.5,
-                    fontWeight: isSelected ? 800 : 550,
+                    fontWeight: isSelected ? 700 : 500,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1,
-                    borderRadius: '6px',
+                    gap: 1.2,
+                    borderRadius: '10px',
+                    px: 1.5,
+                    py: 0.85,
                     my: 0.2,
-                    bgcolor: isSelected ? '#F1F5F9' : 'transparent',
+                    color: isSelected ? '#0F172A' : '#475569',
+                    bgcolor: isSelected ? '#F8FAFC' : 'transparent',
+                    border: isSelected ? '1px solid #E2E8F0' : '1px solid transparent',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#F1F5F9',
+                    },
                   }}
                 >
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
-                  {label}
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor, boxShadow: `0 0 6px ${itemStyle.dotColor}66` }} />
+                  <span style={{ flex: 1 }}>{label}</span>
+                  {isSelected && (
+                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0EA5E9' }} />
+                  )}
                 </MenuItem>
               );
             })}
@@ -1058,11 +1104,17 @@ export default function ChatHeader({
           open={Boolean(priorityAnchor)}
           onClose={() => setPriorityAnchor(null)}
           PaperProps={{
-            sx: { borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 180, p: 0.5 },
+            sx: {
+              borderRadius: '16px',
+              boxShadow: '0 16px 40px -6px rgba(15,23,42,0.14), 0 4px 16px -2px rgba(15,23,42,0.06)',
+              minWidth: 190,
+              p: 0.8,
+              border: '1px solid #F1F5F9',
+            },
           }}
         >
-          <Typography sx={{ px: 1.5, py: 0.6, fontSize: 11, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>
-            Update Priority
+          <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Priority Level
           </Typography>
           {(PRIORITY_LIST.length > 0 ? PRIORITY_LIST : [
             { value: 1, label: 'High' },
@@ -1079,17 +1131,28 @@ export default function ChatHeader({
                 onClick={() => handleUpdatePriority(opt)}
                 sx={{
                   fontSize: 12.5,
-                  fontWeight: isSelected ? 800 : 550,
+                  fontWeight: isSelected ? 700 : 500,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1,
-                  borderRadius: '6px',
+                  gap: 1.2,
+                  borderRadius: '10px',
+                  px: 1.5,
+                  py: 0.85,
                   my: 0.2,
-                  bgcolor: isSelected ? '#F1F5F9' : 'transparent',
+                  color: isSelected ? '#0F172A' : '#475569',
+                  bgcolor: isSelected ? '#F8FAFC' : 'transparent',
+                  border: isSelected ? '1px solid #E2E8F0' : '1px solid transparent',
+                  transition: 'all 0.15s ease',
+                  '&:hover': {
+                    bgcolor: '#F1F5F9',
+                  },
                 }}
               >
                 <Lightning size={14} weight="fill" color={itemStyle.dotColor} />
-                {label}
+                <span style={{ flex: 1 }}>{label}</span>
+                {isSelected && (
+                  <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0EA5E9' }} />
+                )}
               </MenuItem>
             );
           })}
@@ -1352,7 +1415,7 @@ export default function ChatHeader({
                             res.error?.message ||
                             res.msg?.stat_msg ||
                             'Failed to start follow-up call';
-                          toast.error(errMsg);
+                          // toast.error(errMsg);
                           return;
                         }
                       }
@@ -1367,12 +1430,12 @@ export default function ChatHeader({
                           ? `Forwarded Call #${fu.Id}`
                           : `Follow-Up #${fu.Id}`,
                       });
-                      toast.success(
-                        `Started ${isForward ? 'Forwarded' : 'Follow-Up'} Call #${fu.Id}`
-                      );
+                      // toast.success(
+                      //   `Started ${isForward ? 'Forwarded' : 'Follow-Up'} Call #${fu.Id}`
+                      // );
                     } catch (err) {
                       console.error('Error starting follow-up:', err);
-                      toast.error(err?.message || 'Failed to start follow-up');
+                      // toast.error(err?.message || 'Failed to start follow-up');
                     }
                   }}
                   sx={{ borderRadius: '6px', py: 1, display: 'flex', gap: 1.2, my: 0.3 }}

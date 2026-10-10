@@ -283,7 +283,7 @@ export default function RightDetailInspector({
     const summary = `Call #${rec.sr || activeThread?.sr || ''} | ${rec.company || activeThread?.company || ''} | Caller: ${rec.callBy || activeThread?.name || ''} | Agent: ${rec.receivedBy || rec.AssignedEmpName || ''} | Status: ${rec.status || ''}`;
     navigator.clipboard.writeText(summary);
     setCopied(true);
-    toast.success('Call summary copied to clipboard');
+    // toast.success('Call summary copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
   };
 
