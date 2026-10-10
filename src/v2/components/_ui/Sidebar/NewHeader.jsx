@@ -30,7 +30,6 @@ import { useAuth } from "../../../context/UseAuth";
 import { useCallLog } from "../../../context/UseCallLog";
 import { useGreeting } from "../../../hooks/useGreeting";
 import { removeSkeyCookie } from "../../../utils/AuthUtils";
-import ForwardedCallsPopover from "../Header/ForwardedCallsPopover";
 import GreetingButton from "../Header/GreetingButton";
 import GlobalSearchBar from "../Header/GlobalSearchBar";
 import AccountPopover from "../Header/AccountPopover";
@@ -44,6 +43,7 @@ import { getAppBasePath } from "../../../utils/AppBasePath";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import { callStreamService } from "../../NewCall/services/callStreamService";
+import ForwardedCallDrawer from "../../CallLogger/ForwardedCallDrawer";
 
 const NewHeader = () => {
   const navigate = useNavigate();
@@ -367,13 +367,15 @@ const NewHeader = () => {
         </Stack>
       </Box>
 
-      {/* ── Forwarded Calls Popover ── */}
-      <ForwardedCallsPopover
-        openPopover={Boolean(fwdAnchorEl)}
-        anchorEl={fwdAnchorEl}
-        handlePopoverClose={handleFwdClose}
+      {/* ── Forwarded Calls Drawer ── */}
+      <ForwardedCallDrawer
+        open={Boolean(fwdAnchorEl)}
+        onClose={handleFwdClose}
         forwardedCalls={forwardedCalls}
-        OnForwardClick={handleForwardClick}
+        onCallClick={(call) => {
+          handleForwardClick(call);
+          handleFwdClose();
+        }}
       />
 
       {/* ── Workspace / Account Switcher Popover ── */}

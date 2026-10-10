@@ -50,6 +50,7 @@ export default function AirbnbDateRangePicker({
   startDate = null,
   endDate = null,
   onChange,
+  triggerStyle = {},
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(startDate || new Date());
@@ -341,6 +342,7 @@ export default function AirbnbDateRangePicker({
             borderColor: hasDateFilter ? '#60A5FA' : '#CBD5E1',
             boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
           },
+          ...triggerStyle,
         }}
       >
         <IconButton

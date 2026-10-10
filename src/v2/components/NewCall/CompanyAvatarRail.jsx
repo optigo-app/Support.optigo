@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Tooltip,
@@ -34,7 +34,12 @@ export default function CompanyAvatarRail({
   const [viewMode, setViewMode] = useState('list'); // 'list' (expanded) | 'circle' (compact)
 
   const isListMode = viewMode === 'list';
-  const targetWidth = isListMode ? 190 : 58;
+  const targetWidth = isListMode ? 190 : 72;
+
+  const sortedCompanies = useMemo(() => {
+    if (!companies || !Array.isArray(companies)) return [];
+    return companies;
+  }, [companies]);
 
   return (
     <Box
@@ -42,7 +47,7 @@ export default function CompanyAvatarRail({
         width: open ? targetWidth : 0,
         minWidth: open ? targetWidth : 0,
         maxWidth: open ? targetWidth : 0,
-        bgcolor: '#F8FAFC',
+        bgcolor: '#FFFFFF',
         borderRight: open ? '1px solid #E5E7EB' : 'none',
         borderTopLeftRadius: '12px',
         overflow: 'hidden',
@@ -191,7 +196,7 @@ export default function CompanyAvatarRail({
               /* ============================================================== */
               /* 1. EXPANDED LIST VIEW (Full Company Names & Counts)            */
               /* ============================================================== */
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, mt: 1 }}>
                 {/* All Companies item */}
                 {(() => {
                   const isAllSelected = !selectedCompany || selectedCompany === 'all' || (Array.isArray(selectedCompany) && selectedCompany.length === 0);
@@ -205,22 +210,23 @@ export default function CompanyAvatarRail({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        px: 1,
-                        py: 0.8,
-                        bgcolor: isAllSelected ? '#EDE9FE' : 'transparent',
+                        px: 1.2,
+                        py: 0.7,
+                        mx: 0.8,
+                        bgcolor: isAllSelected ? '#F1F5F9' : 'transparent',
                         cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        borderRadius: "0px",
-                        '&:hover': { bgcolor: isAllSelected ? '#EDE9FE' : '#F1F5F9' },
+                        transition: 'all 0.12s ease',
+                        borderRadius: "8px",
+                        '&:hover': { bgcolor: isAllSelected ? '#E2E8F0' : '#F1F5F9' },
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                        <SquaresFour size={16} weight="bold" color={isAllSelected ? '#6900C6' : '#64748B'} />
+                        <SquaresFour size={16} weight="bold" color={isAllSelected ? '#0F172A' : '#64748B'} />
                         <Typography
                           sx={{
                             fontSize: 12,
-                            fontWeight: isAllSelected ? 800 : 600,
-                            color: isAllSelected ? '#6900C6' : '#1E293B',
+                            fontWeight: isAllSelected ? 700 : 600,
+                            color: isAllSelected ? '#0F172A' : '#334155',
                           }}
                         >
                           All Company
@@ -233,8 +239,8 @@ export default function CompanyAvatarRail({
                           height: 18,
                           fontSize: 10,
                           fontWeight: 750,
-                          bgcolor: isAllSelected ? '#6900C6' : '#E2E8F0',
-                          color: isAllSelected ? '#FFFFFF' : '#475569',
+                          bgcolor: isAllSelected ? '#0F172A' : '#F1F5F9',
+                          color: isAllSelected ? '#FFFFFF' : '#64748B',
                         }}
                       />
                     </Box>
@@ -242,7 +248,7 @@ export default function CompanyAvatarRail({
                 })()}
 
                 {/* Company rows */}
-                {companies?.map((comp) => {
+                {sortedCompanies?.map((comp) => {
                   const norm = (s) => (s ? String(s).toLowerCase().replace(/[\s\-_]/g, '') : '');
                   const compNorm = norm(comp.name);
                   const isSelected = Array.isArray(selectedCompany)
@@ -258,13 +264,14 @@ export default function CompanyAvatarRail({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        px: 1,
-                        py: 0.7,
-                        borderRadius: "0px",
-                        bgcolor: isSelected ? '#EDE9FE' : 'transparent',
+                        px: 1.2,
+                        py: 0.5,
+                        mx: 0.8,
+                        borderRadius: "8px",
+                        bgcolor: isSelected ? '#F1F5F9' : 'transparent',
                         cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        '&:hover': { bgcolor: isSelected ? '#EDE9FE' : '#F1F5F9' },
+                        transition: 'all 0.12s ease',
+                        '&:hover': { bgcolor: isSelected ? '#E2E8F0' : '#F1F5F9' },
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
@@ -274,7 +281,7 @@ export default function CompanyAvatarRail({
                             height: 22,
                             fontSize: 10,
                             fontWeight: 800,
-                            bgcolor: comp.avatarColor || '#6900C6',
+                            bgcolor: comp.avatarColor || '#0F172A',
                             color: '#FFFFFF',
                             flexShrink: 0,
                           }}
@@ -284,8 +291,8 @@ export default function CompanyAvatarRail({
                         <Typography
                           sx={{
                             fontSize: 11.5,
-                            fontWeight: isSelected ? 800 : 600,
-                            color: isSelected ? '#6900C6' : '#334155',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isSelected ? '#0F172A' : '#334155',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -302,8 +309,8 @@ export default function CompanyAvatarRail({
                           height: 18,
                           fontSize: 9.5,
                           fontWeight: 750,
-                          bgcolor: isSelected ? '#DDD6FE' : '#F1F5F9',
-                          color: isSelected ? '#6900C6' : '#64748B',
+                          bgcolor: isSelected ? '#E2E8F0' : '#F1F5F9',
+                          color: isSelected ? '#0F172A' : '#64748B',
                         }}
                       />
                     </Box>
@@ -314,42 +321,55 @@ export default function CompanyAvatarRail({
               /* ============================================================== */
               /* 2. COMPACT CIRCLE AVATARS VIEW                                 */
               /* ============================================================== */
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, width: '100%', px: 0.5 }}>
                 {/* All Companies Icon Button */}
                 <Tooltip title="All Companies & Direct Messages" placement="right" arrow>
                   <Box
                     onClick={() => onSelectCompany('all')}
                     sx={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: selectedCompany === 'all' ? '#6900C6' : '#F1F5F9',
-                      color: selectedCompany === 'all' ? '#FFFFFF' : '#475569',
+                      gap: 0.5,
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      boxShadow: selectedCompany === 'all' ? '0 0 0 2px #DDD6FE' : 'none',
+                      mt: 0.5,
+                      px: 1,
+                      py: 0.8,
+                      mx: 0.5,
+                      borderRadius: '8px',
+                      bgcolor: selectedCompany === 'all' ? '#F1F5F9' : 'transparent',
+                      transition: 'all 0.12s ease',
                       '&:hover': {
-                        bgcolor: selectedCompany === 'all' ? '#5300A0' : '#E2E8F0',
+                        bgcolor: selectedCompany === 'all' ? '#E2E8F0' : '#F1F5F9',
                       },
+                      width: '100%'
                     }}
                   >
-                    <SquaresFour size={18} weight={selectedCompany === 'all' ? 'fill' : 'bold'} />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: selectedCompany === 'all' ? '#0F172A' : '#64748B',
+                      }}
+                    >
+                      <SquaresFour size={24} weight={selectedCompany === 'all' ? 'fill' : 'regular'} />
+                    </Box>
+                    <Typography sx={{ fontSize: 11, fontWeight: selectedCompany === 'all' ? 700 : 500, color: '#0F172A' }}>
+                      All
+                    </Typography>
                   </Box>
                 </Tooltip>
-
-                <Box sx={{ width: 24, height: '1px', bgcolor: '#E2E8F0', my: 0.3 }} />
-
                 {/* Company Circle Avatars */}
-                {companies.map((comp) => {
+                {sortedCompanies.map((comp) => {
                   const norm = (s) => (s ? String(s).toLowerCase().replace(/[\s\-_]/g, '') : '');
                   const compNorm = norm(comp.name);
                   const isSelected = Array.isArray(selectedCompany)
                     ? selectedCompany.some((c) => norm(c) === compNorm || (comp.projectId && String(comp.projectId) === String(c)))
                     : ((typeof selectedCompany === 'string' || typeof selectedCompany === 'number') &&
                       (norm(selectedCompany) === compNorm || (comp.projectId && String(comp.projectId) === String(selectedCompany))));
+
+                  const shortName = comp.name.length > 7 ? comp.name.slice(0, 6) + '...' : comp.name;
 
                   return (
                     <Tooltip
@@ -363,50 +383,70 @@ export default function CompanyAvatarRail({
                       placement="right"
                       arrow
                     >
-                      <Box sx={{ position: 'relative' }}>
+                      <Box
+                        onClick={() => onSelectCompany(comp.projectId || comp.name)}
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          cursor: 'pointer',
+                          position: 'relative',
+                          px: 1,
+                          py: 0.8,
+                          mx: 0.5,
+                          borderRadius: '8px',
+                          bgcolor: isSelected ? '#F1F5F9' : 'transparent',
+                          transition: 'all 0.12s ease',
+                          '&:hover': {
+                            bgcolor: isSelected ? '#E2E8F0' : '#F1F5F9',
+                          },
+                          width: '100%'
+                        }}
+                      >
                         <Avatar
-                          onClick={() => onSelectCompany(comp.projectId || comp.name)}
+                          variant="rounded"
                           sx={{
-                            width: 36,
-                            height: 36,
-                            bgcolor: comp.avatarColor || '#6900C6',
+                            width: 28,
+                            height: 28,
+                            borderRadius: '8px',
+                            bgcolor: comp.avatarColor || '#0F172A',
                             color: '#FFFFFF',
-                            fontSize: 12.5,
+                            fontSize: 12,
                             fontWeight: 800,
-                            cursor: 'pointer',
-                            boxShadow: isSelected
-                              ? `0 0 0 2px #FFFFFF, 0 0 0 4px ${comp.avatarColor || '#6900C6'}`
-                              : '0 1px 3px rgba(0,0,0,0.1)',
-                            transition: 'all 0.15s ease',
-                            transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                            '&:hover': {
-                              transform: 'scale(1.1)',
-                              boxShadow: `0 0 0 2px #FFFFFF, 0 0 0 3px ${comp.avatarColor || '#6900C6'}`,
-                            },
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                           }}
                         >
                           {comp.initial}
                         </Avatar>
 
+                        <Typography sx={{ fontSize: 11, fontWeight: isSelected ? 700 : 500, color: '#0F172A', mt: 0.2 }}>
+                          {shortName}
+                        </Typography>
+
                         {/* Call count badge */}
-                        {comp.count > 1 && (
+                        {comp.count > 0 && (
                           <Box
                             sx={{
                               position: 'absolute',
-                              top: -2,
-                              right: -2,
-                              bgcolor: '#1E293B',
-                              color: '#FFFFFF',
-                              fontSize: 8.5,
+                              top: 2,
+                              right: 2,
+                              bgcolor: '#DC2626',
+                              color: '#fff',
+                              fontSize: 9,
                               fontWeight: 800,
-                              borderRadius: '10px',
-                              px: 0.4,
-                              py: 0.05,
-                              border: '1.5px solid #F8FAFC',
-                              lineHeight: 1,
+                              height: 16,
+                              minWidth: 16,
+                              px: 0.5,
+                              borderRadius: 8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 0 0 2px #FFFFFF',
+                              zIndex: 2,
                             }}
                           >
-                            {comp.count}
+                            {comp.count > 99 ? '99+' : comp.count}
                           </Box>
                         )}
                       </Box>

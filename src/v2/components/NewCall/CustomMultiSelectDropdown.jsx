@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -17,6 +17,53 @@ import {
   X,
 } from '@phosphor-icons/react';
 
+const OptionItem = React.memo(({ opt, isChecked, onToggle }) => (
+  <Box
+    onClick={() => onToggle(opt.id)}
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1.2,
+      px: 1.2,
+      py: 0.65,
+      borderRadius: '6px',
+      bgcolor: isChecked ? '#F1F5F9' : 'transparent',
+      cursor: 'pointer',
+      transition: 'all 0.12s ease',
+      userSelect: 'none',
+      '&:hover': {
+        bgcolor: isChecked ? '#E2E8F0' : '#F8FAFC',
+      },
+    }}
+  >
+    <Checkbox
+      checked={isChecked}
+      size="small"
+      tabIndex={-1}
+      disableRipple
+      sx={{
+        p: 0,
+        pointerEvents: 'none',
+        flexShrink: 0,
+        color: '#CBD5E1',
+        '&.Mui-checked': { color: '#0F172A' },
+      }}
+    />
+    <Typography
+      sx={{
+        fontSize: '0.84rem',
+        color: isChecked ? '#0F172A' : '#334155',
+        fontWeight: isChecked ? 600 : 500,
+        flex: 1,
+        noWrap: true,
+      }}
+    >
+      {opt.label}
+    </Typography>
+    {isChecked && <Check size={14} color="#0F172A" weight="bold" style={{ flexShrink: 0 }} />}
+  </Box>
+));
+
 export default function CustomMultiSelectDropdown({
   title = 'Select',
   options = [], // Array of string labels or { id, label } objects
@@ -26,6 +73,7 @@ export default function CustomMultiSelectDropdown({
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [tempSelected, setTempSelected] = useState(selectedValues);
 
   const open = Boolean(anchorEl);
@@ -81,10 +129,20 @@ export default function CustomMultiSelectDropdown({
 
   // Filtered options based on internal search query
   const filteredOptions = useMemo(() => {
-    if (!searchQuery.trim()) return normalizedOptions;
-    const q = searchQuery.toLowerCase().trim();
-    return normalizedOptions.filter((opt) => opt.label.toLowerCase().includes(q));
-  }, [normalizedOptions, searchQuery]);
+    let result = [...normalizedOptions];
+    if (deferredSearchQuery.trim()) {
+      const q = deferredSearchQuery.toLowerCase().trim();
+      result = result.filter((opt) => opt.label.toLowerCase().includes(q));
+    }
+    // Sort so selected items appear at the top
+    return result.sort((a, b) => {
+      const aSelected = tempSelected.includes(a.id);
+      const bSelected = tempSelected.includes(b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      return 0;
+    });
+  }, [normalizedOptions, deferredSearchQuery, tempSelected]);
 
   // Check state calculations
   const allSelected =
@@ -100,13 +158,15 @@ export default function CustomMultiSelectDropdown({
     }
   };
 
-  const handleToggleItem = (id) => {
-    if (tempSelected.includes(id)) {
-      setTempSelected(tempSelected.filter((v) => v !== id));
-    } else {
-      setTempSelected([...tempSelected, id]);
-    }
-  };
+  const handleToggleItem = useCallback((id) => {
+    setTempSelected((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((v) => v !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  }, []);
 
   // Trigger button label display
   const triggerLabel = useMemo(() => {
@@ -202,7 +262,7 @@ export default function CustomMultiSelectDropdown({
             mt: 0.8,
             width: 280,
             borderRadius: '12px',
-            boxShadow: '0 16px 40px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.08)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)',
             overflow: 'hidden',
             bgcolor: '#FFFFFF',
           },
@@ -223,10 +283,10 @@ export default function CustomMultiSelectDropdown({
                 onClick={handleClear}
                 sx={{
                   fontSize: '0.72rem',
-                  fontWeight: 700,
-                  color: '#2563EB',
+                  fontWeight: 650,
+                  color: '#64748B',
                   cursor: 'pointer',
-                  '&:hover': { textDecoration: 'underline' },
+                  '&:hover': { color: '#0F172A', textDecoration: 'underline' },
                 }}
               >
                 Clear all
@@ -246,13 +306,12 @@ export default function CustomMultiSelectDropdown({
               height: 34,
               transition: 'all 0.15s ease',
               '&:focus-within': {
-                borderColor: '#2563EB',
+                borderColor: '#94A3B8',
                 bgcolor: '#FFFFFF',
-                boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.12)',
               },
             }}
           >
-            <MagnifyingGlass size={15} color="#2563EB" weight="bold" style={{ flexShrink: 0 }} />
+            <MagnifyingGlass size={15} color="#94A3B8" weight="bold" style={{ flexShrink: 0 }} />
             <InputBase
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -285,29 +344,31 @@ export default function CustomMultiSelectDropdown({
               px: 1.2,
               py: 0.7,
               borderRadius: '6px',
-              bgcolor: allSelected ? '#EFF6FF' : '#F8FAFC',
-              border: allSelected ? '1px solid #BFDBFE' : '1px solid transparent',
+              bgcolor: allSelected ? '#F1F5F9' : 'transparent',
               cursor: 'pointer',
               transition: 'all 0.12s ease',
-              '&:hover': { bgcolor: allSelected ? '#DBEAFE' : '#F1F5F9' },
+              '&:hover': { bgcolor: '#F8FAFC' },
             }}
           >
             <Checkbox
               checked={allSelected}
               indeterminate={isIndeterminate}
-              onChange={handleToggleAll}
               size="small"
+              tabIndex={-1}
+              disableRipple
               sx={{
                 p: 0,
+                pointerEvents: 'none',
+                flexShrink: 0,
                 color: '#CBD5E1',
-                '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#2563EB' },
+                '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#0F172A' },
               }}
             />
             <Typography
               sx={{
-                fontWeight: 800,
+                fontWeight: 600,
                 fontSize: '0.84rem',
-                color: '#2563EB',
+                color: allSelected ? '#0F172A' : '#334155',
                 userSelect: 'none',
               }}
             >
@@ -322,8 +383,8 @@ export default function CustomMultiSelectDropdown({
                   ml: 'auto',
                   height: 18,
                   fontSize: '0.62rem',
-                  fontWeight: 800,
-                  bgcolor: '#2563EB',
+                  fontWeight: 700,
+                  bgcolor: '#0F172A',
                   color: '#FFFFFF',
                 }}
               />
@@ -355,80 +416,37 @@ export default function CustomMultiSelectDropdown({
               No matching options found
             </Typography>
           ) : (
-            filteredOptions.map((opt) => {
-              const isChecked = tempSelected.includes(opt.id);
-
-              return (
-                <Box
-                  key={opt.id}
-                  onClick={() => handleToggleItem(opt.id)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.2,
-                    px: 1.2,
-                    py: 0.65,
-                    borderRadius: '6px',
-                    bgcolor: isChecked ? '#EFF6FF' : 'transparent',
-                    border: isChecked ? '1px solid #BFDBFE' : '1px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.12s ease',
-                    userSelect: 'none',
-                    '&:hover': {
-                      bgcolor: isChecked ? '#DBEAFE' : '#F8FAFC',
-                    },
-                  }}
-                >
-                  <Checkbox
-                    checked={isChecked}
-                    onChange={() => handleToggleItem(opt.id)}
-                    size="small"
-                    sx={{
-                      p: 0,
-                      color: '#CBD5E1',
-                      '&.Mui-checked': { color: '#2563EB' },
-                    }}
-                  />
-
-                  {/* Option Label */}
-                  <Typography
-                    sx={{
-                      fontSize: '0.84rem',
-                      color: isChecked ? '#0F172A' : '#334155',
-                      fontWeight: isChecked ? 700 : 500,
-                      flex: 1,
-                      noWrap: true,
-                    }}
-                  >
-                    {opt.label}
-                  </Typography>
-
-                  {isChecked && <Check size={14} color="#2563EB" weight="bold" style={{ flexShrink: 0 }} />}
-                </Box>
-              );
-            })
+            filteredOptions.map((opt) => (
+              <OptionItem
+                key={opt.id}
+                opt={opt}
+                isChecked={tempSelected.includes(opt.id)}
+                onToggle={handleToggleItem}
+              />
+            ))
           )}
         </Box>
 
-        {/* Modern Vibrant Action Footer Banner */}
+        {/* Minimalist Action Footer */}
         <Box
           sx={{
-            background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+            bgcolor: '#FFFFFF',
+            borderTop: '1px solid #F1F5F9',
             p: 1.2,
             px: 1.8,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 1,
-            mt: 0.8,
+            mt: 0,
           }}
         >
           <Typography
             noWrap
             sx={{
-              color: '#FFFFFF',
+              color: '#64748B',
               fontSize: '0.76rem',
-              fontWeight: 650,
+              fontWeight: 500,
               flex: 1,
               minWidth: 0,
             }}
@@ -442,24 +460,23 @@ export default function CustomMultiSelectDropdown({
 
           <Button
             onClick={handleDone}
+            disableElevation
             variant="contained"
             size="small"
             startIcon={<Check size={14} weight="bold" />}
             sx={{
-              bgcolor: '#FFFFFF',
-              color: '#1D4ED8',
-              fontWeight: 800,
+              bgcolor: '#0F172A',
+              color: '#fff',
+              fontWeight: 600,
               fontSize: '0.78rem',
               textTransform: 'none',
               px: 1.8,
               py: 0.45,
               minWidth: 72,
               borderRadius: '6px',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
               flexShrink: 0,
               '&:hover': {
-                bgcolor: '#F8FAFC',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                bgcolor: '#334155',
               },
             }}
           >

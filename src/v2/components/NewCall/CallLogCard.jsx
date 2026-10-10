@@ -1,18 +1,13 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Chip, Button, Tooltip } from '@mui/material';
+import { Box, Typography, Chip, Button, Tooltip, Avatar } from '@mui/material';
 import {
   PhoneCall,
   PhoneIncoming,
   Star,
-  ShareNetwork,
-  Handshake,
-  PencilSimple,
+  ArrowRight,
 } from '@phosphor-icons/react';
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
-import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
-import FiberManualRecordRoundedIcon from '@mui/icons-material/FiberManualRecordRounded';
-import { toast } from 'sonner';
 import { callStreamService } from '../../services/callStreamService';
 import { isValidDate, formatCallDateTime } from './utils/dateUtils';
 import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
@@ -21,7 +16,7 @@ import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
 import CallLogApi from '../../apis/CallLogApiController';
 import { openDurationModal } from './rxjs/newCallEvents';
-import { renderFormattedMessage } from './MessageItem';
+import SourceBadge from './utils/SourceBadge';
 
 function getChipColor(statusName) {
   const { color } = getStatusColor(statusName);
@@ -128,19 +123,16 @@ export default function CallLogCard({ record = {} }) {
 
   const hasRealStart = isValidDate(startRaw);
   const hasRealClosed = isValidDate(closedRaw);
-  const hasRealDuration = Boolean(durationRaw && durationRaw !== '00:00:00');
+  const hasRealDuration = Boolean(durationRaw && durationRaw !== '00:00:00' && durationRaw !== '00:00');
 
-  const startStr = hasRealStart ? formatCallDateTime(startRaw) : '—';
-  const endStr = hasRealClosed
-    ? formatCallDateTime(closedRaw)
-    : isLivePrimary
-      ? 'In Progress'
-      : '—';
+  const formattedStart = hasRealStart ? formatCallDateTime(startRaw) : null;
+  const formattedEnd = hasRealClosed ? formatCallDateTime(closedRaw) : (isLivePrimary ? 'In Progress' : 'Unfinished');
+
   const durationStr = hasRealDuration
     ? durationRaw
     : isLivePrimary
       ? 'Running...'
-      : '—';
+      : '00:00';
 
   const descriptionText = (record.description || record.Description || '').trim();
   const callerText = record.callerName || record.callBy;
@@ -149,365 +141,147 @@ export default function CallLogCard({ record = {} }) {
   const agentText = isUnassigned ? 'Unassigned' : rawReceived;
 
 
+  const statusLower = String(extStatus).toLowerCase();
+  const isMissed = statusLower.includes('missed') || statusLower.includes('fail') || statusLower.includes('abandon');
+  const isRunningStatus = isRunning || statusLower.includes('progress') || statusLower.includes('live') || statusLower.includes('running');
+  const topicRaised = record.topicRaisedBy || 'help.optigoapps.com';
+  let iconBg = '#9CA3AF'; // Default gray
+  let iconColor = '#FFFFFF';
+  let IconComp = PhoneIncoming;
+
+  if (isRunningStatus) {
+    iconBg = '#34D399'; // Vibrant green
+    IconComp = PhoneCall;
+  } else if (isMissed) {
+    iconBg = '#EF4444'; // Red
+  } else if (statusLower.includes('solved') || statusLower.includes('complet')) {
+    iconBg = '#3B82F6'; // Blue
+  }
+
+  const chipStyle = getChipColor(extStatus);
+
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        maxWidth: { xs: '100%', sm: 540, md: 580 },
-        width: '100%',
-        bgcolor: isRunning ? '#FEF2F2' : '#FFFFFF',
-        border: isRunning ? '1.5px solid #EF4444' : '1px solid #E2E8F0',
-        borderRadius: '10px',
-        p: 1.5,
-        boxShadow: isRunning ? '0 3px 12px rgba(239, 68, 68, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
-        transition: 'all 0.15s ease',
-        mt: 0.4,
-        mb: 0.4,
-      }}
-    >
-      {/* Top Header Row: Icon + Title + Status Badge */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.2, mb: 1.2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2, minWidth: 0, flex: 1 }}>
-          {/* Circular Voice Call Icon */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: 'fit-content' }}>
+      <Box
+        sx={{
+          display: 'inline-flex',
+          flexDirection: 'column',
+          bgcolor: '#EAEBEE', // Instagram light gray chat bubble
+          borderRadius: '20px',
+          borderLeft: `3px solid ${iconBg}`,
+          borderBottom: `3px solid ${iconBg}`,
+          borderBottomLeftRadius: '4px',
+          p: 1,
+          pr: 1.5,
+          gap: 0.8,
+          width: 'fit-content',
+          minWidth: { xs: '100%', sm: 380, md: 400 },
+          maxWidth: '100%',
+          mt: 0.5,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2, width: '100%' }}>
+          {/* Status Icon */}
           <Box
             sx={{
-              width: 36,
-              height: 36,
-              borderRadius: '8px',
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              bgcolor: iconBg,
+              color: iconColor,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              bgcolor: isRunning ? '#EF4444' : '#DCFCE7',
-              color: isRunning ? '#FFFFFF' : '#15803D',
-              border: `1px solid ${isRunning ? '#DC2626' : '#BBF7D0'}`,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
             }}
           >
-            {isRunning ? (
-              <PhoneCall size={18} weight="fill" />
-            ) : (
-              <PhoneIncoming size={18} weight="bold" />
-            )}
+            <IconComp size={22} weight="fill" />
           </Box>
 
-          {/* Primary Call Title & Subtitle */}
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography
-              sx={{
-                fontSize: '0.94rem',
-                fontWeight: 800,
-                color: '#0F172A',
-                lineHeight: 1.3,
-                wordBreak: 'break-word',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {descriptionText || 'No Description'}
-            </Typography>
-
-            <Box
-              sx={{
-                fontSize: '0.75rem',
-                color: isRunning ? '#EF4444' : '#64748B',
-                fontWeight: 600,
-                mt: 0.25,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.8,
-                flexWrap: 'wrap',
-              }}
-            >
-              <Tooltip title="Click to edit call duration" arrow>
-                <Box
-                  component="span"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDurationModal(record);
-                  }}
-                  sx={{
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.35,
-                    color: isRunning ? '#EF4444' : '#0284C7',
-                    fontWeight: 700,
-                    '&:hover': { textDecoration: 'underline' },
-                  }}
-                >
-                  <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
-                  <span>{durationStr !== '—' ? durationStr : '00:00:00'}</span>
-                </Box>
-              </Tooltip>
+          {/* Compact Info Details */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: '#111827', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {callerText}
+                </Typography>
+                {rating > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2, color: '#D97706', fontSize: 12, fontWeight: 700 }}>
+                    <Star size={12} weight="fill" />
+                    <span>{rating}</span>
+                  </Box>
+                )}
+              </Box>
+              <SourceBadge source={record.topicRaisedBy || 'helpdesk'} variant="pill" iconSize={12} labelSize="0.65rem" sx={{ bgcolor: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }} />
             </Box>
+
           </Box>
         </Box>
 
-        {/* Right Status Badge */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
-          {rating > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2, color: '#D97706', fontSize: 11, fontWeight: 700 }}>
-              <Star size={12} weight="fill" />
-              <span>{rating}</span>
+        {/* Info Pills Row (Very small below) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6, pl: '54px', mt: 0.2 }}>
+
+          {/* Ext Status */}
+          <Box sx={{ display: 'flex', alignItems: 'center', height: 22, px: 1.2, bgcolor: chipStyle.bg, color: chipStyle.text, borderRadius: '999px', fontSize: 11, fontWeight: 700 }}>
+            {extStatus}
+          </Box>
+
+          {/* Int Status */}
+          {(record.internalStatus || record.InternalStatus || record.InternalStatusId > 0) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 22, px: 1.2, bgcolor: '#D1D5DB', color: '#374151', borderRadius: '999px', fontSize: 11, fontWeight: 700 }}>
+              {record.internalStatus || record.InternalStatus || 'Internal'}
             </Box>
           )}
-          {(() => {
-            const chipStyle = getChipColor(extStatus);
-            return (
-              <Chip
-                label={extStatus}
-                size="small"
-                sx={{
-                  height: 22,
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  bgcolor: chipStyle.bg,
-                  color: chipStyle.text,
-                  borderRadius: '5px',
-                  border: `1px solid ${chipStyle.text}20`,
+
+          {/* Duration (Click to open edit modal) */}
+          {durationStr !== '—' && (
+            <Tooltip title="Edit Call Duration" arrow>
+              <Box
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openDurationModal(record);
                 }}
-              />
-            );
-          })()}
-        </Box>
-      </Box>
-
-      {/* Structured Details Grid */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-          gap: 1.2,
-          p: 1.2,
-          px: 1.5,
-          bgcolor: '#F8FAFC',
-          borderRadius: '8px',
-          border: '1px solid #F1F5F9',
-          mb: 1,
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Caller
-          </Typography>
-          <Typography sx={{ fontSize: '0.82rem', color: '#1E293B', fontWeight: 700 }}>
-            {callerText}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Received By
-          </Typography>
-          {isUnassigned ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Typography sx={{ fontSize: '0.82rem', color: '#D97706', fontWeight: 700 }}>
-                Unassigned
-              </Typography>
-              {/* <Button
-                size="small"
-                variant="contained"
-                disabled={isAccepting}
-                onClick={handleAcceptCall}
                 sx={{
-                  height: 22,
-                  fontSize: '0.68rem',
-                  fontWeight: 800,
-                  bgcolor: '#16A34A',
-                  color: '#FFFFFF',
-                  px: 1,
-                  py: 0,
-                  textTransform: 'none',
-                  borderRadius: '4px',
-                  boxShadow: 'none',
-                  '&:hover': { bgcolor: '#15803D' },
+                  display: 'flex', alignItems: 'center', gap: 0.4, height: 22, px: 1.2,
+                  bgcolor: '#F3F4F6', color: '#4B5563', borderRadius: '999px', fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', border: '1px solid transparent',
+                  '&:hover': { bgcolor: '#E5E7EB', border: '1px solid #D1D5DB' }
                 }}
               >
-                {isAccepting ? 'Assigning...' : 'Accept Call'}
-              </Button> */}
+                <AccessTimeRoundedIcon sx={{ fontSize: 14 }} />
+                {durationStr}
+              </Box>
+            </Tooltip>
+          )}
+
+          {/* Caller -> Agent flow */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 22, px: 1, bgcolor: '#FFFFFF', color: '#4B5563', borderRadius: '999px', fontSize: 11, fontWeight: 600, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              {callerText.split(' ')[0]}
             </Box>
-          ) : (
-            <Typography sx={{ fontSize: '0.82rem', color: '#1E293B', fontWeight: 700 }}>
-              {agentText}
-            </Typography>
+            <ArrowRight size={10} color="#9CA3AF" weight="bold" />
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 22, px: 1, bgcolor: '#FFFFFF', color: '#111827', borderRadius: '999px', fontSize: 11, fontWeight: 700, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              {agentText.split(' ')[0]}
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+      {hasRealStart && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.4 }}>
+          <Box sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontSize: 11, px: 1.2, py: 0.3, borderRadius: '24px', fontWeight: 700 }}>
+            {formattedStart}
+          </Box>
+          {formattedEnd && (
+            <>
+              <ArrowRight size={12} color="#9CA3AF" weight="bold" />
+              <Box sx={{ bgcolor: '#FEE2E2', color: '#991B1B', fontSize: 11, px: 1.2, py: 0.3, borderRadius: '24px', fontWeight: 700 }}>
+                {formattedEnd}
+              </Box>
+            </>
           )}
         </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Call Window
-          </Typography>
-          <Typography sx={{ fontSize: '0.78rem', color: '#475569', fontWeight: 550 }}>
-            {startStr !== '—' ? `${startStr} → ${endStr}` : 'Not recorded'}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-          <Typography sx={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Duration
-          </Typography>
-          <Typography sx={{ fontSize: '0.78rem', color: '#475569', fontWeight: 650 }}>
-            {durationStr}
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Forwarded employee notice if applicable */}
-      {isForwarded && record.ForwardedEmp && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, color: '#6900C6', mb: 0.8, px: 0.5 }}>
-          <ShareNetwork size={13} weight="bold" />
-          <Typography sx={{ fontSize: '0.76rem', fontWeight: 650 }}>
-            Forwarded to {record.ForwardedEmp}
-          </Typography>
-        </Box>
       )}
-
-      {/* Call Badges & Tags Row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap', pt: 0.2 }}>
-        {/* Source Badge */}
-        {record.topicRaisedBy && (
-          <Chip
-            label={
-              record.topicRaisedBy.toLowerCase() === 'optigocarely'
-                ? 'OptigoCarely'
-                : record.topicRaisedBy.toLowerCase() === 'helpdesk'
-                  ? 'help.optigoapps.com'
-                  : record.topicRaisedBy
-            }
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.7rem',
-              fontWeight: 750,
-              bgcolor:
-                record.topicRaisedBy.toLowerCase() === 'optigocarely'
-                  ? '#DCFCE7'
-                  : record.topicRaisedBy.toLowerCase() === 'helpdesk'
-                    ? '#FEF3C7'
-                    : '#DBEAFE',
-              color:
-                record.topicRaisedBy.toLowerCase() === 'optigocarely'
-                  ? '#15803D'
-                  : record.topicRaisedBy.toLowerCase() === 'helpdesk'
-                    ? '#92400E'
-                    : '#1D4ED8',
-              borderRadius: '4px',
-              '& .MuiChip-label': { px: 0.7 },
-            }}
-          />
-        )}
-
-        {/* Call Type */}
-        {(record.CallType || record.callType) && (
-          <Chip
-            label={record.CallType || record.callType}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.7rem',
-              fontWeight: 750,
-              bgcolor: '#F3E8FF',
-              color: '#6900C6',
-              borderRadius: '4px',
-              '& .MuiChip-label': { px: 0.7 },
-            }}
-          />
-        )}
-
-        {/* Priority */}
-        {record.priority && record.priority !== 'Normal' && (
-          <Chip
-            label={record.priority}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.7rem',
-              fontWeight: 750,
-              bgcolor: record.priority === 'High' ? '#FEE2E2' : '#FEF3C7',
-              color: record.priority === 'High' ? '#DC2626' : '#D97706',
-              borderRadius: '4px',
-              '& .MuiChip-label': { px: 0.7 },
-            }}
-          />
-        )}
-
-        {/* Ticket Badge */}
-        {hasTicket && (
-          <Chip
-            label={resolvedTicketId ? `Ticket #${resolvedTicketId}` : 'In Ticket'}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.7rem',
-              fontWeight: 750,
-              bgcolor: '#E0F2FE',
-              color: '#0284C7',
-              borderRadius: '4px',
-              '& .MuiChip-label': { px: 0.7 },
-            }}
-          />
-        )}
-
-        {/* iTask Badge */}
-        {Boolean((record.TaskId && Number(record.TaskId) > 0) || (record.taskId && Number(record.taskId) > 0)) && (
-          <Chip
-            label={Number(record.TaskId || record.taskId) > 0 ? `iTask #${record.TaskId || record.taskId}` : 'In iTask'}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.7rem',
-              fontWeight: 750,
-              bgcolor: '#DCFCE7',
-              color: '#15803D',
-              borderRadius: '4px',
-              '& .MuiChip-label': { px: 0.7 },
-            }}
-          />
-        )}
-      </Box>
-
-      {/* Unassigned / Queue Call: Accept Call Action Row */}
-      {/* {isUnassigned && (
-        <Box
-          sx={{
-            mt: 1,
-            pt: 0.8,
-            borderTop: '1px dashed #FDE68A',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1,
-          }}
-        >
-          <Typography sx={{ fontSize: '0.74rem', color: '#92400E', fontWeight: 700 }}>
-            Queue Callback Request
-          </Typography>
-          <Button
-            variant="contained"
-            size="small"
-            disabled={isAccepting}
-            onClick={handleAcceptCall}
-            startIcon={<Handshake size={14} weight="bold" />}
-            sx={{
-              bgcolor: '#16A34A',
-              color: '#FFFFFF',
-              fontSize: '0.74rem',
-              fontWeight: 750,
-              textTransform: 'none',
-              height: 26,
-              px: 1.4,
-              borderRadius: '6px',
-              boxShadow: '0 2px 5px rgba(22, 163, 74, 0.3)',
-              whiteSpace: 'nowrap',
-              '&:hover': {
-                bgcolor: '#15803D',
-                boxShadow: '0 3px 8px rgba(22, 163, 74, 0.45)',
-              },
-            }}
-          >
-            {isAccepting ? 'Accepting...' : 'Accept Call'}
-          </Button>
-        </Box>
-      )} */}
-    </Paper>
+    </Box>
   );
 }

@@ -127,14 +127,14 @@ const DurationInput = ({ onChange, value }) => {
       const dur = parseDuration(value);
       if (dur.asMilliseconds() === 0 && value.trim() !== "" && value.trim() !== "0") {
         setError("Invalid duration format");
-        onChange(null);
+        onChange(null, value);
       } else {
         setError("");
-        onChange(dur);
+        onChange(dur, value);
       }
     } catch {
       setError("Invalid format");
-      onChange(null);
+      onChange(null, value);
     }
   };
 
@@ -184,7 +184,10 @@ const CallDurationPopover = ({ value, onEditCall }) => {
   const [durationInput, setDurationInput] = useState("");
   const [manualEdit, setManualEdit] = useState(false);
 
+  // Reset state whenever the popover opens or row data changes
   useEffect(() => {
+    if (!open && !value) return;
+
     const start = value?.row?.callStart ? dayjs(value.row.callStart, "YYYY-MM-DD HH:mm:ss") : null;
     const end = value?.row?.callClosed ? dayjs(value.row.callClosed, "YYYY-MM-DD HH:mm:ss") : null;
 
@@ -194,19 +197,27 @@ const CallDurationPopover = ({ value, onEditCall }) => {
     // Set initial duration input
     if (start && end && start.isValid() && end.isValid()) {
       const diff = end.diff(start, "second");
-      const dur = dayjs.duration(diff, "seconds");
-      const h = dur.hours();
-      const m = dur.minutes();
-      const s = dur.seconds();
+      if (diff > 0) {
+        const dur = dayjs.duration(diff, "seconds");
+        const h = dur.hours();
+        const m = dur.minutes();
+        const s = dur.seconds();
 
-      let formatted = [];
-      if (h > 0) formatted.push(`${h}h`);
-      if (m > 0) formatted.push(`${m}m`);
-      if (s > 0 && h === 0) formatted.push(`${s}s`);
+        let formatted = [];
+        if (h > 0) formatted.push(`${h}h`);
+        if (m > 0) formatted.push(`${m}m`);
+        if (s > 0 && h === 0) formatted.push(`${s}s`);
 
-      setDurationInput(formatted.join(" ") || "0s");
+        setDurationInput(formatted.join(" ") || "0s");
+      } else {
+        setDurationInput("");
+      }
+    } else {
+      setDurationInput("");
     }
-  }, [value?.row?.callStart, value?.row?.callClosed]);
+  }, [value?.row?.callStart, value?.row?.callClosed, open]);
+
+
 
   const handleClick = (e) => {
     e.stopPropagation();
@@ -221,7 +232,10 @@ const CallDurationPopover = ({ value, onEditCall }) => {
   };
 
   // Handle duration input change - auto calculate end time
-  const handleDurationChange = (duration) => {
+  const handleDurationChange = (duration, rawValue) => {
+    if (rawValue !== undefined) {
+      setDurationInput(rawValue);
+    }
     if (duration && callStart && callStart.isValid()) {
       const newEndTime = callStart.add(duration.asSeconds(), "seconds");
       setCallEnd(newEndTime);

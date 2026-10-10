@@ -24,6 +24,7 @@ import {
   PhoneCall,
   ArrowsClockwise,
   Handshake,
+  CheckCircle,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { callStreamService } from '../../services/callStreamService';
@@ -553,27 +554,28 @@ export default function ChatHeader({
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.2,
+                    gap: 1.5,
                     cursor: 'pointer',
-                    p: 0.4,
-                    px: 0.8,
-                    borderRadius: '8px',
-                    transition: 'background-color 0.15s ease',
-                    '&:hover': { bgcolor: '#F8FAFC' },
                     minWidth: 0,
+                    opacity: profileAnchor ? 0.8 : 1,
+                    transition: 'background-color 0.15s ease',
+                    borderRadius: 1,
+                    p: 0.5,
+                    px: 1,
+                    '&:hover': { bgcolor: '#e2e2e242' },
                   }}
                 >
                   <Box sx={{ position: 'relative', flexShrink: 0 }}>
                     <Avatar
                       src={activeThread?.avatar}
                       sx={{
-                        width: 32,
-                        height: 32,
+                        width: 36,
+                        height: 36,
                         borderRadius: '8px',
-                        bgcolor: '#EDE9FE',
+                        bgcolor: '#F3E8FF',
                         color: '#6900C6',
-                        fontSize: 12,
-                        fontWeight: 800,
+                        fontSize: 16,
+                        fontWeight: 700,
                       }}
                     >
                       {(callerName || 'C').charAt(0).toUpperCase()}
@@ -581,30 +583,29 @@ export default function ChatHeader({
                     <Box
                       sx={{
                         position: 'absolute',
-                        bottom: -1,
-                        right: -1,
-                        width: 7,
-                        height: 7,
+                        bottom: -2,
+                        right: -2,
+                        width: 10,
+                        height: 10,
                         borderRadius: '50%',
                         bgcolor: '#10B981',
-                        border: '1.5px solid #FFFFFF',
+                        border: '2px solid #FFFFFF',
                       }}
                     />
                   </Box>
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center', gap: 0.2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                       <Tooltip title={primaryTitle} placement="bottom-start" arrow enterDelay={400}>
                         <Typography
                           sx={{
-                            fontSize: '0.92rem',
-                            fontWeight: 800,
+                            fontSize: 15,
+                            fontWeight: 700,
                             color: '#0F172A',
-                            lineHeight: 1.2,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            maxWidth: { xs: 150, sm: 220, md: 340 },
+                            maxWidth: { xs: 150, sm: 220, md: 380 },
                             letterSpacing: '-0.01em',
                           }}
                         >
@@ -617,41 +618,40 @@ export default function ChatHeader({
                           label={`#${callSr}`}
                           size="small"
                           sx={{
-                            height: 19,
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            bgcolor: '#EDE9FE',
+                            height: 22,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            bgcolor: '#F3E8FF',
                             color: '#6900C6',
-                            borderRadius: '4px',
-                            border: '1px solid #DDD6FE',
-                            '& .MuiChip-label': { px: 0.6 },
+                            borderRadius: '6px',
+                            '& .MuiChip-label': { px: 1 },
                           }}
                         />
                       )}
 
-                      <CaretDown size={11} weight="bold" color="#64748B" />
+                      <CaretDown size={14} weight="bold" color="#64748B" />
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.15, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
                       <Typography
                         sx={{
-                          fontSize: '0.74rem',
+                          fontSize: 13,
                           color: '#64748B',
-                          fontWeight: 600,
+                          fontWeight: 500,
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        Caller: <Box component="span" sx={{ color: '#1E293B', fontWeight: 700 }}>{callerName}</Box>
+                        Caller: <Box component="span" sx={{ color: '#334155', fontWeight: 600 }}>{callerName}</Box>
                       </Typography>
 
                       {companyName && (
                         <>
-                          <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#CBD5E1', flexShrink: 0 }} />
+                          <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#CBD5E1', flexShrink: 0 }} />
                           <Typography
                             sx={{
-                              fontSize: '0.74rem',
+                              fontSize: 13,
                               color: '#64748B',
-                              fontWeight: 550,
+                              fontWeight: 500,
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -730,18 +730,15 @@ export default function ChatHeader({
             </Box>
             */}
 
-            {/* Modern Segmented Status Tray (Inspired by reference pill/segmented controls) */}
+            {/* Modern Segmented Status Tray (TopBar Renovation Style) */}
             <Box
               sx={{
-                display: 'inline-flex',
+                display: 'flex',
                 alignItems: 'center',
-                gap: 0.6,
-                p: '3px 4px',
-                bgcolor: '#F8FAFC',
-                borderRadius: '30px',
-                border: '1px solid #E2E8F0',
-                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.03)',
-                ml: 0.5,
+                bgcolor: '#D6D6D8',
+                borderRadius: '12px',
+                p: '2px',
+                ml: 1.5,
               }}
             >
               {/* External Status Pill */}
@@ -760,55 +757,49 @@ export default function ChatHeader({
                     setExtStatusAnchor(e.currentTarget);
                   }}
                   sx={{
-                    display: 'inline-flex',
+                    display: 'flex',
                     alignItems: 'center',
                     gap: 0.6,
                     px: 1.2,
-                    py: 0.4,
-                    height: 26,
-                    borderRadius: '20px',
-                    bgcolor: extConfig.bg,
-                    border: `1.5px solid ${extConfig.border}`,
+                    height: 28,
+                    borderRadius: '10px',
+                    bgcolor: extStatusAnchor ? '#fff' : 'transparent',
+                    color: '#000',
                     cursor: !isCallEnded ? 'not-allowed' : 'pointer',
                     opacity: !isCallEnded ? 0.65 : 1,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                    transition: 'all 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': !isCallEnded
-                      ? {}
-                      : {
-                        boxShadow: '0 3px 8px -1px rgba(0,0,0,0.1)',
-                        transform: 'translateY(-0.5px)',
-                        filter: 'brightness(0.97)',
-                      },
+                    boxShadow: extStatusAnchor ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
+                    transition: 'all 0.15s ease',
+                    '&:hover': !isCallEnded ? {} : {
+                      bgcolor: '#fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)'
+                    },
                   }}
                 >
                   <Box
                     sx={{
-                      width: 6.5,
-                      height: 6.5,
+                      width: 7,
+                      height: 7,
                       borderRadius: '50%',
                       bgcolor: extConfig.dotColor,
-                      boxShadow: `0 0 0 2px ${extConfig.bg}`,
                     }}
                   />
                   <Typography
                     sx={{
-                      fontSize: 11.5,
-                      fontWeight: 750,
-                      color: extConfig.color,
-                      letterSpacing: '-0.01em',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: 110,
                     }}
                   >
                     {currentExtStatus}
                   </Typography>
-                  <CaretDown
-                    size={10}
-                    weight="bold"
-                    color={extConfig.color}
-                    style={{ opacity: !isCallEnded ? 0.4 : 0.85 }}
-                  />
+                  <CaretDown size={12} weight="bold" color="#64748B" />
                 </Box>
               </Tooltip>
+
+              <Box sx={{ width: '1px', height: 16, bgcolor: '#94A3B8', opacity: 0.4, mx: 0.2 }} />
 
               {/* Internal Status Pill */}
               <Tooltip
@@ -826,110 +817,105 @@ export default function ChatHeader({
                     setIntStatusAnchor(e.currentTarget);
                   }}
                   sx={{
-                    display: 'inline-flex',
+                    display: 'flex',
                     alignItems: 'center',
                     gap: 0.6,
                     px: 1.2,
-                    py: 0.4,
-                    height: 26,
-                    borderRadius: '20px',
-                    bgcolor: intConfig.bg,
-                    border: `1.5px solid ${intConfig.border}`,
+                    height: 28,
+                    borderRadius: '10px',
+                    bgcolor: intStatusAnchor ? '#fff' : 'transparent',
+                    color: '#000',
                     cursor: !isCallEnded ? 'not-allowed' : 'pointer',
                     opacity: !isCallEnded ? 0.65 : 1,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                    transition: 'all 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': !isCallEnded
-                      ? {}
-                      : {
-                        boxShadow: '0 3px 8px -1px rgba(0,0,0,0.1)',
-                        transform: 'translateY(-0.5px)',
-                        filter: 'brightness(0.97)',
-                      },
+                    boxShadow: intStatusAnchor ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
+                    transition: 'all 0.15s ease',
+                    '&:hover': !isCallEnded ? {} : {
+                      bgcolor: '#fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)'
+                    },
                   }}
                 >
                   <Box
                     sx={{
-                      width: 6.5,
-                      height: 6.5,
+                      width: 7,
+                      height: 7,
                       borderRadius: '50%',
                       bgcolor: intConfig.dotColor,
-                      boxShadow: `0 0 0 2px ${intConfig.bg}`,
                     }}
                   />
                   <Typography
                     sx={{
-                      fontSize: 11.5,
-                      fontWeight: 750,
-                      color: intConfig.color,
-                      letterSpacing: '-0.01em',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: 110,
                     }}
                   >
                     {currentIntStatus}
                   </Typography>
-                  <CaretDown
-                    size={10}
-                    weight="bold"
-                    color={intConfig.color}
-                    style={{ opacity: !isCallEnded ? 0.4 : 0.85 }}
-                  />
+                  <CaretDown size={12} weight="bold" color="#64748B" />
                 </Box>
               </Tooltip>
+
+              <Box sx={{ width: '1px', height: 16, bgcolor: '#94A3B8', opacity: 0.4, mx: 0.2 }} />
 
               {/* Priority Pill */}
               <Tooltip title="Click to change Priority">
                 <Box
                   onClick={(e) => setPriorityAnchor(e.currentTarget)}
                   sx={{
-                    display: 'inline-flex',
+                    display: 'flex',
                     alignItems: 'center',
-                    gap: 0.5,
+                    gap: 0.6,
                     px: 1.2,
-                    py: 0.4,
-                    height: 26,
-                    borderRadius: '20px',
-                    bgcolor: priConfig.bg,
-                    border: `1.5px solid ${priConfig.border}`,
+                    height: 28,
+                    borderRadius: '10px',
+                    bgcolor: priorityAnchor ? '#fff' : 'transparent',
+                    color: '#000',
                     cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                    transition: 'all 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: priorityAnchor ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
+                    transition: 'all 0.15s ease',
                     '&:hover': {
-                      boxShadow: '0 3px 8px -1px rgba(0,0,0,0.1)',
-                      transform: 'translateY(-0.5px)',
-                      filter: 'brightness(0.97)',
+                      bgcolor: '#fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)'
                     },
                   }}
                 >
-                  <Lightning size={12} weight="fill" color={priConfig.dotColor} />
+                  <Lightning size={13} weight="fill" color={priConfig.dotColor} />
                   <Typography
                     sx={{
-                      fontSize: 11.5,
-                      fontWeight: 750,
-                      color: priConfig.color,
-                      letterSpacing: '-0.01em',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: 90,
                     }}
                   >
                     {currentPriority}
                   </Typography>
-                  <CaretDown size={10} weight="bold" color={priConfig.color} style={{ opacity: 0.85 }} />
+                  <CaretDown size={12} weight="bold" color="#64748B" />
                 </Box>
               </Tooltip>
 
               {/* Escalation / Forwarded Indicator */}
               {isForwarded && (
                 <Chip
-                  icon={<ShareNetwork size={11} weight="bold" color="#6900C6" />}
+                  icon={<ShareNetwork size={12} weight="bold" color="#6900C6" />}
                   label="Forwarded"
                   size="small"
                   sx={{
-                    height: 22,
+                    height: 24,
                     bgcolor: '#FAF5FF',
                     color: '#6900C6',
                     border: '1px solid #DDD6FE',
-                    fontWeight: 800,
-                    fontSize: 10,
-                    borderRadius: '20px',
+                    fontWeight: 700,
+                    fontSize: 11,
+                    borderRadius: '8px',
                     px: 0.3,
+                    ml: 0.5,
                   }}
                 />
               )}
@@ -942,8 +928,16 @@ export default function ChatHeader({
           anchorEl={profileAnchor}
           open={Boolean(profileAnchor)}
           onClose={() => setProfileAnchor(null)}
+          MenuListProps={{ sx: { p: 0.8 } }}
           PaperProps={{
-            sx: { borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', minWidth: 210, mt: 0.5 },
+            sx: {
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+              minWidth: 240,
+              mt: 1,
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+            },
           }}
         >
           <MenuItem
@@ -951,7 +945,7 @@ export default function ChatHeader({
               setProfileAnchor(null);
               if (onToggleInspector) onToggleInspector(true);
             }}
-            sx={{ fontSize: 13, fontWeight: 600 }}
+            sx={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A', borderRadius: '8px', py: 1, px: 1.5, mb: 0.5, '&:hover': { bgcolor: '#F8FAFC' } }}
           >
             View full details & attachments
           </MenuItem>
@@ -966,12 +960,12 @@ export default function ChatHeader({
                   setProfileAnchor(null);
                   if (activeThread) openDurationModal(activeThread?.rawRecord || activeThread);
                 }}
-                sx={{ fontSize: 13, fontWeight: 600, color: '#0284C7' }}
+                sx={{ fontSize: 13.5, fontWeight: 600, color: '#0284C7', borderRadius: '8px', py: 1, px: 1.5, mb: 0.5, '&:hover': { bgcolor: '#F0F9FF' } }}
               >
                 Edit Call Duration & Timing
               </MenuItem>
             )}
-          <MenuItem onClick={handleCopyCallInfo} sx={{ fontSize: 13, fontWeight: 550 }}>
+          <MenuItem onClick={handleCopyCallInfo} sx={{ fontSize: 13.5, fontWeight: 500, color: '#475569', borderRadius: '8px', py: 1, px: 1.5, '&:hover': { bgcolor: '#F8FAFC' } }}>
             {resolvedTicketId ? `Copy call info & ticket ID (#${resolvedTicketId})` : 'Copy call info & ticket ID'}
           </MenuItem>
         </Menu>
@@ -981,17 +975,23 @@ export default function ChatHeader({
           anchorEl={extStatusAnchor}
           open={Boolean(extStatusAnchor)}
           onClose={() => setExtStatusAnchor(null)}
+          MenuListProps={{
+            sx: {
+              py: 0, // Removes top and bottom padding
+            },
+          }}
           PaperProps={{
             sx: {
-              borderRadius: '16px',
-              boxShadow: '0 16px 40px -6px rgba(15,23,42,0.14), 0 4px 16px -2px rgba(15,23,42,0.06)',
-              minWidth: 200,
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+              minWidth: 190,
               p: 0.8,
-              border: '1px solid #F1F5F9',
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
             },
           }}
         >
-          <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ px: 1.2, py: 0.5, pb: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             External Status
           </Typography>
           {(ESTATUS_LIST.length > 0 ? ESTATUS_LIST : EXTERNAL_STATUS_FALLBACK)
@@ -1009,28 +1009,27 @@ export default function ChatHeader({
                   key={opt.value || opt.id || label}
                   onClick={() => handleUpdateExtStatus(opt)}
                   sx={{
-                    fontSize: 12.5,
-                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: 13,
+                    fontWeight: isSelected ? 600 : 500,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.2,
-                    borderRadius: '10px',
-                    px: 1.5,
-                    py: 0.85,
+                    borderRadius: '8px',
+                    px: 1.2,
+                    py: 0.7,
                     my: 0.2,
                     color: isSelected ? '#0F172A' : '#475569',
-                    bgcolor: isSelected ? '#F8FAFC' : 'transparent',
-                    border: isSelected ? '1px solid #E2E8F0' : '1px solid transparent',
+                    bgcolor: isSelected ? '#F1F5F9' : 'transparent',
                     transition: 'all 0.15s ease',
                     '&:hover': {
-                      bgcolor: '#F1F5F9',
+                      bgcolor: '#F8FAFC',
                     },
                   }}
                 >
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor, boxShadow: `0 0 6px ${itemStyle.dotColor}66` }} />
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
                   <span style={{ flex: 1 }}>{label}</span>
                   {isSelected && (
-                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0EA5E9' }} />
+                    <CheckCircle weight="fill" size={16} color="#000000ff" />
                   )}
                 </MenuItem>
               );
@@ -1042,17 +1041,23 @@ export default function ChatHeader({
           anchorEl={intStatusAnchor}
           open={Boolean(intStatusAnchor)}
           onClose={() => setIntStatusAnchor(null)}
+          MenuListProps={{
+            sx: {
+              py: 0, // Removes top and bottom padding
+            },
+          }}
           PaperProps={{
             sx: {
-              borderRadius: '16px',
-              boxShadow: '0 16px 40px -6px rgba(15,23,42,0.14), 0 4px 16px -2px rgba(15,23,42,0.06)',
-              minWidth: 200,
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+              minWidth: 190,
               p: 0.8,
-              border: '1px solid #F1F5F9',
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
             },
           }}
         >
-          <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ px: 1.2, py: 0.5, pb: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Internal Status
           </Typography>
           {(STATUS_LIST.length > 0 ? STATUS_LIST : INTERNAL_STATUS_FALLBACK)
@@ -1070,28 +1075,27 @@ export default function ChatHeader({
                   key={opt.value || opt.id || label}
                   onClick={() => handleUpdateIntStatus(opt)}
                   sx={{
-                    fontSize: 12.5,
-                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: 13,
+                    fontWeight: isSelected ? 600 : 500,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.2,
-                    borderRadius: '10px',
-                    px: 1.5,
-                    py: 0.85,
+                    borderRadius: '8px',
+                    px: 1.2,
+                    py: 0.7,
                     my: 0.2,
                     color: isSelected ? '#0F172A' : '#475569',
-                    bgcolor: isSelected ? '#F8FAFC' : 'transparent',
-                    border: isSelected ? '1px solid #E2E8F0' : '1px solid transparent',
+                    bgcolor: isSelected ? '#F1F5F9' : 'transparent',
                     transition: 'all 0.15s ease',
                     '&:hover': {
-                      bgcolor: '#F1F5F9',
+                      bgcolor: '#F8FAFC',
                     },
                   }}
                 >
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor, boxShadow: `0 0 6px ${itemStyle.dotColor}66` }} />
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: itemStyle.dotColor }} />
                   <span style={{ flex: 1 }}>{label}</span>
                   {isSelected && (
-                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0EA5E9' }} />
+                    <CheckCircle weight="fill" size={16} color="#000000ff" />
                   )}
                 </MenuItem>
               );
@@ -1103,17 +1107,23 @@ export default function ChatHeader({
           anchorEl={priorityAnchor}
           open={Boolean(priorityAnchor)}
           onClose={() => setPriorityAnchor(null)}
+          MenuListProps={{
+            sx: {
+              py: 0, // Removes top and bottom padding
+            },
+          }}
           PaperProps={{
             sx: {
-              borderRadius: '16px',
-              boxShadow: '0 16px 40px -6px rgba(15,23,42,0.14), 0 4px 16px -2px rgba(15,23,42,0.06)',
-              minWidth: 190,
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+              minWidth: 180,
               p: 0.8,
-              border: '1px solid #F1F5F9',
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
             },
           }}
         >
-          <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ px: 1.2, py: 0.5, pb: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Priority Level
           </Typography>
           {(PRIORITY_LIST.length > 0 ? PRIORITY_LIST : [
@@ -1130,52 +1140,31 @@ export default function ChatHeader({
                 key={opt.value || opt.PriorityID || label}
                 onClick={() => handleUpdatePriority(opt)}
                 sx={{
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? 700 : 500,
+                  fontSize: 13,
+                  fontWeight: isSelected ? 600 : 500,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1.2,
-                  borderRadius: '10px',
-                  px: 1.5,
-                  py: 0.85,
-                  my: 0.2,
+                  borderRadius: '8px',
+                  px: 1.2,
+                  py: 0.7,
                   color: isSelected ? '#0F172A' : '#475569',
-                  bgcolor: isSelected ? '#F8FAFC' : 'transparent',
-                  border: isSelected ? '1px solid #E2E8F0' : '1px solid transparent',
+                  bgcolor: isSelected ? '#F1F5F9' : 'transparent',
                   transition: 'all 0.15s ease',
                   '&:hover': {
-                    bgcolor: '#F1F5F9',
+                    bgcolor: '#F8FAFC',
                   },
                 }}
               >
                 <Lightning size={14} weight="fill" color={itemStyle.dotColor} />
                 <span style={{ flex: 1 }}>{label}</span>
                 {isSelected && (
-                  <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0EA5E9' }} />
+                  <CheckCircle weight="fill" size={16} color="#000000ff" />
                 )}
               </MenuItem>
             );
           })}
         </Menu>
-
-        {/* Rating Menu */}
-        {/* <Menu
-          anchorEl={ratingAnchor}
-          open={Boolean(ratingAnchor)}
-          onClose={() => setRatingAnchor(null)}
-          PaperProps={{
-            sx: { borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 180, p: 1.5, textAlign: 'center' },
-          }}
-        >
-          <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A', mb: 1 }}>
-            Rate Call Resolution
-          </Typography>
-          <Rating
-            value={currentRating}
-            onChange={(_, newValue) => handleUpdateRating(newValue)}
-            size="medium"
-          />
-        </Menu> */}
 
         {/* Right Header Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
@@ -1192,27 +1181,32 @@ export default function ChatHeader({
             >
               <span>
                 <Button
-                  variant="outlined"
-                  size="small"
+                  disableElevation
+                  disableRipple
                   disabled={isPrimaryPending}
                   onClick={() => openAddFollowUpModal(activeThread)}
-                  startIcon={<ArrowsClockwise size={14} weight="bold" />}
+                  startIcon={<ArrowsClockwise size={16} weight="bold" />}
                   sx={{
-                    borderColor: isPrimaryPending ? '#E2E8F0' : '#CBD5E1',
-                    color: isPrimaryPending ? '#94A3B8' : '#334155',
-                    fontWeight: 700,
-                    fontSize: '0.76rem',
+                    px: 1.75,
+                    borderRadius: '999px',
+                    bgcolor: isPrimaryPending ? '#E2E8F0' : '#D6D6D8',
+                    color: isPrimaryPending ? '#94A3B8' : '#000',
+                    fontSize: 13,
+                    fontWeight: 550,
                     textTransform: 'none',
-                    px: 1.2,
+                    letterSpacing: 0,
+                    boxShadow: 'none',
                     height: 32,
-                    borderRadius: '6px',
+                    py: 0.5,
                     whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease',
                     '&:hover': {
-                      bgcolor: isPrimaryPending ? 'transparent' : '#F8FAFC',
-                      borderColor: isPrimaryPending ? '#E2E8F0' : '#94A3B8',
+                      bgcolor: isPrimaryPending ? 'transparent' : '#fff',
+                      boxShadow: isPrimaryPending ? 'none' : '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)',
                     },
+                    '&:active': { bgcolor: '#F8FAFC' },
                     '&.Mui-disabled': {
-                      borderColor: '#E2E8F0',
+                      bgcolor: '#E2E8F0',
                       color: '#CBD5E1',
                     },
                   }}
@@ -1226,24 +1220,29 @@ export default function ChatHeader({
           {/* Forward Call Button */}
           {activeThread && (
             <Button
-              variant="outlined"
-              size="small"
+              disableElevation
+              disableRipple
               onClick={() => openForwardCallModal(activeThread)}
-              startIcon={<ShareNetwork size={14} weight="bold" />}
+              startIcon={<ShareNetwork size={16} weight="bold" />}
               sx={{
-                borderColor: '#CBD5E1',
-                color: '#334155',
-                fontWeight: 700,
-                fontSize: '0.76rem',
+                px: 1.75,
+                borderRadius: '999px',
+                bgcolor: '#D6D6D8',
+                color: '#000',
+                fontSize: 13,
+                fontWeight: 550,
                 textTransform: 'none',
-                px: 1.2,
+                letterSpacing: 0,
+                boxShadow: 'none',
                 height: 32,
-                borderRadius: '6px',
+                py: 0.5,
                 whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
                 '&:hover': {
-                  bgcolor: '#F8FAFC',
-                  borderColor: '#94A3B8',
+                  bgcolor: '#fff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)',
                 },
+                '&:active': { bgcolor: '#F8FAFC' },
               }}
             >
               Forward
@@ -1253,24 +1252,29 @@ export default function ChatHeader({
           {/* Edit Call Button */}
           {activeThread && (
             <Button
-              variant="outlined"
-              size="small"
+              disableElevation
+              disableRipple
               onClick={() => openEditCallModal(activeThread)}
-              startIcon={<PencilSimple size={14} weight="bold" />}
+              startIcon={<PencilSimple size={16} weight="bold" />}
               sx={{
-                borderColor: '#CBD5E1',
-                color: '#334155',
-                fontWeight: 700,
-                fontSize: '0.76rem',
+                px: 1.75,
+                borderRadius: '999px',
+                bgcolor: '#D6D6D8',
+                color: '#000',
+                fontSize: 13,
+                fontWeight: 550,
                 textTransform: 'none',
-                px: 1.2,
+                letterSpacing: 0,
+                boxShadow: 'none',
                 height: 32,
-                borderRadius: '6px',
+                py: 0.5,
                 whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
                 '&:hover': {
-                  bgcolor: '#F8FAFC',
-                  borderColor: '#94A3B8',
+                  bgcolor: '#fff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)',
                 },
+                '&:active': { bgcolor: '#F8FAFC' },
               }}
             >
               Edit
@@ -1283,8 +1287,8 @@ export default function ChatHeader({
             const hasMultipleOptions = pendingFollowUps.length > 0;
             return (
               <Button
-                variant="contained"
-                size="small"
+                disableElevation
+                disableRipple
                 disabled={isAcceptingHeader}
                 onClick={(e) => {
                   if (isUnassigned) {
@@ -1297,23 +1301,24 @@ export default function ChatHeader({
                     openAddFollowUpModal(activeThread);
                   }
                 }}
-                startIcon={isUnassigned ? <Handshake size={15} weight="bold" /> : <PhoneCall size={15} weight="fill" />}
-                endIcon={!isUnassigned && hasMultipleOptions ? <CaretDown size={12} weight="bold" /> : undefined}
+                startIcon={isUnassigned ? <Handshake size={16} weight="bold" /> : <PhoneCall size={16} weight="fill" />}
+                endIcon={!isUnassigned && hasMultipleOptions ? <CaretDown size={14} weight="bold" /> : undefined}
                 sx={{
+                  px: 2,
+                  borderRadius: '999px',
                   bgcolor: '#16A34A',
                   color: '#FFFFFF',
-                  fontWeight: 800,
-                  fontSize: '0.78rem',
+                  fontSize: 13,
+                  fontWeight: 650,
                   textTransform: 'none',
-                  px: 1.5,
+                  letterSpacing: 0,
+                  boxShadow: 'none',
                   height: 32,
-                  borderRadius: '6px',
-                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+                  py: 0.5,
                   whiteSpace: 'nowrap',
-                  '&:hover': {
-                    bgcolor: '#15803D',
-                    boxShadow: '0 4px 12px rgba(22, 163, 74, 0.45)',
-                  },
+                  transition: 'all 0.15s ease',
+                  '&:hover': { bgcolor: '#15803D' },
+                  '&:active': { bgcolor: '#166534' },
                 }}
               >
                 {isAcceptingHeader ? 'Accepting...' : isUnassigned ? 'Accept Call' : 'Start Call'}
@@ -1326,28 +1331,23 @@ export default function ChatHeader({
             anchorEl={startCallAnchor}
             open={Boolean(startCallAnchor)}
             onClose={() => setStartCallAnchor(null)}
+            MenuListProps={{
+              sx: {
+                py: 0,
+              }
+            }}
             PaperProps={{
               sx: {
                 borderRadius: '10px',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-                minWidth: 260,
-                p: 0.8,
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0,0,0,0.03)',
+                minWidth: 290,
+                p: 0.5,
+                border: '1px solid #E2E8F0',
+                mt: 2,
+                mr: 2
               },
             }}
           >
-            <Typography
-              sx={{
-                px: 1.5,
-                py: 0.8,
-                fontSize: 11,
-                fontWeight: 800,
-                color: '#94A3B8',
-                textTransform: 'uppercase',
-              }}
-            >
-              Pending Calls to Start
-            </Typography>
-
             {/* Primary Voice Call Option (Only if primary call is pending) */}
             {isPrimaryPending && (
               <MenuItem
@@ -1355,42 +1355,21 @@ export default function ChatHeader({
                   setStartCallAnchor(null);
                   if (onOpenCallModal) onOpenCallModal();
                 }}
-                sx={{ borderRadius: '6px', py: 1, display: 'flex', gap: 1.2 }}
+                sx={{ borderRadius: '8px', py: 1.2, px: 1.5, mb: 0.5, display: 'flex', gap: 1.5, alignItems: 'center', '&:hover': { bgcolor: '#F8FAFC' } }}
               >
-                <Box
-                  sx={{
-                    p: 0.6,
-                    borderRadius: '6px',
-                    bgcolor: '#DCFCE7',
-                    color: '#16A34A',
-                    display: 'flex',
-                  }}
-                >
-                  <PhoneCall size={16} weight="bold" />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>
-                      {!activeThread?.receivedBy || activeThread?.receivedBy === 'Support Desk'
-                        ? `Accept & Start Call #${activeThread?.sr}`
-                        : `Primary Call #${activeThread?.sr}`}
-                    </Typography>
-                    <Chip
-                      label="Pending"
-                      size="small"
-                      sx={{
-                        height: 18,
-                        fontSize: 9.5,
-                        fontWeight: 700,
-                        bgcolor: '#FEF3C7',
-                        color: '#D97706',
-                      }}
-                    />
-                  </Box>
-                  <Typography sx={{ fontSize: 11, color: '#64748B' }}>
-                    {activeThread?.callBy || 'Client'}
+                <Avatar sx={{ width: 36, height: 36, bgcolor: '#DCFCE7', color: '#16A34A', fontSize: 16 }}>
+                  <PhoneCall size={18} weight="bold" />
+                </Avatar>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {!activeThread?.receivedBy || activeThread?.receivedBy === 'Support Desk' ? `Accept Call #${activeThread?.sr}` : `Primary Call #${activeThread?.sr}`}
+                    <Chip label="Pending" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 600, bgcolor: '#FEF3C7', color: '#D97706', borderRadius: '25px' }} />
+                  </Typography>
+                  <Typography sx={{ fontSize: 13, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    @{String(activeThread?.callBy || 'client').toLowerCase().replace(/\s+/g, '')}
                   </Typography>
                 </Box>
+                <Box sx={{ flexShrink: 0, width: 16, height: 16, borderRadius: '50%', border: '2px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
               </MenuItem>
             )}
 
@@ -1411,11 +1390,6 @@ export default function ChatHeader({
                       if (startFollowUpCall && fu.Id && activeThread?.sr) {
                         const res = await startFollowUpCall(fu.Id, activeThread.sr);
                         if (res && !res.success) {
-                          const errMsg =
-                            res.error?.message ||
-                            res.msg?.stat_msg ||
-                            'Failed to start follow-up call';
-                          // toast.error(errMsg);
                           return;
                         }
                       }
@@ -1426,80 +1400,41 @@ export default function ChatHeader({
                         followUpId: fu.Id,
                         isFollowUp: true,
                         isForwarded: isForward,
-                        title: isForward
-                          ? `Forwarded Call #${fu.Id}`
-                          : `Follow-Up #${fu.Id}`,
+                        title: isForward ? `Forwarded Call #${fu.Id}` : `Follow-Up #${fu.Id}`,
                       });
-                      // toast.success(
-                      //   `Started ${isForward ? 'Forwarded' : 'Follow-Up'} Call #${fu.Id}`
-                      // );
                     } catch (err) {
                       console.error('Error starting follow-up:', err);
-                      // toast.error(err?.message || 'Failed to start follow-up');
                     }
                   }}
-                  sx={{ borderRadius: '6px', py: 1, display: 'flex', gap: 1.2, my: 0.3 }}
+                  sx={{ borderRadius: '8px', py: 1.2, px: 1.5, mb: 0.5, display: 'flex', gap: 1.5, alignItems: 'center', '&:hover': { bgcolor: '#F8FAFC' } }}
                 >
-                  <Box
-                    sx={{
-                      p: 0.6,
-                      borderRadius: '6px',
-                      bgcolor: isForward ? '#EDE9FE' : '#EEF2FF',
-                      color: isForward ? '#6900C6' : '#4F46E5',
-                      display: 'flex',
-                    }}
-                  >
-                    {isForward ? (
-                      <ShareNetwork size={16} weight="bold" />
-                    ) : (
-                      <ArrowsClockwise size={16} weight="bold" />
-                    )}
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Typography
-                        sx={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}
-                      >
-                        {isForward ? 'Forwarded Call' : 'Follow-Up Call'} #{fu.Id || idx + 1}
-                      </Typography>
-                      <Chip
-                        label="Pending"
-                        size="small"
-                        sx={{
-                          height: 18,
-                          fontSize: 9.5,
-                          fontWeight: 700,
-                          bgcolor: '#FEF3C7',
-                          color: '#D97706',
-                        }}
-                      />
-                    </Box>
-                    <Typography sx={{ fontSize: 11, color: '#64748B' }}>
-                      {isForward
-                        ? `To ${fu.ForwardedEmp || 'Team'}`
-                        : `By ${fu.CreatedBy || fu.ReceivedBy || 'Support'}`}
+                  <Avatar sx={{ width: 36, height: 36, bgcolor: isForward ? '#EDE9FE' : '#EEF2FF', color: isForward ? '#6900C6' : '#4F46E5', fontSize: 16 }}>
+                    {isForward ? <ShareNetwork size={18} weight="bold" /> : <ArrowsClockwise size={18} weight="bold" />}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {isForward ? 'Forwarded Call' : 'Follow-Up Call'} #{fu.Id || idx + 1}
+                      <Chip label="Pending" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 600, bgcolor: '#FEF3C7', color: '#D97706', borderRadius: '4px' }} />
+                    </Typography>
+                    <Typography sx={{ fontSize: 13, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      @{isForward ? String(fu.ForwardedEmp || 'team').toLowerCase().replace(/\s+/g, '') : String(fu.CreatedBy || fu.ReceivedBy || 'support').toLowerCase().replace(/\s+/g, '')}
                     </Typography>
                   </Box>
+                  <Box sx={{ flexShrink: 0, width: 16, height: 16, borderRadius: '50%', border: '2px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
                 </MenuItem>
               );
             })}
 
             {/* When no pending calls exist */}
             {totalPendingCallsCount === 0 && (
-              <Box sx={{ px: 2, py: 1.5, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>
+              <Box sx={{ px: 2, py: 2, textAlign: 'center' }}>
+                <Typography sx={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
                   No pending calls to start
                 </Typography>
               </Box>
             )}
 
-            <Box sx={{ my: 0.5, borderTop: '1px solid #F1F5F9' }} />
+            <Box sx={{ my: 0.5, mx: -0.5, borderTop: '1px solid #E2E8F0' }} />
 
             {/* + Add New Follow-Up Call Option */}
             <Tooltip
@@ -1515,13 +1450,14 @@ export default function ChatHeader({
                     openAddFollowUpModal(activeThread);
                   }}
                   sx={{
-                    borderRadius: '6px',
-                    py: 0.8,
-                    color: isPrimaryPending ? '#CBD5E1' : '#6900C6',
-                    fontWeight: 700,
-                    fontSize: 12,
+                    borderRadius: '8px',
+                    py: 1.2,
+                    px: 1.5,
                     display: 'flex',
-                    gap: 1,
+                    alignItems: 'center',
+                    gap: 1.5,
+                    color: isPrimaryPending ? '#CBD5E1' : '#334155',
+                    '&:hover': { bgcolor: '#F8FAFC' },
                     '&.Mui-disabled': {
                       opacity: 1,
                       color: '#CBD5E1',
@@ -1530,13 +1466,10 @@ export default function ChatHeader({
                     },
                   }}
                 >
-                  <ArrowsClockwise size={14} weight="bold" />
-                  + Create New Follow-Up Call
-                  {isPrimaryPending && (
-                    <Typography sx={{ fontSize: 10, color: '#94A3B8', ml: 'auto', fontWeight: 500 }}>
-                      Main call pending
-                    </Typography>
-                  )}
+                  <ArrowsClockwise size={18} color={isPrimaryPending ? '#CBD5E1' : '#64748B'} />
+                  <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                    Create New Follow-Up Call
+                  </Typography>
                 </MenuItem>
               </span>
             </Tooltip>
@@ -1545,17 +1478,20 @@ export default function ChatHeader({
           {/* Right Inspector Toggle Button */}
           <Tooltip title={isInspectorOpen ? 'Hide Details Panel' : 'Show Details & Files Panel'}>
             <IconButton
-              size="small"
+              disableRipple
               onClick={() => onToggleInspector && onToggleInspector(!isInspectorOpen)}
               sx={{
                 width: 32,
                 height: 32,
-                color: isInspectorOpen ? '#6900C6' : '#64748B',
-                bgcolor: isInspectorOpen ? '#EDE9FE' : 'transparent',
-                '&:hover': { bgcolor: isInspectorOpen ? '#DDD6FE' : '#F1F5F9', color: '#6900C6' },
+                bgcolor: '#D6D6D8',
+                color: '#000',
+                borderRadius: '50%',
+                transition: 'all 0.15s ease',
+                "&:hover": { bgcolor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)" },
+                "&:active": { bgcolor: "#F8FAFC" },
               }}
             >
-              <SidebarSimple size={18} weight={isInspectorOpen ? 'bold' : 'regular'} />
+              <SidebarSimple size={18} weight={isInspectorOpen ? 'fill' : 'bold'} />
             </IconButton>
           </Tooltip>
         </Box>

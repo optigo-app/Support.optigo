@@ -93,8 +93,8 @@ export default function TopBar({
         gap: 1.5,
         overflowX: 'auto',
         '&::-webkit-scrollbar': { display: 'none' },
-        borderBottom:'1px solid',
-        borderColor:'divider'
+        borderBottom: '1px solid',
+        borderColor: 'divider'
       }}
     >
 
@@ -338,18 +338,6 @@ export default function TopBar({
             if (setStatusFilter) setStatusFilter(newVal);
           }}
         />
-      </Box>
-
-      {/* Right: Help Icon */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, justifyContent: 'flex-end' }}>
-        <Tooltip title="Help & Info">
-          <IconButton
-            size="small"
-            sx={{ color: '#64748B', p: 0.4, '&:hover': { color: '#0F172A', bgcolor: '#F1F5F9' } }}
-          >
-            <Question size={18} weight="bold" />
-          </IconButton>
-        </Tooltip>
       </Box>
     </Box>
   );

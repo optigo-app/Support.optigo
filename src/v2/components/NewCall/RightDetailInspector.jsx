@@ -140,20 +140,23 @@ export default function RightDetailInspector({
           if (Array.isArray(parsed)) {
             parsed.forEach((c) => {
               if (c.img) {
-                const fn = c.img.split('/').pop() || `Attachment_${c.id || 'file'}`;
-                attachmentsList.push({
-                  id: c.id,
-                  filename: fn,
-                  text: c.text,
-                  author: c.Name || agent,
-                  time: c.time,
-                  imgUrl: c.img,
-                  callSr: call.sr,
+                const urls = c.img.split(',').map(u => u.trim()).filter(Boolean);
+                urls.forEach((url, idx) => {
+                  const fn = url.split('/').pop() || `Attachment_${c.id || 'file'}_${idx}`;
+                  attachmentsList.push({
+                    id: `${c.id}_${idx}`,
+                    filename: fn,
+                    text: idx === 0 ? c.text : '',
+                    author: c.Name || agent,
+                    time: c.time,
+                    imgUrl: url,
+                    callSr: call.sr,
+                  });
                 });
               }
             });
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -197,19 +200,22 @@ export default function RightDetailInspector({
         if (Array.isArray(parsed)) {
           parsed.forEach((c) => {
             if (c.img) {
-              const fn = c.img.split('/').pop() || `Attachment_${c.id || 'file'}`;
-              list.push({
-                id: c.id,
-                filename: fn,
-                text: c.text,
-                author: c.Name,
-                time: c.time,
-                imgUrl: c.img,
+              const urls = c.img.split(',').map(u => u.trim()).filter(Boolean);
+              urls.forEach((url, idx) => {
+                const fn = url.split('/').pop() || `Attachment_${c.id || 'file'}_${idx}`;
+                list.push({
+                  id: `${c.id}_${idx}`,
+                  filename: fn,
+                  text: idx === 0 ? c.text : '',
+                  author: c.Name,
+                  time: c.time,
+                  imgUrl: url,
+                });
               });
             }
           });
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return list;
   }, [activeThread]);
@@ -222,7 +228,7 @@ export default function RightDetailInspector({
         return JSON.parse(raw);
       }
       if (Array.isArray(raw)) return raw;
-    } catch (e) {}
+    } catch (e) { }
     return [];
   }, [activeThread]);
 
@@ -281,10 +287,31 @@ export default function RightDetailInspector({
 
   const handleCopyCallSummary = () => {
     const summary = `Call #${rec.sr || activeThread?.sr || ''} | ${rec.company || activeThread?.company || ''} | Caller: ${rec.callBy || activeThread?.name || ''} | Agent: ${rec.receivedBy || rec.AssignedEmpName || ''} | Status: ${rec.status || ''}`;
-    navigator.clipboard.writeText(summary);
-    setCopied(true);
-    // toast.success('Call summary copied to clipboard');
-    setTimeout(() => setCopied(false), 2000);
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(summary).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(err => console.error('Clipboard write failed:', err));
+    } else {
+      // Fallback for non-HTTPS environments
+      const textArea = document.createElement('textarea');
+      textArea.value = summary;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Fallback copy failed:', err);
+      }
+      textArea.remove();
+    }
   };
 
   const hasValidDurationEdit = Boolean(

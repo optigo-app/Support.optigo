@@ -197,10 +197,13 @@ class CallStreamService {
           } else if (viewMode === 'followUp-Pending') {
             const followUps = t.followUps || [];
             const hasPending = followUps.some((fu) => {
+              const fuInternalStatus = String(fu.InternalStatus || fu.internalStatus || fu.status || '').trim().toLowerCase();
               const isSolved =
                 fu.statusId === 4 ||
                 fu.StatusId === 4 ||
-                String(fu.InternalStatus || fu.internalStatus || fu.status || '').trim().toLowerCase() === 'solved' ||
+                fuInternalStatus === 'solved' ||
+                fuInternalStatus === 'completed' ||
+                fuInternalStatus === 'closed' ||
                 String(fu.Estatus || fu.estatus || '').trim().toLowerCase() === 'completed';
 
               return !isSolved && !isValidDateString(fu.CallClosed) && (!fu.CallDuration || fu.CallDuration === '00:00:00');
@@ -209,10 +212,13 @@ class CallStreamService {
           } else if (viewMode === 'followUp-Completed') {
             const followUps = t.followUps || [];
             const hasCompleted = followUps.some((fu) => {
+              const fuInternalStatus = String(fu.InternalStatus || fu.internalStatus || fu.status || '').trim().toLowerCase();
               const isSolved =
                 fu.statusId === 4 ||
                 fu.StatusId === 4 ||
-                String(fu.InternalStatus || fu.internalStatus || fu.status || '').trim().toLowerCase() === 'solved' ||
+                fuInternalStatus === 'solved' ||
+                fuInternalStatus === 'completed' ||
+                fuInternalStatus === 'closed' ||
                 String(fu.Estatus || fu.estatus || '').trim().toLowerCase() === 'completed';
 
               return isSolved || isValidDateString(fu.CallClosed) || (fu.CallDuration && fu.CallDuration !== '00:00:00');

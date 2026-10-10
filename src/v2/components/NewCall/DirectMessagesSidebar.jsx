@@ -18,10 +18,34 @@ import {
   CaretLeft,
   CaretRight,
   SidebarSimple,
+  Headset,
+  DeviceMobile,
+  Desktop,
 } from '@phosphor-icons/react';
 import { getStatusColor } from '../../libs/data';
+import SourceBadge from './utils/SourceBadge';
 
-const ITEM_HEIGHT = 74; // Precise height per ticket row
+const neoColors = [
+  '#FF6B6B', // Red
+  '#4ECDC4', // Mint
+  '#FFE66D', // Yellow
+  '#A06CD5', // Purple
+  '#FF9F1C', // Orange
+  '#2EC4B6', // Teal
+  '#FF90E8', // Light Pink
+  '#90A8ED', // Periwinkle
+];
+
+const getNeoColor = (str) => {
+  let hash = 0;
+  for (let i = 0; i < (str || '').length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  hash = Math.abs(hash);
+  return neoColors[hash % neoColors.length];
+};
+
+const ITEM_HEIGHT = 84; // Precise height per ticket row
 const OVERSCAN = 5;     // Extra items above and below viewport
 
 export default function DirectMessagesSidebar({
@@ -38,7 +62,7 @@ export default function DirectMessagesSidebar({
   onSelectCompany,
   isLoading = false,
 }) {
-  const sidebarWidth = 320;
+  const sidebarWidth = 390;
   const [filterMode, setFilterMode] = useState('all');
   const scrollContainerRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -47,10 +71,99 @@ export default function DirectMessagesSidebar({
   // 1. High-Performance Memoized Filtering over 15,000+ items
   const filteredThreads = useMemo(() => {
     if (!threads || threads.length === 0) return [];
+
+    let result = threads;
     if (filterMode === 'unread') {
-      return threads.filter((t) => t.unread);
+      result = result.filter((t) => t.unread);
     }
-    return threads;
+
+    // Sort by recent messages (WhatsApp style shuffle to top)
+    result = [...result].sort((a, b) => {
+      const getThreadTime = (t) => {
+        if (!t) return 0;
+        let maxTime = 0;
+
+        const parseDT = (dateStr, timeStr) => {
+          let d = String(dateStr || '').trim();
+          let tm = String(timeStr || '').trim();
+          if (!d && !tm) return 0;
+
+          // If timeStr is actually a full ISO string (which happens for comments)
+          if (tm.includes('T') && tm.length > 10) {
+            const dt = new Date(tm);
+            if (!isNaN(dt.getTime())) return dt.getTime();
+          }
+
+          let year = 1970;
+          let month = 0;
+          let day = 1;
+
+          if (d) {
+            const parts = d.split(/[-/]/);
+            if (parts.length === 3) {
+              if (parts[0].length === 4) { // YYYY-MM-DD
+                year = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10) - 1;
+                day = parseInt(parts[2], 10);
+              } else { // DD-MM-YYYY
+                year = parseInt(parts[2], 10);
+                month = parseInt(parts[1], 10) - 1;
+                day = parseInt(parts[0], 10);
+              }
+            } else {
+              const fallback = new Date(d);
+              if (!isNaN(fallback.getTime())) {
+                year = fallback.getFullYear();
+                month = fallback.getMonth();
+                day = fallback.getDate();
+              }
+            }
+          }
+
+          let hours = 0;
+          let minutes = 0;
+
+          if (tm) {
+            const timeMatch = tm.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?/);
+            if (timeMatch) {
+              hours = parseInt(timeMatch[1], 10);
+              minutes = parseInt(timeMatch[2], 10);
+              const ampm = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
+              if (ampm === 'PM' && hours < 12) hours += 12;
+              if (ampm === 'AM' && hours === 12) hours = 0;
+            }
+          }
+
+          const dt = new Date(year, month, day, hours, minutes, 0, 0);
+          return isNaN(dt.getTime()) ? 0 : dt.getTime();
+        };
+
+        // 1. Base call time
+        maxTime = Math.max(maxTime, parseDT(t.date || t.rawRecord?.date || t.rawRecord?.callStart, t.timestamp || t.rawRecord?.time));
+
+        // 2. Comments time (new messages)
+        if (t.comments && Array.isArray(t.comments)) {
+          t.comments.forEach(c => {
+            let cTime = 0;
+            if (c.CreatedDate || c.createdDate) {
+              cTime = new Date(c.CreatedDate || c.createdDate).getTime();
+            }
+            if (!cTime || isNaN(cTime)) {
+              cTime = parseDT(c.date || c.created_at || c.createdAt, c.time || c.timestamp);
+            }
+            if (cTime && !isNaN(cTime) && cTime > maxTime) {
+              maxTime = cTime;
+            }
+          });
+        }
+
+        return maxTime || parseInt(t.sr || String(t.id).replace(/\D/g, '') || 0, 10);
+      };
+
+      return getThreadTime(b) - getThreadTime(a);
+    });
+
+    return result;
   }, [threads, filterMode]);
 
   // Caller frequency map
@@ -301,6 +414,7 @@ export default function DirectMessagesSidebar({
             '&::-webkit-scrollbar': { width: '5px' },
             '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
             '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: '4px' },
+            mt: 0.5
           }}
         >
           {isLoading ? (
@@ -322,7 +436,7 @@ export default function DirectMessagesSidebar({
               ))}
             </List>
           ) : totalCount === 0 ? (
-            <Box sx={{ p: 3, textAlign: 'center', color: '#94A3B8' }}>
+            <Box sx={{ p: 2, textAlign: 'center', color: '#94A3B8' }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#475569', mb: 0.5 }}>
                 No calls found
               </Typography>
@@ -375,12 +489,15 @@ export default function DirectMessagesSidebar({
                     `call-${thread.sr}` === activeThreadId;
                   const callerKey = (thread.callBy || thread.name || '').trim().toLowerCase();
                   const callerTotalCalls = callerCountMap.get(callerKey) || 1;
-                  const titleText =
-                    thread?.rawRecord?.description ||
-                    thread?.description ||
-                    thread?.lastMessage ||
-                    thread?.name ||
-                    'No Title';
+                  const titleText = thread?.description || thread?.rawRecord?.description || 'No Title';
+                  const lastMessageText = thread?.lastMessage || thread?.description || thread?.rawRecord?.description || 'No recent messages';
+
+                  const avatarText = (thread.name || thread.company || 'C').charAt(0).toUpperCase();
+                  const avatarColor = getNeoColor(thread.name || thread.company || 'Unknown');
+
+                  const outlineColor = '#0F172A';
+                  const shadowColor = '#0F172A';
+                  const shadowOffset = thread.unread ? '-3px 3px' : '-2.5px 2.5px';
 
                   return (
                     <Box
@@ -392,16 +509,13 @@ export default function DirectMessagesSidebar({
                         }
                       }}
                       sx={{
-                        height: `${ITEM_HEIGHT}px`,
-                        p: 1.1,
-                        px: 1.2,
-                        bgcolor: isActive ? '#EFD7FF' : thread.unread ? '#FAF5FF' : 'transparent',
-                        borderBottom: '1px solid #F1F5F9',
-                        borderLeft: isActive
-                          ? '3.5px solid #6900C6'
-                          : thread.unread
-                            ? '3.5px solid #9333EA'
-                            : '3.5px solid transparent',
+                        height: `${ITEM_HEIGHT - 6}px`,
+                        mb: '4px',
+                        mx: 0.5,
+                        p: 1.2,
+                        px: 1.5,
+                        borderRadius: '12px',
+                        bgcolor: isActive ? '#F1F5F9' : thread.unread ? '#F8FAFC' : 'transparent',
                         display: 'flex',
                         alignItems: 'flex-start',
                         gap: 1.2,
@@ -409,28 +523,32 @@ export default function DirectMessagesSidebar({
                         boxSizing: 'border-box',
                         transition: 'all 0.15s ease',
                         '&:hover': {
-                          bgcolor: isActive ? '#EFD7FF' : thread.unread ? '#F5EEFF' : '#F8FAFC',
+                          bgcolor: isActive ? '#E2E8F0' : '#F1F5F9',
                         },
                       }}
                     >
-                      {/* Thread Avatar with clean unread ring */}
+                      {/* Neobrutalist Avatar */}
                       <Box sx={{ position: 'relative', flexShrink: 0, mt: 0.2 }}>
                         <Avatar
+                          variant="rounded"
                           sx={{
-                            width: 35,
-                            height: 35,
-                            borderRadius: '50px',
-                            bgcolor: thread.unread ? '#EDE9FE' : '#D2C9F8',
-                            color: '#6900C6',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            boxShadow: thread.unread
-                              ? '0 0 0 2px #FFFFFF, 0 0 0 4px #9333EA'
-                              : 'none',
-                            transition: 'box-shadow 0.2s ease',
+                            width: 38,
+                            height: 38,
+                            borderRadius: '10px',
+                            bgcolor: avatarColor,
+                            color: '#0F172A',
+                            fontSize: 17,
+                            fontWeight: 900,
+                            border: `1.5px solid ${outlineColor}`,
+                            boxShadow: `${shadowOffset} 0px ${shadowColor}`,
+                            transition: 'all 0.2s ease',
+                            transform: 'rotate(0deg)',
+                            '&:hover': {
+                              transform: 'scale(1.05) rotate(-5deg)',
+                            }
                           }}
                         >
-                          {(thread.name || thread.company || 'C').charAt(0).toUpperCase()}
+                          {avatarText}
                         </Avatar>
 
                         {/* Online green indicator */}
@@ -451,95 +569,38 @@ export default function DirectMessagesSidebar({
                       </Box>
 
                       {/* Thread Content */}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        {/* Line 1: Title & Time + Modern Unread Badge */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, maxWidth: 175 }}>
-                            <Typography
-                              variant="subtitle2"
-                              sx={{
-                                fontSize: '0.82rem',
-                                fontWeight: thread.unread ? 800 : 700,
-                                color: thread.unread ? '#581C87' : '#0F172A',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {titleText}
-                            </Typography>
-
-                            {callerTotalCalls > 1 && (
-                              <Chip
-                                label={`${callerTotalCalls}`}
-                                size="small"
-                                title={`${callerTotalCalls} calls from this person`}
-                                sx={{
-                                  height: 16,
-                                  fontSize: '0.62rem',
-                                  fontWeight: 750,
-                                  bgcolor: '#EDE9FE',
-                                  color: '#6900C6',
-                                  px: 0.2,
-                                }}
-                              />
-                            )}
-                          </Box>
-
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontSize: '0.68rem',
-                                color: thread.unread ? '#7C3AED' : '#94A3B8',
-                                fontWeight: thread.unread ? 800 : 500,
-                              }}
-                            >
-                              {thread.timestamp || '00:00'}
-                            </Typography>
-
-                            {/* Creative Modern Live Beacon Pill */}
-                            {thread.unread && (
-                              <Box
-                                sx={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3.5px',
-                                  px: '6px',
-                                  py: '1px',
-                                  borderRadius: '12px',
-                                  background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)',
-                                  color: '#FFFFFF',
-                                  fontSize: '0.58rem',
-                                  fontWeight: 800,
-                                  letterSpacing: '0.4px',
-                                  boxShadow: '0 2px 6px rgba(124, 58, 237, 0.35)',
-                                  textTransform: 'uppercase',
-                                  animation: 'pulseBadge 2.5s infinite ease-in-out',
-                                  '@keyframes pulseBadge': {
-                                    '0%': { transform: 'scale(0.96)', opacity: 0.9 },
-                                    '50%': { transform: 'scale(1.04)', opacity: 1 },
-                                    '100%': { transform: 'scale(0.96)', opacity: 0.9 },
-                                  },
-                                }}
-                              >
-                                <Box
-                                  sx={{
-                                    width: 4.5,
-                                    height: 4.5,
-                                    borderRadius: '50%',
-                                    bgcolor: '#34D399',
-                                    boxShadow: '0 0 4px #34D399',
-                                  }}
-                                />
-                                new
-                              </Box>
-                            )}
-                          </Box>
+                      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        {/* Line 1: Header (Title + Time) */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.1, gap: 1 }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              fontSize: '0.86rem',
+                              fontWeight: thread.unread ? 800 : 700,
+                              color: '#0F172A',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                            }}
+                          >
+                            {titleText}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: '0.68rem',
+                              color: thread.unread ? '#0F172A' : '#64748B',
+                              fontWeight: thread.unread ? 800 : 500,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {thread.timestamp || '00:00'}
+                          </Typography>
                         </Box>
 
-                        {/* Line 2: Module/Topic & Status Tag */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.3 }}>
+                        {/* Line 2: Company / Caller Name & Source Indicator */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.2 }}>
                           <Typography
                             variant="caption"
                             sx={{
@@ -549,53 +610,97 @@ export default function DirectMessagesSidebar({
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
-                              maxWidth: 130,
+                              flexShrink: 1,
                             }}
                           >
-                            {thread.topicRaisedBy && thread.topicRaisedBy.toLowerCase() !== (thread.company || '').toLowerCase()
-                              ? thread.topicRaisedBy
-                              : thread.appname || (thread.sr ? `` : thread.company)}
+                            {thread.name || thread.company || 'Unknown'}
                           </Typography>
 
-                          {/* Status chip */}
-                          {thread.status && (() => {
-                            const { color } = getStatusColor(thread.status);
-                            const isGreen = color === 'success' || thread.status === 'Solved' || thread.estatus === 'Completed';
-                            const isRed = color === 'error' || thread.estatus === 'Running';
-                            const isBlue = color === 'info' || color === 'primary';
+                          {(() => {
+                            const sourceVal = thread.topicRaisedBy || thread.rawRecord?.topicRaisedBy || "";
+                            if (!sourceVal) return null;
                             return (
-                              <Chip
-                                label={thread.status}
-                                size="small"
-                                sx={{
-                                  height: 15,
-                                  fontSize: '0.62rem',
-                                  fontWeight: 700,
-                                  px: 0.2,
-                                  bgcolor: isGreen ? '#DCFCE7' : isRed ? '#FEE2E2' : isBlue ? '#E0F2FE' : '#FEF3C7',
-                                  color: isGreen ? '#15803D' : isRed ? '#DC2626' : isBlue ? '#0369A1' : '#D97706',
-                                }}
+                              <SourceBadge
+                                source={sourceVal}
+                                iconSize={10}
+                                labelSize="0.55rem"
                               />
                             );
                           })()}
                         </Box>
 
-                        {/* Line 3: Caller / Company Name */}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: 11,
-                            color: isActive ? '#374151' : '#64748B',
-                            lineHeight: 1.25,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 1,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            wordBreak: 'break-word',
-                          }}
-                        >
-                          {thread.name}
-                        </Typography>
+                        {/* Line 3: Latest Comment & Unread/Status Chip */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: 11,
+                              color: thread.unread ? '#111827' : (isActive ? '#374151' : '#64748B'),
+                              fontWeight: thread.unread ? 700 : 500,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                              mr: 1,
+                            }}
+                          >
+                            {lastMessageText}
+                          </Typography>
+
+                          {/* Unread / New Message Chip */}
+                          {thread.unread ? (
+                            <Box
+                              sx={{
+                                height: 18,
+                                px: 0.8,
+                                borderRadius: '9px',
+                                bgcolor: '#34c33b',
+                                color: '#FFFFFF',
+                                fontSize: '0.62rem',
+                                fontWeight: 800,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                boxShadow: '0 1px 2px rgba(52, 195, 59, 0.3)'
+                              }}
+                            >
+                              New
+                            </Box>
+                          ) : (
+                            /* Status Chip if no new message */
+                            thread.status && (() => {
+                              const { color } = getStatusColor(thread.status);
+                              const isGreen = color === 'success' || thread.status === 'Solved' || thread.estatus === 'Completed';
+                              const isRed = color === 'error' || thread.estatus === 'Running';
+                              const isBlue = color === 'info' || color === 'primary';
+                              const dotColor = isGreen ? '#10B981' : isRed ? '#EF4444' : isBlue ? '#3B82F6' : '#F59E0B';
+
+                              return (
+                                <Box
+                                  sx={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 0.6,
+                                    height: 18,
+                                    px: 0.8,
+                                    borderRadius: '9px',
+                                    fontSize: '0.62rem',
+                                    fontWeight: 650,
+                                    bgcolor: '#FFFFFF',
+                                    color: '#0F172A',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1), 0 1px 1px rgba(0,0,0,0.06)',
+                                    border: '1px solid #E2E8F0',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: dotColor }} />
+                                  {thread.status}
+                                </Box>
+                              );
+                            })()
+                          )}
+                        </Box>
                       </Box>
                     </Box>
                   );

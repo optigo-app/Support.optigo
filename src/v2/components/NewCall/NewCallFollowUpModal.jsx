@@ -110,161 +110,97 @@ export default function NewCallFollowUpModal() {
       maxWidth="md"
       fullWidth
       PaperProps={{
+        elevation: 0,
         sx: {
-          borderRadius: '20px',
-          bgcolor: '#565A61', // Dark slate header layer
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 1px 1px rgba(0, 0, 0, 0.1)',
+          maxWidth: '540px !important',
+          width: '100%',
+          borderRadius: '10px',
           overflow: 'hidden',
-          pt: '2px',
+          border: '1px solid #e6e9ef',
+          boxShadow:
+            '0 1px 2px rgba(31,41,75,0.06), 0 8px 24px rgba(31,41,75,0.10)',
+          background: 'linear-gradient(180deg, #ffffff 0%, #fafbfd 100%)',
           m: 2,
         },
       }}
     >
-      {/* Layer 1: Top Bar */}
-      <Box
-        sx={{
-          height: 42,
-          px: 2.5,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          color: '#FFFFFF',
-          userSelect: 'none',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ArrowsClockwise size={16} weight="bold" color="#FFFFFF" />
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
-            Add Follow-Up Call #{targetCall?.sr} • {targetCall?.company || 'Company'}
-          </Typography>
-        </Box>
-
-        <IconButton
-          size="small"
-          onClick={closeAddFollowUpModal}
-          sx={{
-            color: 'rgba(255, 255, 255, 0.85)',
-            p: 0.35,
-            '&:hover': {
-              color: '#FFFFFF',
-              bgcolor: 'rgba(255, 255, 255, 0.12)',
-            },
-          }}
-        >
-          <X size={16} weight="bold" />
-        </IconButton>
-      </Box>
-
-      {/* Layer 2: Inner White Form Card */}
       <Box
         component="form"
         onSubmit={handleSubmit}
         sx={{
-          bgcolor: '#FFFFFF',
-          borderRadius: '20px 20px 0 0',
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
         }}
       >
+        <IconButton
+          size="small"
+          onClick={closeAddFollowUpModal}
+          aria-label="Close dialog"
+          sx={{
+            color: '#4a556e',
+            p: 0.5,
+            borderRadius: '6px',
+            '&:hover': { bgcolor: '#f3f4f7' },
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            zIndex: 10,
+          }}
+        >
+          <X size={17} weight="bold" />
+        </IconButton>
+
+        <Box sx={{ px: 3.75, py: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <ArrowsClockwise size={20} weight="bold" color="#2f3a54" />
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#2f3a54' }}>
+              Add Follow-Up Call #{targetCall?.sr}
+            </Typography>
+          </Box>
+        </Box>
         {/* Form Content */}
         <Box
           sx={{
-            p: { xs: 2, sm: 3 },
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2.5,
+            px: 3.75,
+            py: 3,
+            bgcolor: '#f9fafc',
+            borderTop: '1px solid #dde1e9',
           }}
         >
-          {/* SECTION 1: Follow-Up Details */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 24,
-                height: 24,
-                borderRadius: 1.5,
-                bgcolor: '#6900C6',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 800,
-                mt: 0.6,
-                flexShrink: 0,
-                boxShadow: '0 2px 5px rgba(105, 0, 198, 0.2)',
-              }}
-            >
-              1
-            </Box>
-
-            <Card
-              variant="outlined"
-              sx={{
-                flex: 1,
-                borderRadius: 2.5,
-                borderColor: '#E2E8F0',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
-                bgcolor: '#FFFFFF',
-                overflow: 'hidden',
-              }}
-            >
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Chip
-                    icon={<ChatCircleText size={13} weight="bold" color="#6900C6" />}
-                    label="Follow-Up Scope"
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: '#F3E8FF',
-                      color: '#6900C6',
-                      borderRadius: 1,
-                    }}
-                  />
-                  <Typography sx={{ fontWeight: 800, fontSize: 13.5, color: '#0F172A' }}>
-                    Follow-Up Description & Notes
-                  </Typography>
-                </Box>
-
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  required
-                  placeholder="Enter reason or discussion notes for this follow-up call..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: '#F8FAFC',
-                      borderRadius: 2,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      '& fieldset': { borderColor: '#E2E8F0' },
-                      '&:hover fieldset': { borderColor: '#CBD5E1' },
-                      '&.Mui-focused fieldset': { borderColor: '#6900C6', borderWidth: 1.5 },
-                    },
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </Box>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            required
+            placeholder="Enter reason or discussion notes for this follow-up call..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                bgcolor: '#fff',
+                borderRadius: '6px',
+                fontSize: 14.5,
+                color: '#2f3a54',
+                '& fieldset': { borderColor: '#dde1e9' },
+                '&:hover fieldset': { borderColor: '#c3c9d6' },
+                '&.Mui-focused fieldset': { borderColor: '#5b80d6', borderWidth: 1 },
+              },
+            }}
+          />
         </Box>
 
         {/* Footer Action Bar */}
         <Box
           sx={{
-            px: 3,
-            py: 1.75,
+            px: 3.75,
+            py: 2.5,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
             gap: 1.5,
-            borderTop: '1px solid #F1F5F9',
-            bgcolor: '#FFFFFF',
+            bgcolor: '#eceef2',
+            borderTop: '1px solid #dde1e9',
           }}
         >
           <Button
@@ -274,9 +210,9 @@ export default function NewCallFollowUpModal() {
             disabled={isSubmitting}
             sx={{
               textTransform: 'none',
-              fontWeight: 650,
-              fontSize: 13,
-              color: '#475569',
+              fontWeight: 600,
+              fontSize: 14,
+              color: '#4a556e',
               px: 2,
             }}
           >
@@ -286,23 +222,25 @@ export default function NewCallFollowUpModal() {
           <Button
             type="submit"
             variant="contained"
-            size="small"
+            disableElevation
             disabled={isSubmitting || !description.trim()}
-            startIcon={<Plus size={15} weight="bold" />}
             sx={{
-              bgcolor: '#6900C6',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: 13,
+              bgcolor: '#e6e9ef',
+              color: '#a3abbd',
+              fontWeight: 600,
+              fontSize: 14.5,
               textTransform: 'none',
-              borderRadius: '8px',
-              px: 2.8,
-              py: 0.7,
-              boxShadow: '0 2px 8px rgba(105, 0, 198, 0.25)',
+              borderRadius: '6px',
+              px: 3,
+              py: 0.8,
               '&:hover': {
-                bgcolor: '#5800A8',
-                boxShadow: '0 4px 12px rgba(105, 0, 198, 0.35)',
+                bgcolor: '#d5d9e2',
               },
+              ...(description.trim() && {
+                bgcolor: '#1942b0',
+                color: '#fff',
+                '&:hover': { bgcolor: '#123184' },
+              }),
             }}
           >
             {isSubmitting ? 'Recording...' : 'Add Follow-Up'}

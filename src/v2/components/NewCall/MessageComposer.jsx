@@ -23,6 +23,7 @@ import {
   FileText,
   FilePdf,
   FileZip,
+  VideoCamera,
   Paperclip,
   Ticket,
   CheckSquare,
@@ -59,6 +60,9 @@ function getFileIcon(fileName = '', mimeType = '') {
   if (lower.match(/\.(zip|rar|7z|tar|gz)$/)) {
     return <FileZip size={20} weight="duotone" color="#D97706" />;
   }
+  if (mimeType.startsWith('video/') || lower.match(/\.(mp4|mov|avi|wmv|flv|mkv|webm)$/)) {
+    return <VideoCamera size={20} weight="duotone" color="#10B981" />;
+  }
   return <FileText size={20} weight="duotone" color="#0284C7" />;
 }
 
@@ -75,8 +79,7 @@ const MessageComposer = React.memo(function MessageComposer({
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isStrike, setIsStrike] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -168,37 +171,51 @@ const MessageComposer = React.memo(function MessageComposer({
     return { label: 'Csystem', bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' };
   }, [rawRecord, activeThread]);
 
-  const handleSelectFile = useCallback((file) => {
-    if (!file) return;
-    setSelectedFile(file);
-    if (file.type && file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    } else {
-      setPreviewUrl(null);
-    }
+  const handleSelectFiles = useCallback((filesArray) => {
+    if (!filesArray || filesArray.length === 0) return;
+    
+    setSelectedFiles((prev) => {
+      const newFiles = [...prev];
+      for (const f of filesArray) {
+        let url = null;
+        if (f.type && (f.type.startsWith('image/') || f.type.startsWith('video/'))) {
+          url = URL.createObjectURL(f);
+        }
+        newFiles.push({ file: f, previewUrl: url, id: Date.now() + Math.random() });
+      }
+      return newFiles;
+    });
   }, []);
 
   const handleFileInputChange = (e) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleSelectFile(files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleSelectFiles(Array.from(e.target.files));
     }
     e.target.value = '';
   };
 
-  const handleRemoveFile = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setSelectedFile(null);
-    setPreviewUrl(null);
+  const handleRemoveFile = (idToRemove) => {
+    setSelectedFiles((prev) => {
+      const fileObj = prev.find(f => f.id === idToRemove);
+      if (fileObj && fileObj.previewUrl) {
+        URL.revokeObjectURL(fileObj.previewUrl);
+      }
+      return prev.filter(f => f.id !== idToRemove);
+    });
+  };
+
+  const clearAllFiles = () => {
+    selectedFiles.forEach(f => {
+      if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+    });
+    setSelectedFiles([]);
   };
 
   const handlePaste = (e) => {
     if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
-      const file = e.clipboardData.files[0];
-      handleSelectFile(file);
+      // Prevent default to avoid pasting filename or raw file strings into the text input
+      e.preventDefault();
+      handleSelectFiles(Array.from(e.clipboardData.files));
     }
   };
 
@@ -219,21 +236,26 @@ const MessageComposer = React.memo(function MessageComposer({
     e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleSelectFile(e.dataTransfer.files[0]);
+      handleSelectFiles(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleSend = async () => {
-    if ((!text.trim() && !selectedFile) || isUploading) return;
+    if ((!text.trim() && selectedFiles.length === 0) || isUploading) return;
 
     try {
       setIsUploading(true);
       if (onSendMessage) {
-        await onSendMessage(text, selectedFile);
+        if (selectedFiles.length > 0) {
+          const filesArray = selectedFiles.map(f => f.file);
+          await onSendMessage(text, filesArray);
+        } else {
+          await onSendMessage(text, null);
+        }
       }
       setText('');
       setIsMentionOpen(false);
-      handleRemoveFile();
+      clearAllFiles();
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
@@ -424,7 +446,7 @@ const MessageComposer = React.memo(function MessageComposer({
     }
   };
 
-  const isSendDisabled = (!text.trim() && !selectedFile) || isUploading;
+  const isSendDisabled = (!text.trim() && selectedFiles.length === 0) || isUploading;
 
   return (
     <Box
@@ -771,85 +793,88 @@ const MessageComposer = React.memo(function MessageComposer({
           </Box>
         </Box>
 
-        {/* Selected Attachment Preview Card */}
-        {selectedFile && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.2,
-              m: 1,
-              mb: 0.5,
-              p: 1,
-              px: 1.4,
-              borderRadius: '8px',
-              bgcolor: '#F8FAFC',
-              border: '1px solid #E2E8F0',
-              maxWidth: 'fit-content',
-            }}
-          >
-            {previewUrl ? (
+        {/* Selected Attachments Preview */}
+        {selectedFiles.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, m: 1, mb: 0.5 }}>
+            {selectedFiles.map((fileObj) => (
               <Box
-                component="img"
-                src={previewUrl}
-                alt={selectedFile.name}
+                key={fileObj.id}
                 sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '6px',
-                  objectFit: 'cover',
-                  flexShrink: 0,
-                  border: '1px solid #CBD5E1',
-                }}
-              />
-            ) : (
-              <Box
-                sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '6px',
-                  bgcolor: '#EDE9FE',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
+                  gap: 1.2,
+                  p: 1,
+                  px: 1.4,
+                  borderRadius: '8px',
+                  bgcolor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  maxWidth: 'fit-content',
                 }}
               >
-                {getFileIcon(selectedFile.name, selectedFile.type)}
+                {fileObj.previewUrl ? (
+                  <Box
+                    component="img"
+                    src={fileObj.previewUrl}
+                    alt={fileObj.file.name}
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '6px',
+                      objectFit: 'cover',
+                      flexShrink: 0,
+                      border: '1px solid #CBD5E1',
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '6px',
+                      bgcolor: '#EDE9FE',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getFileIcon(fileObj.file.name, fileObj.file.type)}
+                  </Box>
+                )}
+
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    noWrap
+                    sx={{
+                      fontSize: 12.5,
+                      fontWeight: 650,
+                      color: '#0F172A',
+                      maxWidth: 150,
+                    }}
+                  >
+                    {fileObj.file.name}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>
+                    {formatFileSize(fileObj.file.size)}
+                  </Typography>
+                </Box>
+
+                <Tooltip title="Remove file">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleRemoveFile(fileObj.id)}
+                    sx={{
+                      p: 0.4,
+                      ml: 0.5,
+                      color: '#94A3B8',
+                      '&:hover': { color: '#EF4444', bgcolor: '#FEE2E2' },
+                    }}
+                  >
+                    <X size={14} weight="bold" />
+                  </IconButton>
+                </Tooltip>
               </Box>
-            )}
-
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                noWrap
-                sx={{
-                  fontSize: 12.5,
-                  fontWeight: 650,
-                  color: '#0F172A',
-                  maxWidth: 220,
-                }}
-              >
-                {selectedFile.name}
-              </Typography>
-              <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>
-                {formatFileSize(selectedFile.size)}
-              </Typography>
-            </Box>
-
-            <Tooltip title="Remove file">
-              <IconButton
-                size="small"
-                onClick={handleRemoveFile}
-                sx={{
-                  p: 0.4,
-                  ml: 0.5,
-                  color: '#94A3B8',
-                  '&:hover': { color: '#EF4444', bgcolor: '#FEE2E2' },
-                }}
-              >
-                <X size={14} weight="bold" />
-              </IconButton>
-            </Tooltip>
+            ))}
           </Box>
         )}
 
@@ -864,7 +889,7 @@ const MessageComposer = React.memo(function MessageComposer({
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={selectedFile ? 'Add a message or press Enter to send attachment...' : placeholder}
+            placeholder={selectedFiles.length > 0 ? 'Add a message or press Enter to send attachments...' : placeholder}
             disabled={isUploading}
             sx={{
               width: '100%',
@@ -890,11 +915,18 @@ const MessageComposer = React.memo(function MessageComposer({
         >
           {/* Left Shortcuts / Attachments */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-            <Tooltip title="Attach files or image">
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleFileInputChange}
+            />
+            <Tooltip title="Attach file, image, or video">
               <IconButton
                 size="small"
                 onClick={() => fileInputRef.current?.click()}
-                sx={{ color: selectedFile ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: selectedFile ? '#EDE9FE' : 'transparent' }}
+                sx={{ color: selectedFiles.length > 0 ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: selectedFiles.length > 0 ? '#EDE9FE' : 'transparent' }}
               >
                 <Paperclip size={16} weight="bold" />
               </IconButton>

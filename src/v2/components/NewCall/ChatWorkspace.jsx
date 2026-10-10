@@ -36,13 +36,15 @@ import { formatFriendlyTime, formatTimeOnly, formatDateGroup, isValidDate, getEp
 import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
 import { filesUploadApi } from '../../apis/UploadFille';
 import { useSocketEvent } from '../../hooks/useSocketListener';
+import ChatBgPattern from '../../../assets/images/chat-bg.png';
 
 const STORAGE_KEYS = {
   VOIP_SESSION: 'newcall_active_voip_session',
 };
 
+
 export default function ChatWorkspace() {
-  const { user } = useAuth();
+  const { user, CompanyInfo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -187,85 +189,85 @@ export default function ChatWorkspace() {
         callStreamService.unreadThreadIds.has(`call-${t.sr}`) ||
         Boolean(t.unread);
 
-        const finalFollowUps = (() => {
-          if (!fresh.FollowUpList) return t.followUps;
+      const finalFollowUps = (() => {
+        if (!fresh.FollowUpList) return t.followUps;
+        try {
+          const parsed = typeof fresh.FollowUpList === 'string'
+            ? JSON.parse(fresh.FollowUpList)
+            : fresh.FollowUpList;
+          if (!Array.isArray(parsed)) return t.followUps;
+
+          // Merge server data with local optimistic data
+          return parsed.map((serverFu) => {
+            const serverId = String(serverFu.Id ?? serverFu.id ?? serverFu.followUpCallId);
+            const localFu = (t.followUps || []).find(
+              (l) => String(l.Id ?? l.id ?? l.followUpCallId) === serverId
+            );
+            if (!localFu) return serverFu;
+
+            const merged = { ...serverFu };
+
+            // Preserve Description
+            const serverDescr = (serverFu.Description || serverFu.Descr || '').trim();
+            const localDescr = (localFu.Description || localFu.Descr || '').trim();
+            if (!serverDescr && localDescr) {
+              merged.Description = localDescr;
+              merged.Descr = localDescr;
+            }
+
+            // Preserve Duration
+            const serverDur = serverFu.CallDuration || serverFu.callDuration;
+            const localDur = localFu.CallDuration || localFu.callDuration;
+            if ((!serverDur || serverDur === '00:00:00') && localDur && localDur !== '00:00:00') {
+              merged.CallDuration = localDur;
+            }
+
+            // Preserve Closed Date
+            const serverClosed = serverFu.CallClosed || serverFu.callClosed;
+            const localClosed = localFu.CallClosed || localFu.callClosed;
+            if ((!serverClosed || serverClosed.startsWith('1900-01-01')) && localClosed && !localClosed.startsWith('1900-01-01')) {
+              merged.CallClosed = localClosed;
+            }
+
+            // Preserve Status
+            const serverStatus = serverFu.InternalStatusId ?? serverFu.StatusId;
+            const localStatus = localFu.InternalStatusId ?? localFu.StatusId;
+            if ((!serverStatus || serverStatus === 0) && localStatus) {
+              merged.InternalStatusId = localFu.InternalStatusId;
+              merged.InternalStatus = localFu.InternalStatus;
+              merged.StatusId = localFu.StatusId;
+            }
+
+            return merged;
+          });
+        } catch { return t.followUps; }
+      })();
+
+      return {
+        ...t,
+        unread: isUnread,
+        status: fresh.status || t.status,
+        estatus: fresh.Estatus || fresh.estatus || t.estatus,
+        callStart: fresh.callStart || t.callStart,
+        callClosed: fresh.callClosed || t.callClosed,
+        lastMessage: fresh.description || fresh.Descr || t.lastMessage,
+        comment: fresh.comment || t.comment,
+        comments: (() => {
+          if (!fresh.comment) return t.comments;
           try {
-            const parsed = typeof fresh.FollowUpList === 'string'
-              ? JSON.parse(fresh.FollowUpList)
-              : fresh.FollowUpList;
-            if (!Array.isArray(parsed)) return t.followUps;
-
-            // Merge server data with local optimistic data
-            return parsed.map((serverFu) => {
-              const serverId = String(serverFu.Id ?? serverFu.id ?? serverFu.followUpCallId);
-              const localFu = (t.followUps || []).find(
-                (l) => String(l.Id ?? l.id ?? l.followUpCallId) === serverId
-              );
-              if (!localFu) return serverFu;
-
-              const merged = { ...serverFu };
-
-              // Preserve Description
-              const serverDescr = (serverFu.Description || serverFu.Descr || '').trim();
-              const localDescr = (localFu.Description || localFu.Descr || '').trim();
-              if (!serverDescr && localDescr) {
-                merged.Description = localDescr;
-                merged.Descr = localDescr;
-              }
-
-              // Preserve Duration
-              const serverDur = serverFu.CallDuration || serverFu.callDuration;
-              const localDur = localFu.CallDuration || localFu.callDuration;
-              if ((!serverDur || serverDur === '00:00:00') && localDur && localDur !== '00:00:00') {
-                merged.CallDuration = localDur;
-              }
-
-              // Preserve Closed Date
-              const serverClosed = serverFu.CallClosed || serverFu.callClosed;
-              const localClosed = localFu.CallClosed || localFu.callClosed;
-              if ((!serverClosed || serverClosed.startsWith('1900-01-01')) && localClosed && !localClosed.startsWith('1900-01-01')) {
-                merged.CallClosed = localClosed;
-              }
-
-              // Preserve Status
-              const serverStatus = serverFu.InternalStatusId ?? serverFu.StatusId;
-              const localStatus = localFu.InternalStatusId ?? localFu.StatusId;
-              if ((!serverStatus || serverStatus === 0) && localStatus) {
-                merged.InternalStatusId = localFu.InternalStatusId;
-                merged.InternalStatus = localFu.InternalStatus;
-                merged.StatusId = localFu.StatusId;
-              }
-
-              return merged;
-            });
-          } catch { return t.followUps; }
-        })();
-
-        return {
-          ...t,
-          unread: isUnread,
-          status: fresh.status || t.status,
-          estatus: fresh.Estatus || fresh.estatus || t.estatus,
-          callStart: fresh.callStart || t.callStart,
-          callClosed: fresh.callClosed || t.callClosed,
-          lastMessage: fresh.description || fresh.Descr || t.lastMessage,
-          comment: fresh.comment || t.comment,
-          comments: (() => {
-            if (!fresh.comment) return t.comments;
-            try {
-              const parsed = typeof fresh.comment === 'string'
-                ? JSON.parse(fresh.comment)
-                : fresh.comment;
-              return Array.isArray(parsed) ? parsed : t.comments;
-            } catch { return t.comments; }
-          })(),
-          followUps: finalFollowUps,
-          rawRecord: { 
-            ...t.rawRecord, 
-            ...fresh,
-            FollowUpList: JSON.stringify(finalFollowUps) 
-          },
-        };
+            const parsed = typeof fresh.comment === 'string'
+              ? JSON.parse(fresh.comment)
+              : fresh.comment;
+            return Array.isArray(parsed) ? parsed : t.comments;
+          } catch { return t.comments; }
+        })(),
+        followUps: finalFollowUps,
+        rawRecord: {
+          ...t.rawRecord,
+          ...fresh,
+          FollowUpList: JSON.stringify(finalFollowUps)
+        },
+      };
     });
 
     if (hasChanges) {
@@ -814,15 +816,35 @@ export default function ChatWorkspace() {
 
       if (Array.isArray(followUps)) {
         followUps.forEach((fu, fuIdx) => {
+          const fuInternalStatus = String(fu.InternalStatus || fu.internalStatus || fu.status || '').trim().toLowerCase();
           const isForwarded = Boolean(
             fu.ForwardedEmp ||
-            String(fu.InternalStatus || '').toLowerCase() === 'forwarded' ||
+            fuInternalStatus === 'forwarded' ||
             fu.InternalStatusId === 5 ||
             fu.statusId === 5
           );
 
+          const isSolved =
+            fu.statusId === 4 ||
+            fu.StatusId === 4 ||
+            fuInternalStatus === 'solved' ||
+            fuInternalStatus === 'completed' ||
+            fuInternalStatus === 'closed' ||
+            String(fu.Estatus || fu.estatus || '').trim().toLowerCase() === 'completed';
+
           const rawCallStart = fu.CallStart || fu.callStart || '';
           const hasRealStart = isValidDate(rawCallStart);
+          const hasRealClosed = isValidDate(fu.CallClosed);
+
+          const isPending = !isSolved && !hasRealClosed && (!fu.CallDuration || fu.CallDuration === '00:00:00' || fu.CallDuration === '0');
+
+          if (viewMode === 'followUp-Pending' && !isPending) {
+            return;
+          }
+
+          if (viewMode === 'followUp-Completed' && isPending) {
+            return;
+          }
 
           const rawCreated =
             fu.CreatedDate ||
@@ -1055,7 +1077,7 @@ export default function ChatWorkspace() {
     }
 
     return items;
-  }, [user]);
+  }, [user, viewMode]);
 
   // O(1) Map for 15,000+ instant lookups across IDs, serials, and prefix formats
   const threadMap = useMemo(() => {
@@ -1333,41 +1355,46 @@ export default function ChatWorkspace() {
       let uploadedUrl = null;
       let attachmentData = null;
 
-      // 1. If a file is attached, upload via filesUploadApi
-      if (
-        fileOrAttachment instanceof File ||
-        (fileOrAttachment && typeof fileOrAttachment === 'object' && fileOrAttachment.name && fileOrAttachment.size !== undefined)
-      ) {
-        const file = fileOrAttachment;
+      const isArrayOfFiles = Array.isArray(fileOrAttachment) && fileOrAttachment.length > 0;
+      const isSingleFile = fileOrAttachment instanceof File ||
+        (fileOrAttachment && typeof fileOrAttachment === 'object' && fileOrAttachment.name && fileOrAttachment.size !== undefined && !Array.isArray(fileOrAttachment));
+
+      // 1. If files are attached, upload via filesUploadApi
+      if (isArrayOfFiles || isSingleFile) {
+        const filesToUpload = isArrayOfFiles ? fileOrAttachment : [fileOrAttachment];
         try {
           const uploadRes = await filesUploadApi({
-            ukey: user?.ukey,
+            ukey: CompanyInfo?.ukey || user?.ukey,
             folderName: 'CallLog',
             uniqueNo: callLogSr,
-            attachments: [file],
+            attachments: filesToUpload,
           });
-          uploadedUrl =
-            uploadRes?.files?.[0]?.url ||
-            uploadRes?.files?.[0]?.fileUrl ||
-            uploadRes?.url ||
-            uploadRes?.data?.[0]?.url ||
-            null;
 
-          attachmentData = {
-            id: Date.now(),
-            filename: file.name,
-            size: file.size,
-            fileType: file.type || 'file',
-            type: file.type?.startsWith('image/') ? 'image' : 'file',
-            imgUrl: uploadedUrl,
-            text: text || '',
-          };
+          // Join multiple uploaded URLs by comma
+          const uploadedUrls = (uploadRes?.files || []).map(f => f.url || f.fileUrl).filter(Boolean);
+          if (uploadedUrls.length === 0 && uploadRes?.url) uploadedUrls.push(uploadRes.url);
+          if (uploadedUrls.length === 0 && uploadRes?.data?.[0]?.url) uploadedUrls.push(uploadRes.data[0].url);
+
+          uploadedUrl = uploadedUrls.join(',') || null;
+
+          if (uploadedUrl) {
+            const firstFile = filesToUpload[0];
+            attachmentData = {
+              id: Date.now(),
+              filename: filesToUpload.length > 1 ? `${filesToUpload.length} files attached` : firstFile.name,
+              size: firstFile.size,
+              fileType: firstFile.type || 'file',
+              type: firstFile.type?.startsWith('image/') ? 'image' : 'file',
+              imgUrl: uploadedUrl,
+              text: text || '',
+            };
+          }
         } catch (uploadErr) {
           console.error('File upload failed:', uploadErr);
           // toast.error('Failed to upload attachment');
           return;
         }
-      } else if (fileOrAttachment) {
+      } else if (fileOrAttachment && !isArrayOfFiles) {
         attachmentData = fileOrAttachment;
         uploadedUrl = fileOrAttachment.imgUrl || fileOrAttachment.url || null;
       }
@@ -1552,7 +1579,12 @@ export default function ChatWorkspace() {
             flexDirection: 'column',
             height: '100%',
             overflow: 'hidden',
-            bgcolor: '#FFFFFF',
+            // bgcolor: '#EFEAE2', // Light chat background tone
+            // backgroundImage: `url(${ChatBgPattern})`,
+            backgroundRepeat: 'repeat',
+            backgroundSize: '400px', // Standard repeating size for this pattern
+            backgroundPosition: 'center',
+            backgroundBlendMode: 'overlay', // Soften the pattern
           }}
         >
           {/* Header with Sleek Status Pills & Company Timeline Switch */}

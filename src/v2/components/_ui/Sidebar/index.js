@@ -217,8 +217,8 @@ export default function ModernMenu() {
               item.path === "/"
                 ? location.pathname === "/"
                 : location.pathname
-                    .toLowerCase()
-                    .startsWith(item.path.toLowerCase());
+                  .toLowerCase()
+                  .startsWith(item.path.toLowerCase());
 
             return (
               <Tooltip
@@ -269,7 +269,7 @@ export default function ModernMenu() {
         <Box
           sx={{ py: 0.75, display: "flex", flexDirection: "column", gap: 0.25 }}
         >
-          <VersionBadge collapsed={collapsed} />
+          {/* <VersionBadge collapsed={collapsed} /> */}
           <Tooltip title={collapsed ? "Logout" : ""} placement="right" arrow>
             <ListItemButton
               onClick={handleLogout}
