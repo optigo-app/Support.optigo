@@ -48,6 +48,82 @@ const getNeoColor = (str) => {
 const ITEM_HEIGHT = 84; // Precise height per ticket row
 const OVERSCAN = 5;     // Extra items above and below viewport
 
+export function getThreadDisplayInfo(thread) {
+  if (!thread) {
+    return {
+      titleText: 'No Title',
+      lastMessageText: 'No recent messages',
+      timeText: '00:00',
+    };
+  }
+
+  const titleText = thread?.description || thread?.rawRecord?.description || 'No Title';
+
+  // Extract comments list safely
+  let comments = [];
+  if (Array.isArray(thread.comments) && thread.comments.length > 0) {
+    comments = thread.comments;
+  } else if (thread.rawRecord?.comment) {
+    try {
+      const parsed = typeof thread.rawRecord.comment === 'string'
+        ? JSON.parse(thread.rawRecord.comment)
+        : thread.rawRecord.comment;
+      if (Array.isArray(parsed)) comments = parsed;
+    } catch (_) {}
+  } else if (thread.rawRecord?.CommentsArray) {
+    try {
+      const parsed = typeof thread.rawRecord.CommentsArray === 'string'
+        ? JSON.parse(thread.rawRecord.CommentsArray)
+        : thread.rawRecord.CommentsArray;
+      if (Array.isArray(parsed)) comments = parsed;
+    } catch (_) {}
+  }
+
+  let latestCommentText = '';
+  let latestCommentTime = '';
+
+  if (comments && comments.length > 0) {
+    const lastComment = comments[comments.length - 1];
+    latestCommentText = (
+      lastComment.text ||
+      lastComment.comment ||
+      lastComment.Comments ||
+      lastComment.Remarks ||
+      (lastComment.img || lastComment.FilePath ? '📷 Photo' : '') ||
+      ''
+    ).trim();
+
+    const rawTime = lastComment.time || lastComment.CreatedDate || lastComment.createdDate;
+    if (rawTime) {
+      try {
+        const clean = String(rawTime).replace(/Z$/i, '').replace(' ', 'T');
+        const dt = new Date(clean);
+        if (!isNaN(dt.getTime())) {
+          latestCommentTime = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      } catch (_) {}
+    }
+  }
+
+  // If a comment exists, prioritize that text (WhatsApp behavior)
+  let lastMessageText = '';
+  if (latestCommentText) {
+    lastMessageText = latestCommentText;
+  } else if (thread.lastMessage && thread.lastMessage !== titleText) {
+    lastMessageText = thread.lastMessage;
+  } else {
+    lastMessageText = titleText || 'No recent messages';
+  }
+
+  const timeText = latestCommentTime || thread.timestamp || thread.rawRecord?.time || '00:00';
+
+  return {
+    titleText,
+    lastMessageText,
+    timeText,
+  };
+}
+
 export default function DirectMessagesSidebar({
   open = true,
   onClose,
@@ -142,8 +218,27 @@ export default function DirectMessagesSidebar({
         maxTime = Math.max(maxTime, parseDT(t.date || t.rawRecord?.date || t.rawRecord?.callStart, t.timestamp || t.rawRecord?.time));
 
         // 2. Comments time (new messages)
-        if (t.comments && Array.isArray(t.comments)) {
-          t.comments.forEach(c => {
+        let commentsList = t.comments;
+        if (!Array.isArray(commentsList) || commentsList.length === 0) {
+          if (t.rawRecord?.comment) {
+            try {
+              const parsed = typeof t.rawRecord.comment === 'string'
+                ? JSON.parse(t.rawRecord.comment)
+                : t.rawRecord.comment;
+              if (Array.isArray(parsed)) commentsList = parsed;
+            } catch (_) {}
+          } else if (t.rawRecord?.CommentsArray) {
+            try {
+              const parsed = typeof t.rawRecord.CommentsArray === 'string'
+                ? JSON.parse(t.rawRecord.CommentsArray)
+                : t.rawRecord.CommentsArray;
+              if (Array.isArray(parsed)) commentsList = parsed;
+            } catch (_) {}
+          }
+        }
+
+        if (commentsList && Array.isArray(commentsList)) {
+          commentsList.forEach(c => {
             let cTime = 0;
             if (c.CreatedDate || c.createdDate) {
               cTime = new Date(c.CreatedDate || c.createdDate).getTime();
@@ -489,8 +584,7 @@ export default function DirectMessagesSidebar({
                     `call-${thread.sr}` === activeThreadId;
                   const callerKey = (thread.callBy || thread.name || '').trim().toLowerCase();
                   const callerTotalCalls = callerCountMap.get(callerKey) || 1;
-                  const titleText = thread?.description || thread?.rawRecord?.description || 'No Title';
-                  const lastMessageText = thread?.lastMessage || thread?.description || thread?.rawRecord?.description || 'No recent messages';
+                  const { titleText, lastMessageText, timeText } = getThreadDisplayInfo(thread);
 
                   const avatarText = (thread.name || thread.company || 'C').charAt(0).toUpperCase();
                   const avatarColor = getNeoColor(thread.name || thread.company || 'Unknown');
@@ -595,7 +689,7 @@ export default function DirectMessagesSidebar({
                               flexShrink: 0,
                             }}
                           >
-                            {thread.timestamp || '00:00'}
+                            {timeText}
                           </Typography>
                         </Box>
 

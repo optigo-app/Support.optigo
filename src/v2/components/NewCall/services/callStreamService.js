@@ -35,6 +35,44 @@ export function normalizeCallRecord(rec, idx = 0) {
     } else if (Array.isArray(rec.comment)) {
       parsedComments = rec.comment;
     }
+  } else if (rec.CommentsArray) {
+    if (typeof rec.CommentsArray === 'string') {
+      try {
+        parsedComments = JSON.parse(rec.CommentsArray);
+      } catch (_) {
+        parsedComments = [];
+      }
+    } else if (Array.isArray(rec.CommentsArray)) {
+      parsedComments = rec.CommentsArray;
+    }
+  } else if (Array.isArray(rec.comments)) {
+    parsedComments = rec.comments;
+  }
+
+  // Extract latest comment (WhatsApp style preview & timestamp)
+  let latestCommentText = '';
+  let latestCommentTime = '';
+  if (Array.isArray(parsedComments) && parsedComments.length > 0) {
+    const lastComment = parsedComments[parsedComments.length - 1];
+    latestCommentText = (
+      lastComment.text ||
+      lastComment.comment ||
+      lastComment.Comments ||
+      lastComment.Remarks ||
+      (lastComment.img || lastComment.FilePath ? '📷 Photo' : '') ||
+      ''
+    ).trim();
+
+    const rawCommentTime = lastComment.time || lastComment.CreatedDate || lastComment.createdDate;
+    if (rawCommentTime) {
+      try {
+        const clean = String(rawCommentTime).replace(/Z$/i, '').replace(' ', 'T');
+        const dt = new Date(clean);
+        if (!isNaN(dt.getTime())) {
+          latestCommentTime = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      } catch (_) {}
+    }
   }
 
   const sr = rec.sr || rec.id || idx;
@@ -71,9 +109,10 @@ export function normalizeCallRecord(rec, idx = 0) {
     receivedBy,
     AssignedEmpName: rec.AssignedEmpName || '',
     lastMessage:
+      latestCommentText ||
       rec.description ||
       (rawEstatus ? `Call Status: ${rawEstatus}` : 'Voice support call logged'),
-    timestamp: rec.time || '',
+    timestamp: latestCommentTime || rec.time || '',
     date: rec.date || rec.callStart || '',
     status: rawStatus,
     estatus: rawEstatus,
@@ -683,22 +722,33 @@ class CallStreamService {
         }
       } catch (_) {}
 
-      const previewText = normalizedComment.text
-        ? `${normalizedComment.Name ? `${normalizedComment.Name.split(' ')[0]}: ` : ''}${normalizedComment.text}`
-        : t.lastMessage;
+      const previewText = normalizedComment.text || t.lastMessage;
 
       return {
         ...t,
         unread: shouldMarkUnread ? true : t.unread,
         lastMessage: previewText,
         timestamp: displayTime || t.timestamp,
+        date: normalizedComment.time || t.date,
         rawRecord: raw,
         comments,
       };
     });
 
     if (hasUpdated) {
-      this.threads$.next(updatedThreads);
+      // Re-order threads so the most recently messaged thread jumps to the top (WhatsApp style)
+      const targetIndex = updatedThreads.findIndex(
+        (t) =>
+          String(t.sr) === String(callLogId) ||
+          String(t.id) === String(callLogId) ||
+          `call-${t.sr}` === String(callLogId)
+      );
+      if (targetIndex > 0) {
+        const [movedThread] = updatedThreads.splice(targetIndex, 1);
+        this.threads$.next([movedThread, ...updatedThreads]);
+      } else {
+        this.threads$.next(updatedThreads);
+      }
     }
   }
 

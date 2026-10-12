@@ -172,6 +172,42 @@ export default function ChatWorkspace() {
           callStreamService.unreadThreadIds.has(`call-${t.sr}`) ||
           Boolean(t.unread);
 
+        const parsedComments = (() => {
+          if (!fresh.comment && !fresh.CommentsArray) return t.comments || [];
+          const rawComments = fresh.comment || fresh.CommentsArray;
+          try {
+            const parsed = typeof rawComments === 'string'
+              ? JSON.parse(rawComments)
+              : rawComments;
+            return Array.isArray(parsed) ? parsed : (t.comments || []);
+          } catch { return t.comments || []; }
+        })();
+
+        let latestCommentText = '';
+        let latestCommentTime = '';
+        if (Array.isArray(parsedComments) && parsedComments.length > 0) {
+          const lastC = parsedComments[parsedComments.length - 1];
+          latestCommentText = (
+            lastC.text ||
+            lastC.comment ||
+            lastC.Comments ||
+            lastC.Remarks ||
+            (lastC.img || lastC.FilePath ? '📷 Photo' : '') ||
+            ''
+          ).trim();
+
+          const rawCDate = lastC.time || lastC.CreatedDate || lastC.createdDate;
+          if (rawCDate) {
+            try {
+              const clean = String(rawCDate).replace(/Z$/i, '').replace(' ', 'T');
+              const dt = new Date(clean);
+              if (!isNaN(dt.getTime())) {
+                latestCommentTime = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+            } catch (_) {}
+          }
+        }
+
         return {
           ...t,
           unread: isUnread,
@@ -179,17 +215,15 @@ export default function ChatWorkspace() {
           estatus: fresh.Estatus || fresh.estatus || t.estatus,
           callStart: fresh.callStart || t.callStart,
           callClosed: fresh.callClosed || t.callClosed,
-          lastMessage: fresh.description || fresh.Descr || t.lastMessage,
+          lastMessage:
+            latestCommentText ||
+            fresh.description ||
+            fresh.Descr ||
+            t.lastMessage ||
+            'Voice support call logged',
+          timestamp: latestCommentTime || t.timestamp,
           comment: fresh.comment || t.comment,
-          comments: (() => {
-            if (!fresh.comment) return t.comments;
-            try {
-              const parsed = typeof fresh.comment === 'string'
-                ? JSON.parse(fresh.comment)
-                : fresh.comment;
-              return Array.isArray(parsed) ? parsed : t.comments;
-            } catch { return t.comments; }
-          })(),
+          comments: parsedComments,
           followUps: (() => {
             if (!fresh.FollowUpList) return t.followUps;
             try {
