@@ -342,8 +342,8 @@ export default function RightDetailInspector({
       {/* 1. Apple-Style Clean Top Header Bar */}
       <Box
         sx={{
-          height: 52,
-          minHeight: 52,
+          height: 60,
+          minHeight: 60,
           px: 2,
           display: 'flex',
           alignItems: 'center',
@@ -400,15 +400,15 @@ export default function RightDetailInspector({
         </Tooltip>
       </Box>
 
-      {/* 2. Apple Segmented Control Navigation */}
+      {/* 2. Modern Segmented Tab Navigation (Consistent with TopBar / ChatHeader) */}
       <Box sx={{ px: 2, pt: 1.2, pb: 1.2, borderBottom: '1px solid #F1F3F5', bgcolor: '#FFFFFF' }}>
         <Box
           sx={{
             display: 'flex',
+            alignItems: 'center',
             p: '3px',
-            bgcolor: '#F1F3F5',
-            borderRadius: '10px',
-            border: '1px solid #E9ECEF',
+            bgcolor: '#D6D6D8',
+            borderRadius: '12px',
             gap: '2px',
           }}
         >
@@ -418,23 +418,23 @@ export default function RightDetailInspector({
             onClick={() => setActiveTab('overview')}
             sx={{
               flex: 1,
-              py: '6px',
-              px: 1,
+              height: 28,
               border: 'none',
-              borderRadius: '7px',
-              fontSize: '12px',
-              fontWeight: activeTab === 'overview' ? 700 : 550,
-              color: activeTab === 'overview' ? '#1D1D1F' : '#6E6E73',
+              borderRadius: '10px',
+              fontSize: 13,
+              fontWeight: activeTab === 'overview' ? 550 : 500,
+              color: '#000',
               bgcolor: activeTab === 'overview' ? '#FFFFFF' : 'transparent',
-              boxShadow: activeTab === 'overview' ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04)' : 'none',
+              boxShadow: activeTab === 'overview' ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
               cursor: 'pointer',
-              transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+              transition: 'background-color .15s ease, box-shadow .15s ease',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               outline: 'none',
               '&:hover': {
-                color: '#1D1D1F',
+                bgcolor: activeTab === 'overview' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)',
+                color: '#000',
               },
             }}
           >
@@ -447,24 +447,24 @@ export default function RightDetailInspector({
             onClick={() => setActiveTab('files')}
             sx={{
               flex: 1,
-              py: '6px',
-              px: 1,
+              height: 28,
               border: 'none',
-              borderRadius: '7px',
-              fontSize: '12px',
-              fontWeight: activeTab === 'files' ? 700 : 550,
-              color: activeTab === 'files' ? '#1D1D1F' : '#6E6E73',
+              borderRadius: '10px',
+              fontSize: 13,
+              fontWeight: activeTab === 'files' ? 550 : 500,
+              color: '#000',
               bgcolor: activeTab === 'files' ? '#FFFFFF' : 'transparent',
-              boxShadow: activeTab === 'files' ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04)' : 'none',
+              boxShadow: activeTab === 'files' ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
               cursor: 'pointer',
-              transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+              transition: 'background-color .15s ease, box-shadow .15s ease',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 0.6,
               outline: 'none',
               '&:hover': {
-                color: '#1D1D1F',
+                bgcolor: activeTab === 'files' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)',
+                color: '#000',
               },
             }}
           >
@@ -472,14 +472,14 @@ export default function RightDetailInspector({
             <Box
               component="span"
               sx={{
-                fontSize: '10px',
+                fontSize: 11,
                 fontWeight: 700,
-                px: '6px',
-                py: '1px',
-                borderRadius: '10px',
-                bgcolor: activeTab === 'files' ? '#F1F3F5' : '#E5E7EB',
-                color: activeTab === 'files' ? '#1D1D1F' : '#6E6E73',
-                lineHeight: 1.3,
+                px: 0.75,
+                py: 0.1,
+                borderRadius: '999px',
+                bgcolor: activeTab === 'files' ? '#FAF5FF' : 'rgba(0, 0, 0, 0.08)',
+                color: activeTab === 'files' ? '#6900C6' : '#475569',
+                lineHeight: 1.2,
               }}
             >
               {isCompanyView ? companyData?.attachments?.length || 0 : callAttachments.length}
@@ -493,23 +493,23 @@ export default function RightDetailInspector({
               onClick={() => setActiveTab('history')}
               sx={{
                 flex: 1,
-                py: '6px',
-                px: 1,
+                height: 28,
                 border: 'none',
-                borderRadius: '7px',
-                fontSize: '12px',
-                fontWeight: activeTab === 'history' ? 700 : 550,
-                color: activeTab === 'history' ? '#1D1D1F' : '#6E6E73',
+                borderRadius: '10px',
+                fontSize: 13,
+                fontWeight: activeTab === 'history' ? 550 : 500,
+                color: '#000',
                 bgcolor: activeTab === 'history' ? '#FFFFFF' : 'transparent',
-                boxShadow: activeTab === 'history' ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.04)' : 'none',
+                boxShadow: activeTab === 'history' ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
                 cursor: 'pointer',
-                transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                transition: 'background-color .15s ease, box-shadow .15s ease',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 outline: 'none',
                 '&:hover': {
-                  color: '#1D1D1F',
+                  bgcolor: activeTab === 'history' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)',
+                  color: '#000',
                 },
               }}
             >

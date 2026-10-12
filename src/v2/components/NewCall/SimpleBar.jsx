@@ -11,9 +11,13 @@ const SimpleBar = forwardRef(({ children, style, sx, ...props }, ref) => {
   return (
     <Box
       ref={containerRef}
+      style={style}
       sx={{
         overflowY: 'auto',
         height: '100%',
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
+        ...sx,
       }}
       {...props}
     >

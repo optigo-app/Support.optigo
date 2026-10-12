@@ -42,7 +42,23 @@ const GridHeader = ({ filterCount, isFilterData, onExcel, callStatusValue, Compa
     }
   };
 
-  const StatusList = [...STATUS_LIST, ...ESTATUS_LIST];
+  const StatusList = React.useMemo(() => {
+    const combined = [...STATUS_LIST, ...ESTATUS_LIST];
+    const seen = new Set();
+    const unique = [];
+
+    for (const s of combined) {
+      const label = String(s.label || s.Name || s.name || s.value || '').trim();
+      if (!label) continue;
+      const normKey = label.toLowerCase();
+
+      if (!seen.has(normKey)) {
+        seen.add(normKey);
+        unique.push(s);
+      }
+    }
+    return unique;
+  }, [STATUS_LIST, ESTATUS_LIST]);
 
   return (
     <Box
@@ -112,8 +128,8 @@ const StatusSelect = ({ Status, SetStatus, STATUS_LIST }) => {
         labelId="status-select-label"
         id="status-select"
         label="Status"
-        value={Status || ""}
-        onChange={(e) => SetStatus(e.target.value)}
+        value={Status === "all" ? "" : (Status ?? 44)}
+        onChange={(e) => SetStatus(e.target.value === "" ? "all" : e.target.value)}
         MenuProps={{
           PaperProps: {
             sx: {
@@ -123,8 +139,9 @@ const StatusSelect = ({ Status, SetStatus, STATUS_LIST }) => {
           },
         }}
         renderValue={(selected) => {
-          const selectedItem = STATUS_LIST.find((item) => item?.value === Number(selected));
-          return selectedItem ? selectedItem.label : "Select Status";
+          if (!selected || selected === "all") return "All";
+          const selectedItem = STATUS_LIST.find((item) => String(item?.value) === String(selected));
+          return selectedItem ? selectedItem.label : (selected === 44 || String(selected) === "44" ? "Pending" : "Select Status");
         }}
       >
         <MenuItem key="all" value="">

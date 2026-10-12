@@ -408,17 +408,19 @@ export function CallLogProvider(props) {
     const params = new URLSearchParams(location.search);
     const savedSearch = params.get("search") || "";
     const savedCompanyStatus = params.get("companyStatus") || "";
-    const savedStatus = params.get("status") || "";
+    const paramStatus = params.get("status");
+    const savedStatus = paramStatus !== null ? paramStatus : 44;
     const savedTarget = params.get("target") || "";
     const start = params.get("start");
     const end = params.get("end");
 
     const GetAllCallLogs = async () => {
       try {
+        const resolvedStatusId = savedStatus === "all" ? "" : (savedStatus ?? 44);
         const data = await CallLogApi.getCallLogs({
           endDate: end || "",
           startDate: start || "",
-          statusId: savedStatus || "",
+          statusId: resolvedStatusId,
           projectId: savedCompanyStatus || "",
           filter: savedTarget || "",
           searchTerm: savedSearch || "",

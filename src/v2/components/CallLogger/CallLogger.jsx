@@ -301,7 +301,11 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
   });
   const [status, setStatus] = useState(() => {
     const params = new URLSearchParams(location.search);
-    return params.get("status") || "";
+    const paramStatus = params.get("status");
+    if (paramStatus !== null) {
+      return paramStatus === "all" ? "" : paramStatus;
+    }
+    return 44; // Default to 44 (Pending)
   });
   const [filteredCallLog, setFilteredCallLog] = useState([]);
 
@@ -325,8 +329,8 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     setSearchQuery("");
     setViewMode("team");
     setCompanyStatus("");
-    setStatus("");
-    navigate({ pathname: location.pathname }, { replace: true });
+    setStatus("all");
+    navigate({ pathname: location.pathname, search: "?status=all" }, { replace: true });
     debouncedFilterCallLog({
       endDate: "",
       startDate: "",
@@ -345,12 +349,12 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     setSearchQuery("");
     setViewMode("team");
     setCompanyStatus("");
-    setStatus("");
+    setStatus("all");
     setFilterState({
       dateRange: { startDate: "", endDate: "" },
       filterTargetField: "",
     });
-    navigate({ pathname: location.pathname }, { replace: true });
+    navigate({ pathname: location.pathname, search: "?status=all" }, { replace: true });
   };
 
   const getQueryParams = (search) => {
@@ -387,7 +391,11 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     if (searchQuery) params.set("search", searchQuery);
     if (viewMode) params.set("view", viewMode);
     if (companyStatus) params.set("companyStatus", companyStatus);
-    if (status && status !== "all") params.set("status", status);
+    if (status && status !== "all") {
+      params.set("status", status);
+    } else if (status === "all") {
+      params.set("status", "all");
+    }
     if (filterState?.filterTargetField)
       params.set("target", filterState.filterTargetField);
     if (filterState?.dateRange?.startDate)
@@ -428,7 +436,8 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     const savedSearch = params.get("search") || params.get("searchQuery") || "";
     const savedView = params.get("view") || "team";
     const savedCompanyStatus = params.get("companyStatus") || "";
-    const savedStatus = params.get("status") || "";
+    const paramStatus = params.get("status");
+    const savedStatus = paramStatus !== null ? (paramStatus === "all" ? "all" : paramStatus) : 44;
     const savedTarget = params.get("target") || "";
     const start = params.get("start");
     const end = params.get("end");
@@ -483,7 +492,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     const filters = {
       endDate,
       startDate,
-      statusId: status || "",
+      statusId: status === "all" ? "" : (status || ""),
       projectId: companyStatus || "",
       filter: targetFilter,
       searchTerm: searchQuery || "",

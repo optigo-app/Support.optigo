@@ -1,14 +1,54 @@
 'use client';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Chip, Collapse, Skeleton, IconButton, Tooltip } from '@mui/material';
+import { Box, Chip, Collapse, Skeleton, Button, Fade } from '@mui/material';
 import SimpleBar from './SimpleBar';
-import { CaretDown, ArrowUp, ArrowDown } from '@phosphor-icons/react';
+import { CaretDown, ArrowDown } from '@phosphor-icons/react';
 import MessageItem from './MessageItem';
+
+// Silky smooth scroll animation using requestAnimationFrame and easeInOutCubic
+function smoothScrollTo(element, target, duration = 400) {
+  if (!element) return () => { };
+  const start = element.scrollTop;
+  const distance = target - start;
+  if (Math.abs(distance) < 2) {
+    element.scrollTop = target;
+    return () => { };
+  }
+
+  const startTime = performance.now();
+
+  const easeInOutCubic = (t) => {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  };
+
+  let animationFrameId;
+
+  const step = (currentTime) => {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = easeInOutCubic(progress);
+
+    element.scrollTop = Math.round(start + distance * ease);
+
+    if (progress < 1) {
+      animationFrameId = requestAnimationFrame(step);
+    } else {
+      element.scrollTop = target;
+    }
+  };
+
+  animationFrameId = requestAnimationFrame(step);
+  return () => {
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+    }
+  };
+}
 
 export default function MessageList({ messages = [], isLoading = false }) {
   const simpleBarRef = useRef(null);
+  const scrollAnimCancelRef = useRef(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
-  const [showScrollTop, setShowScrollTop] = useState(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const toggleGroup = (dateGroup) => {
@@ -25,15 +65,31 @@ export default function MessageList({ messages = [], isLoading = false }) {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = scrollEl;
-      setShowScrollTop(scrollTop > 150);
       setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 150);
     };
 
+    const handleUserInterrupt = () => {
+      if (scrollAnimCancelRef.current) {
+        scrollAnimCancelRef.current();
+        scrollAnimCancelRef.current = null;
+      }
+    };
+
     scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    scrollEl.addEventListener('wheel', handleUserInterrupt, { passive: true });
+    scrollEl.addEventListener('touchmove', handleUserInterrupt, { passive: true });
+
     // Trigger initial check
     handleScroll();
 
-    return () => scrollEl.removeEventListener('scroll', handleScroll);
+    return () => {
+      scrollEl.removeEventListener('scroll', handleScroll);
+      scrollEl.removeEventListener('wheel', handleUserInterrupt);
+      scrollEl.removeEventListener('touchmove', handleUserInterrupt);
+      if (scrollAnimCancelRef.current) {
+        scrollAnimCancelRef.current();
+      }
+    };
   }, [messages]);
 
   // Auto-scroll to bottom when messages update or finish loading
@@ -51,36 +107,39 @@ export default function MessageList({ messages = [], isLoading = false }) {
       // Allow DOM to layout the newly mounted message, then smoothly glide into view
       timer = setTimeout(() => {
         if (!scrollEl) return;
-        scrollEl.scrollTo({
-          top: scrollEl.scrollHeight,
-          behavior: 'smooth',
-        });
+        if (scrollAnimCancelRef.current) {
+          scrollAnimCancelRef.current();
+        }
+        const target = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+        scrollAnimCancelRef.current = smoothScrollTo(scrollEl, target, 380);
       }, 50);
     } else {
       // Thread switch or initial fetch: instant position
-      scrollEl.scrollTo({
-        top: scrollEl.scrollHeight,
-        behavior: 'auto',
-      });
+      scrollEl.scrollTop = scrollEl.scrollHeight;
     }
 
     return () => {
       if (timer) clearTimeout(timer);
+      if (scrollAnimCancelRef.current) {
+        scrollAnimCancelRef.current();
+      }
     };
   }, [messages, isLoading]);
 
-  const scrollToTop = useCallback(() => {
-    const scrollEl = simpleBarRef.current?.getScrollElement();
-    if (scrollEl) {
-      scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, []);
-
   const scrollToBottom = useCallback(() => {
     const scrollEl = simpleBarRef.current?.getScrollElement();
-    if (scrollEl) {
-      scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' });
+    if (!scrollEl) return;
+
+    if (scrollAnimCancelRef.current) {
+      scrollAnimCancelRef.current();
     }
+
+    const target = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    const distance = Math.abs(target - scrollEl.scrollTop);
+    // Smooth adaptive duration: snaps gracefully between 340ms and 550ms
+    const duration = Math.min(550, Math.max(340, distance * 0.28));
+
+    scrollAnimCancelRef.current = smoothScrollTo(scrollEl, target, duration);
   }, []);
 
   // Group messages by dateGroup preserving chronological sorted order
@@ -99,7 +158,7 @@ export default function MessageList({ messages = [], isLoading = false }) {
 
   return (
     <Box sx={{ flex: 1, height: '100%', overflow: 'hidden', bgcolor: '#FFFFFF', position: 'relative' }}>
-      {/* Centered Bottom Floating Glassmorphism Icon Buttons (Before Input Container) */}
+      {/* Centered Bottom Floating "Latest Chat" Toolbar Pill Button */}
       <Box
         sx={{
           position: 'absolute',
@@ -107,77 +166,54 @@ export default function MessageList({ messages = [], isLoading = false }) {
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.2,
-          pointerEvents: 'none',
+          pointerEvents: showScrollBottom ? 'auto' : 'none',
         }}
       >
-        {showScrollTop && (
-          <Tooltip title="Jump to Top" arrow placement="top">
-            <IconButton
-              size="small"
-              onClick={scrollToTop}
-              sx={{
-                pointerEvents: 'auto',
-                width: 36,
-                height: 36,
-                bgcolor: 'rgba(255, 255, 255, 0.88)',
-                backdropFilter: 'blur(16px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                border: '1px solid rgba(226, 232, 240, 0.9)',
+        <Fade in={showScrollBottom} unmountOnExit>
+          <Button
+            disableElevation
+            disableRipple
+            onClick={scrollToBottom}
+            startIcon={<ArrowDown size={14} weight="bold" color="#6900C6" />}
+            sx={{
+              px: 2,
+              height: 34,
+              borderRadius: '999px',
+              bgcolor: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: 13,
+              fontWeight: 600,
+              textTransform: 'none',
+              letterSpacing: '-0.01em',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 4px 14px -2px rgba(15, 23, 42, 0.1), 0 2px 6px -1px rgba(15, 23, 42, 0.06)',
+              whiteSpace: 'nowrap',
+              gap: 0.5,
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                bgcolor: '#FFFFFF',
                 color: '#6900C6',
-                boxShadow: '0 8px 24px -4px rgba(105, 0, 198, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06)',
-                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  bgcolor: '#F3E8FF',
-                  borderColor: '#C4B5FD',
-                  color: '#6900C6',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 12px 28px -4px rgba(105, 0, 198, 0.28), 0 4px 10px rgba(0, 0, 0, 0.08)',
+                borderColor: '#CBD5E1',
+                boxShadow: '0 8px 22px -3px rgba(15, 23, 42, 0.15), 0 3px 8px -1px rgba(15, 23, 42, 0.08)',
+                transform: 'translateY(-2px)',
+                '& .MuiButton-startIcon': {
+                  transform: 'translateY(1px)',
                 },
-                '&:active': {
-                  transform: 'translateY(0) scale(0.95)',
-                },
-              }}
-            >
-              <ArrowUp size={16} weight="bold" />
-            </IconButton>
-          </Tooltip>
-        )}
-
-        {showScrollBottom && (
-          <Tooltip title="Jump to Latest" arrow placement="top">
-            <IconButton
-              size="small"
-              onClick={scrollToBottom}
-              sx={{
-                pointerEvents: 'auto',
-                width: 36,
-                height: 36,
-                bgcolor: 'rgba(255, 255, 255, 0.88)',
-                backdropFilter: 'blur(16px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                border: '1px solid rgba(226, 232, 240, 0.9)',
-                color: '#0284C7',
-                boxShadow: '0 8px 24px -4px rgba(2, 132, 199, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06)',
-                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  bgcolor: '#E0F2FE',
-                  borderColor: '#BAE6FD',
-                  color: '#0284C7',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 12px 28px -4px rgba(2, 132, 199, 0.28), 0 4px 10px rgba(0, 0, 0, 0.08)',
-                },
-                '&:active': {
-                  transform: 'translateY(0) scale(0.95)',
-                },
-              }}
-            >
-              <ArrowDown size={16} weight="bold" />
-            </IconButton>
-          </Tooltip>
-        )}
+              },
+              '&:active': {
+                bgcolor: '#F8FAFC',
+                transform: 'translateY(0) scale(0.98)',
+                boxShadow: '0 2px 6px -1px rgba(15, 23, 42, 0.1)',
+              },
+              '& .MuiButton-startIcon': {
+                mr: 0.4,
+                transition: 'transform 0.18s ease',
+              },
+            }}
+          >
+            Latest Chat
+          </Button>
+        </Fade>
       </Box>
 
       {/* Main Conversation Stream Scroll Container */}

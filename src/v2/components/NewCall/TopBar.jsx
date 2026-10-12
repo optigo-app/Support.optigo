@@ -126,11 +126,31 @@ export default function TopBar({
   const allStatusOptions = React.useMemo(() => {
     const combined = [...STATUS_LIST, ...ESTATUS_LIST];
     if (combined.length > 0) {
-      return combined.map((s) => ({
-        id: s.value !== undefined ? s.value : s.label,
-        label: s.label || s.Name || String(s.value),
-      }));
+      const seen = new Set();
+      const unique = [];
+
+      for (const s of combined) {
+        const label = String(s.label || s.Name || s.name || s.value || '').trim();
+        if (!label) continue;
+        const normKey = label.toLowerCase();
+
+        // Deduplicate so duplicate status names like 'Pending' appear only once
+        if (!seen.has(normKey)) {
+          seen.add(normKey);
+          unique.push({
+            id: String(s.value !== undefined ? s.value : s.label),
+            label: s.label || s.Name || s.name || String(s.value),
+          });
+        }
+      }
+
+      return unique;
     }
+    return [
+      { id: '44', label: 'Pending' },
+      { id: '4', label: 'Solved' },
+      { id: '5', label: 'Running' },
+    ];
   }, [STATUS_LIST, ESTATUS_LIST]);
 
   const getFilterStyle = (isActive) => ({
@@ -472,9 +492,21 @@ export default function TopBar({
           <CustomMultiSelectDropdown
             title="Status"
             options={allStatusOptions}
-            selectedValues={Array.isArray(statusFilter) ? statusFilter : (statusFilter === 'all' || !statusFilter ? [] : [statusFilter])}
+            selectedValues={
+              Array.isArray(statusFilter)
+                ? statusFilter.map(String)
+                : statusFilter === 'all' || !statusFilter
+                ? []
+                : [String(statusFilter)]
+            }
             onChange={(newVal) => {
-              if (setStatusFilter) setStatusFilter(newVal);
+              if (setStatusFilter) {
+                if (!newVal || (Array.isArray(newVal) && newVal.length === 0)) {
+                  setStatusFilter('all');
+                } else {
+                  setStatusFilter(newVal);
+                }
+              }
             }}
             triggerStyle={getFilterStyle(Array.isArray(statusFilter) ? statusFilter.length > 0 : (statusFilter && statusFilter !== 'all'))}
           />

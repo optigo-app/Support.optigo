@@ -56,7 +56,14 @@ export default function ChatWorkspace() {
   const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('team'); // 'normal' | 'team' | 'followUp-Pending' | 'followUp-Completed'
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const paramStatus = params.get('status');
+    if (paramStatus !== null) {
+      return paramStatus;
+    }
+    return 44; // Default to 44 (Pending)
+  });
   const [filterBy, setFilterBy] = useState(''); // Date target field: 'date' | 'callStart' | 'callClosed'
   const [dateRangeObj, setDateRangeObj] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -284,7 +291,8 @@ export default function ChatWorkspace() {
         const params = new URLSearchParams(location.search);
         const start = params.get('start') || '';
         const end = params.get('end') || '';
-        const status = params.get('status') || '';
+        const paramStatus = params.get('status');
+        const status = paramStatus !== null ? paramStatus : 44;
         const company = params.get('company') || params.get('companyStatus') || '';
         const target = params.get('target') || '';
         const search = params.get('search') || params.get('searchQuery') || '';
@@ -446,7 +454,11 @@ export default function ChatWorkspace() {
     if (activeCompany) {
       newParams.set('company', Array.isArray(activeCompany) ? activeCompany.join(',') : activeCompany);
     }
-    if (statusFilter && statusFilter !== 'all') newParams.set('status', statusFilter);
+    if (statusFilter && statusFilter !== 'all') {
+      newParams.set('status', Array.isArray(statusFilter) ? statusFilter.join(',') : statusFilter);
+    } else if (statusFilter === 'all') {
+      newParams.set('status', 'all');
+    }
     if (filterBy) newParams.set('target', filterBy);
     if (dateRangeObj?.start) newParams.set('start', formatLocalDateToYYYYMMDD(dateRangeObj.start));
     if (dateRangeObj?.end) newParams.set('end', formatLocalDateToYYYYMMDD(dateRangeObj.end));
@@ -494,6 +506,11 @@ export default function ChatWorkspace() {
       setIsQueueOpen(true);
     } else if (params.get('queue') === '0') {
       setIsQueueOpen(false);
+    }
+    const paramStatus = params.get('status');
+    const savedStatus = paramStatus !== null ? paramStatus : 44;
+    if (savedStatus !== statusFilter) {
+      setStatusFilter(savedStatus);
     }
   }, [location.search]);
 
@@ -1208,7 +1225,7 @@ export default function ChatWorkspace() {
 
     // 2. Clear URL search query parameters safely
     isInternalUrlUpdateRef.current = true;
-    navigate({ pathname: location.pathname, search: '' }, { replace: true });
+    navigate({ pathname: location.pathname, search: '?status=all' }, { replace: true });
 
     // 3. Cancel any pending debounced filter
     debouncedFilterCallLog.cancel();

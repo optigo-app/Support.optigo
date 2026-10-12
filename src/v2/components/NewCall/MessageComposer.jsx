@@ -2,7 +2,6 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   Box,
-  InputBase,
   IconButton,
   Tooltip,
   Typography,
@@ -33,13 +32,12 @@ import {
   Tag,
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
 import { callStreamService } from './services/callStreamService';
 import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
 import { hasRealTicket } from './utils/ticketStatusUtils';
-import { getEmployeesList } from './utils/mentionUtils';
+import { getEmployeesList, findEmployeeByName, buildMentionRegex } from './utils/mentionUtils';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -75,7 +73,6 @@ const MessageComposer = React.memo(function MessageComposer({
   const { user, CompanyInfo } = useAuth();
   const { CALL_TYPE_MASTER, UpdateCall, saveCallLogTask, getTaskList, EMPLOYEE_LIST } = useCallLog();
 
-  const [text, setText] = useState('');
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isStrike, setIsStrike] = useState(false);
@@ -83,13 +80,16 @@ const MessageComposer = React.memo(function MessageComposer({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Mention State
+  // Mention & Editor State
   const [isMentionOpen, setIsMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
-  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+  const [isEmpty, setIsEmpty] = useState(true);
+  const [mentionedUsers, setMentionedUsers] = useState([]);
 
-  const inputRef = useRef(null);
+  const editorRef = useRef(null);
+  const mentionTextNodeRef = useRef(null);
+  const savedRangeRef = useRef(null);
   const mentionPopupRef = useRef(null);
 
   const allEmployees = useMemo(() => {
@@ -121,8 +121,8 @@ const MessageComposer = React.memo(function MessageComposer({
       if (
         mentionPopupRef.current &&
         !mentionPopupRef.current.contains(e.target) &&
-        inputRef.current &&
-        !inputRef.current.contains(e.target)
+        editorRef.current &&
+        !editorRef.current.contains(e.target)
       ) {
         setIsMentionOpen(false);
       }
@@ -173,7 +173,7 @@ const MessageComposer = React.memo(function MessageComposer({
 
   const handleSelectFiles = useCallback((filesArray) => {
     if (!filesArray || filesArray.length === 0) return;
-    
+
     setSelectedFiles((prev) => {
       const newFiles = [...prev];
       for (const f of filesArray) {
@@ -211,14 +211,6 @@ const MessageComposer = React.memo(function MessageComposer({
     setSelectedFiles([]);
   };
 
-  const handlePaste = (e) => {
-    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
-      // Prevent default to avoid pasting filename or raw file strings into the text input
-      e.preventDefault();
-      handleSelectFiles(Array.from(e.clipboardData.files));
-    }
-  };
-
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -240,22 +232,215 @@ const MessageComposer = React.memo(function MessageComposer({
     }
   };
 
+  // Extract pure normal string for API
+  const getPlainText = useCallback(() => {
+    if (!editorRef.current) return '';
+    let result = '';
+
+    const walk = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        result += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.classList && node.classList.contains('mention-pill')) {
+          const name = node.getAttribute('data-mention-name') || node.textContent.replace(/^@/, '').trim();
+          result += `@${name}`;
+        } else if (node.tagName === 'BR') {
+          result += '\n';
+        } else {
+          for (const child of node.childNodes) {
+            walk(child);
+          }
+          if (node.tagName === 'DIV' || node.tagName === 'P') {
+            result += '\n';
+          }
+        }
+      }
+    };
+
+    walk(editorRef.current);
+    return result.replace(/\u00A0/g, ' ').trim();
+  }, []);
+
+  // Update isEmpty and mentionedUsers list
+  const updateEditorState = useCallback(() => {
+    if (!editorRef.current) return;
+    const plain = getPlainText();
+    setIsEmpty(!plain && selectedFiles.length === 0);
+
+    const pills = editorRef.current.querySelectorAll('.mention-pill');
+    const names = [];
+    pills.forEach((p) => {
+      const n = p.getAttribute('data-mention-name');
+      if (n && !names.includes(n)) {
+        names.push(n);
+      }
+    });
+    setMentionedUsers(names);
+  }, [getPlainText, selectedFiles.length]);
+
+  const createMentionPillElement = useCallback((emp) => {
+    const empName = emp?.user || emp?.EmployeeName || emp?.name || 'User';
+    const initial = empName.charAt(0).toUpperCase();
+
+    const pill = document.createElement('span');
+    pill.className = 'mention-pill';
+    pill.contentEditable = 'false';
+    pill.setAttribute('data-mention-name', empName);
+    pill.setAttribute('data-mention-id', emp?.userid || emp?.EmployeeId || '');
+    pill.setAttribute('spellcheck', 'false');
+    pill.innerHTML = `<span class="mention-pill-avatar">${initial}</span><span>@${empName}</span>`;
+    return pill;
+  }, []);
+
+  const insertMention = useCallback(
+    (employee) => {
+      const empName = employee?.user || employee?.EmployeeName || employee?.name || '';
+      if (!empName || !editorRef.current) return;
+
+      const pill = createMentionPillElement(employee);
+      const space = document.createTextNode('\u00A0');
+
+      const sel = window.getSelection();
+      let inserted = false;
+
+      if (sel && sel.rangeCount > 0) {
+        if (mentionTextNodeRef.current && mentionTextNodeRef.current.parentNode) {
+          const textNode = mentionTextNodeRef.current;
+          const textVal = textNode.textContent || '';
+          const atIdx = textVal.lastIndexOf('@');
+          if (atIdx >= 0) {
+            textNode.textContent = textVal.substring(0, atIdx);
+            if (textNode.nextSibling) {
+              textNode.parentNode.insertBefore(pill, textNode.nextSibling);
+            } else {
+              textNode.parentNode.appendChild(pill);
+            }
+            pill.parentNode.insertBefore(space, pill.nextSibling);
+
+            const newRange = document.createRange();
+            newRange.setStartAfter(space);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            inserted = true;
+          }
+        }
+
+        if (!inserted) {
+          const range = savedRangeRef.current || sel.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(pill);
+          pill.parentNode.insertBefore(space, pill.nextSibling);
+
+          const newRange = document.createRange();
+          newRange.setStartAfter(space);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          inserted = true;
+        }
+      }
+
+      if (!inserted) {
+        editorRef.current.appendChild(pill);
+        editorRef.current.appendChild(space);
+      }
+
+      setIsMentionOpen(false);
+      setMentionQuery('');
+      mentionTextNodeRef.current = null;
+      savedRangeRef.current = null;
+
+      updateEditorState();
+      editorRef.current.focus();
+    },
+    [createMentionPillElement, updateEditorState]
+  );
+
+  const removeMentionPill = useCallback(
+    (nameToRemove) => {
+      if (!editorRef.current) return;
+      const pills = editorRef.current.querySelectorAll('.mention-pill');
+      pills.forEach((p) => {
+        if (p.getAttribute('data-mention-name') === nameToRemove) {
+          if (
+            p.nextSibling &&
+            p.nextSibling.nodeType === Node.TEXT_NODE &&
+            p.nextSibling.textContent.startsWith('\u00A0')
+          ) {
+            p.nextSibling.textContent = p.nextSibling.textContent.slice(1);
+          }
+          p.remove();
+        }
+      });
+      updateEditorState();
+    },
+    [updateEditorState]
+  );
+
+  const handleEditorInput = useCallback(() => {
+    updateEditorState();
+
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    const offset = range.startOffset;
+
+    if (node && node.nodeType === Node.TEXT_NODE) {
+      const textBeforeCaret = node.textContent.slice(0, offset);
+      const match = textBeforeCaret.match(/(?:^|\s)@([a-zA-Z0-9._\s]*)$/);
+      if (match) {
+        const q = match[1];
+        if (!q.includes('\n') && q.length <= 30) {
+          setMentionQuery(q);
+          mentionTextNodeRef.current = node;
+          savedRangeRef.current = range.cloneRange();
+          setIsMentionOpen(true);
+          setActiveMentionIndex(0);
+          return;
+        }
+      }
+    }
+
+    setIsMentionOpen(false);
+  }, [updateEditorState]);
+
+  const handleMentionButtonClick = useCallback(() => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
+
+    setMentionQuery('');
+    setIsMentionOpen(true);
+    setActiveMentionIndex(0);
+  }, []);
+
   const handleSend = async () => {
-    if ((!text.trim() && selectedFiles.length === 0) || isUploading) return;
+    const plainText = getPlainText();
+    if ((!plainText && selectedFiles.length === 0) || isUploading) return;
 
     try {
       setIsUploading(true);
       if (onSendMessage) {
         if (selectedFiles.length > 0) {
-          const filesArray = selectedFiles.map(f => f.file);
-          await onSendMessage(text, filesArray);
+          const filesArray = selectedFiles.map((f) => f.file);
+          await onSendMessage(plainText, filesArray);
         } else {
-          await onSendMessage(text, null);
+          await onSendMessage(plainText, null);
         }
       }
-      setText('');
+      if (editorRef.current) {
+        editorRef.current.innerHTML = '';
+      }
       setIsMentionOpen(false);
       clearAllFiles();
+      updateEditorState();
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
@@ -263,78 +448,7 @@ const MessageComposer = React.memo(function MessageComposer({
     }
   };
 
-  const insertMention = useCallback(
-    (employee) => {
-      const empName = employee?.user || employee?.EmployeeName || employee?.name || '';
-      if (!empName) return;
-
-      const before = text.slice(0, mentionStartIndex);
-      const after = text.slice(mentionStartIndex + 1 + mentionQuery.length);
-      const updated = `${before}@${empName} ${after}`;
-      setText(updated);
-      setIsMentionOpen(false);
-      setMentionQuery('');
-
-      setTimeout(() => {
-        const inputEl = inputRef.current;
-        if (inputEl) {
-          const newPos = before.length + empName.length + 2; // '@' + name + ' '
-          inputEl.focus();
-          if (inputEl.setSelectionRange) {
-            inputEl.setSelectionRange(newPos, newPos);
-          }
-        }
-      }, 15);
-    },
-    [text, mentionStartIndex, mentionQuery]
-  );
-
-  const handleTextChange = (e) => {
-    const newText = e.target.value;
-    setText(newText);
-
-    const cursorPos = e.target.selectionStart ?? newText.length;
-    const textBeforeCursor = newText.slice(0, cursorPos);
-
-    const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9._\s]*)$/);
-    if (match) {
-      const query = match[1];
-      if (!query.includes('\n') && query.length <= 30) {
-        setMentionQuery(query);
-        const atIndex = textBeforeCursor.lastIndexOf('@');
-        setMentionStartIndex(atIndex);
-        setIsMentionOpen(true);
-        setActiveMentionIndex(0);
-        return;
-      }
-    }
-    setIsMentionOpen(false);
-  };
-
-  const handleMentionButtonClick = () => {
-    const inputEl = inputRef.current;
-    const currentPos = inputEl ? inputEl.selectionStart : text.length;
-    const before = text.slice(0, currentPos);
-    const after = text.slice(currentPos);
-    const prefix = before.length > 0 && !before.endsWith(' ') ? ' ' : '';
-    const updated = `${before}${prefix}@${after}`;
-    setText(updated);
-    setMentionStartIndex(before.length + prefix.length);
-    setMentionQuery('');
-    setIsMentionOpen(true);
-    setActiveMentionIndex(0);
-    setTimeout(() => {
-      if (inputEl) {
-        inputEl.focus();
-        const newPos = before.length + prefix.length + 1;
-        if (inputEl.setSelectionRange) {
-          inputEl.setSelectionRange(newPos, newPos);
-        }
-      }
-    }, 15);
-  };
-
-  const handleKeyDown = (e) => {
+  const handleEditorKeyDown = (e) => {
     if (isMentionOpen && filteredEmployees.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -361,7 +475,53 @@ const MessageComposer = React.memo(function MessageComposer({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+      return;
     }
+
+    if (e.key === 'Backspace') {
+      setTimeout(updateEditorState, 10);
+    }
+  };
+
+  const handleEditorPaste = (e) => {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+      e.preventDefault();
+      handleSelectFiles(Array.from(e.clipboardData.files));
+      return;
+    }
+
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text/plain');
+    if (!pastedText) return;
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+
+      const regex = buildMentionRegex(allEmployees);
+      const tokens = pastedText.split(regex);
+      const fragment = document.createDocumentFragment();
+
+      tokens.forEach((token) => {
+        if (!token) return;
+        if (token.startsWith('@')) {
+          const empName = token.slice(1).trim();
+          const emp = findEmployeeByName(empName, allEmployees);
+          if (emp) {
+            const pill = createMentionPillElement(emp);
+            fragment.appendChild(pill);
+            fragment.appendChild(document.createTextNode('\u00A0'));
+            return;
+          }
+        }
+        fragment.appendChild(document.createTextNode(token));
+      });
+
+      range.insertNode(fragment);
+      range.collapse(false);
+    }
+    updateEditorState();
   };
 
   // 1. Upgrade to Ticket / In Ticket Handler
@@ -446,11 +606,11 @@ const MessageComposer = React.memo(function MessageComposer({
     }
   };
 
-  const isSendDisabled = (!text.trim() && selectedFiles.length === 0) || isUploading;
+  const isSendDisabled = (isEmpty && selectedFiles.length === 0) || isUploading;
 
   return (
     <Box
-      sx={{ p: 2, pt: 1, bgcolor: '#FFFFFF' }}
+      sx={{ p: 2, pt: 1, bgcolor: 'transparent' }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -458,25 +618,26 @@ const MessageComposer = React.memo(function MessageComposer({
       {/* Hidden File Input */}
       <input
         type="file"
+        multiple
         ref={fileInputRef}
         onChange={handleFileInputChange}
         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.ppt,.pptx,.zip,.rar"
         style={{ display: 'none' }}
       />
 
+      {/* 1. OUTER CONTAINER: Gradient Bordered Card */}
       <Box
         sx={{
           position: 'relative',
-          border: isDragging ? '1.5px dashed #6900C6' : '1px solid #CBD5E1',
-          borderRadius: '8px',
-          bgcolor: isDragging ? '#FDF8FF' : '#FFFFFF',
+          background: 'linear-gradient(135deg, #EDE3FF 0%, #D8C2FF 100%)',
+          border: isDragging ? '1.5px dashed #6900C6' : '1px solid #D8C2FF',
+          borderRadius: '16px',
+          p: '6px',
           display: 'flex',
           flexDirection: 'column',
+          gap: '6px',
+          boxShadow: '0 2px 8px rgba(105, 0, 198, 0.06)',
           transition: 'all 0.15s ease',
-          '&:focus-within': {
-            borderColor: '#6900C6',
-            boxShadow: '0 0 0 1px rgba(105, 0, 198, 0.2)',
-          },
         }}
       >
         {/* Mention Suggestions Autocomplete Popup */}
@@ -621,70 +782,21 @@ const MessageComposer = React.memo(function MessageComposer({
           </Box>
         )}
 
-        {/* Top Formatting Toolbar & Actions Header */}
+        {/* Outer Top Bar: Action Chips (Source, Call Type, Upgrade to Ticket, iTask) */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            px: 1,
-            py: 0.5,
-            borderBottom: '1px solid #F1F5F9',
+            justifyContent: 'flex-end',
             flexWrap: 'wrap',
-            gap: 0.5,
+            gap: 0.6,
+            px: 0.6,
+            pt: 0.2,
+            pb: 0.2,
           }}
         >
-          {/* Left: Rich Text Formatting Tools */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-            <Tooltip title="Bold (⌘B)">
-              <IconButton
-                size="small"
-                onClick={() => setIsBold(!isBold)}
-                sx={{ color: isBold ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: isBold ? '#EDE9FE' : 'transparent' }}
-              >
-                <TextB size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Italic (⌘I)">
-              <IconButton
-                size="small"
-                onClick={() => setIsItalic(!isItalic)}
-                sx={{ color: isItalic ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: isItalic ? '#EDE9FE' : 'transparent' }}
-              >
-                <TextItalic size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Strikethrough">
-              <IconButton
-                size="small"
-                onClick={() => setIsStrike(!isStrike)}
-                sx={{ color: isStrike ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: isStrike ? '#EDE9FE' : 'transparent' }}
-              >
-                <TextStrikethrough size={15} weight="bold" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Mention employee (@)">
-              <IconButton
-                size="small"
-                onClick={handleMentionButtonClick}
-                sx={{
-                  color: isMentionOpen ? '#6900C6' : '#64748B',
-                  p: 0.4,
-                  borderRadius: '4px',
-                  bgcolor: isMentionOpen ? '#EDE9FE' : 'transparent',
-                  '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' },
-                }}
-              >
-                <AlternateEmailRoundedIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-
-          {/* Right: Integrated Action Chips (Ticket Upgrade, iTask, Call Type, Source) */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+          {/* Left Metadata Chips */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
             {/* Source Chip */}
             <Tooltip title={`Call Source: ${sourceInfo.label}`} arrow>
               <Chip
@@ -692,13 +804,14 @@ const MessageComposer = React.memo(function MessageComposer({
                 label={sourceInfo.label}
                 size="small"
                 sx={{
-                  height: 22,
+                  height: 24,
                   fontSize: '0.68rem',
                   fontWeight: 700,
-                  bgcolor: sourceInfo.bg,
+                  bgcolor: '#FFFFFF',
                   color: sourceInfo.color,
                   border: `1px solid ${sourceInfo.border}`,
-                  borderRadius: '5px',
+                  borderRadius: '999px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                   '& .MuiChip-icon': { color: 'inherit' },
                 }}
               />
@@ -714,21 +827,25 @@ const MessageComposer = React.memo(function MessageComposer({
                 onDelete={(e) => setCallTypeAnchor(e.currentTarget)}
                 size="small"
                 sx={{
-                  height: 22,
+                  height: 24,
                   fontSize: '0.68rem',
                   fontWeight: 700,
-                  bgcolor: currentCallTypeVal ? '#F3E8FF' : '#F8FAFC',
+                  bgcolor: '#FFFFFF',
                   color: currentCallTypeVal ? '#6900C6' : '#475569',
                   border: `1px solid ${currentCallTypeVal ? '#DDD6FE' : '#E2E8F0'}`,
-                  borderRadius: '5px',
+                  borderRadius: '999px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                   cursor: 'pointer',
                   '& .MuiChip-icon': { color: 'inherit' },
                   '& .MuiChip-deleteIcon': { color: 'inherit', margin: '0 4px 0 -4px' },
-                  '&:hover': { bgcolor: '#EDE9FE' },
+                  '&:hover': { bgcolor: '#F8FAFC' },
                 }}
               />
             </Tooltip>
+          </Box>
 
+          {/* Right Action Chips (Ticket & iTask) */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
             {/* Upgrade to Ticket / In Ticket Action Button */}
             <Tooltip title={isTicketDone ? 'View Linked Helpdesk Ticket' : 'Upgrade this call into a Helpdesk Ticket'} arrow>
               <Chip
@@ -737,18 +854,19 @@ const MessageComposer = React.memo(function MessageComposer({
                 onClick={handleTicketAction}
                 size="small"
                 sx={{
-                  height: 22,
+                  height: 24,
                   fontSize: '0.68rem',
                   fontWeight: 750,
-                  bgcolor: isTicketDone ? '#E0F2FE' : '#F8FAFC',
+                  bgcolor: '#FFFFFF',
                   color: isTicketDone ? '#0284C7' : '#334155',
                   border: `1px solid ${isTicketDone ? '#BAE6FD' : '#E2E8F0'}`,
-                  borderRadius: '5px',
+                  borderRadius: '999px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   '& .MuiChip-icon': { color: 'inherit' },
                   '&:hover': {
-                    bgcolor: isTicketDone ? '#BAE6FD' : '#F1F5F9',
+                    bgcolor: isTicketDone ? '#E0F2FE' : '#F8FAFC',
                     borderColor: isTicketDone ? '#7DD3FC' : '#CBD5E1',
                     transform: 'translateY(-0.5px)',
                   },
@@ -757,7 +875,7 @@ const MessageComposer = React.memo(function MessageComposer({
             </Tooltip>
 
             {/* Move to iTask / View iTask Action Button */}
-            <Tooltip title={hasTaskId ? 'View Linked Task in iTask' : 'Create Task in iTask from this Call'} arrow>
+            <Tooltip title={hasTaskId ? 'View Linked Task in Tecopms' : 'Create Task in Tecopms from this Call'} arrow>
               <Chip
                 icon={
                   isCreatingTask ? (
@@ -768,22 +886,23 @@ const MessageComposer = React.memo(function MessageComposer({
                     <CheckSquare size={13} weight="bold" />
                   )
                 }
-                label={hasTaskId ? 'View iTask' : 'Create to iTask'}
+                label={hasTaskId ? 'View In Tecopms' : 'Create In Tecopms'}
                 onClick={handleTaskAction}
                 size="small"
                 sx={{
-                  height: 22,
+                  height: 24,
                   fontSize: '0.68rem',
                   fontWeight: 750,
-                  bgcolor: hasTaskId ? '#DCFCE7' : '#F8FAFC',
+                  bgcolor: '#FFFFFF',
                   color: hasTaskId ? '#15803D' : '#334155',
                   border: `1px solid ${hasTaskId ? '#BBF7D0' : '#E2E8F0'}`,
-                  borderRadius: '5px',
+                  borderRadius: '999px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   '& .MuiChip-icon': { color: 'inherit' },
                   '&:hover': {
-                    bgcolor: hasTaskId ? '#BBF7D0' : '#F1F5F9',
+                    bgcolor: hasTaskId ? '#DCFCE7' : '#F8FAFC',
                     borderColor: hasTaskId ? '#86EFAC' : '#CBD5E1',
                     transform: 'translateY(-0.5px)',
                   },
@@ -793,168 +912,413 @@ const MessageComposer = React.memo(function MessageComposer({
           </Box>
         </Box>
 
-        {/* Selected Attachments Preview */}
-        {selectedFiles.length > 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, m: 1, mb: 0.5 }}>
-            {selectedFiles.map((fileObj) => (
+        {/* 2. INNER CONTAINER: Pure White Composer Card */}
+        <Box
+          sx={{
+            bgcolor: '#FFFFFF',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.9)',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'all 0.15s ease',
+            '&:focus-within': {
+              boxShadow: '0 2px 8px rgba(105, 0, 198, 0.12), 0 0 0 1px rgba(105, 0, 198, 0.3)',
+            },
+          }}
+        >
+          {/* Selected Attachments Preview */}
+          {selectedFiles.length > 0 && (
+            <Box
+              sx={{
+                borderBottom: '1px solid #F1F5F9',
+                bgcolor: '#F8FAFC',
+                px: 1.5,
+                py: 0.8,
+                borderRadius: '12px 12px 0 0',
+              }}
+            >
               <Box
-                key={fileObj.id}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1.2,
-                  p: 1,
-                  px: 1.4,
-                  borderRadius: '8px',
-                  bgcolor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  maxWidth: 'fit-content',
+                  justifyContent: 'space-between',
+                  mb: 0.6,
                 }}
               >
-                {fileObj.previewUrl ? (
-                  <Box
-                    component="img"
-                    src={fileObj.previewUrl}
-                    alt={fileObj.file.name}
+                <Typography sx={{ fontSize: 11, fontWeight: 750, color: '#64748B' }}>
+                  {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} attached
+                </Typography>
+                {selectedFiles.length > 1 && (
+                  <Typography
+                    onClick={clearAllFiles}
                     sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: '6px',
-                      objectFit: 'cover',
-                      flexShrink: 0,
-                      border: '1px solid #CBD5E1',
+                      fontSize: 11,
+                      fontWeight: 750,
+                      color: '#EF4444',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      '&:hover': { textDecoration: 'underline' },
                     }}
-                  />
-                ) : (
+                  >
+                    Clear all
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Horizontal Scroll Strip for Multiple Files/Images */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  overflowX: 'auto',
+                  py: 0.2,
+                  '&::-webkit-scrollbar': { height: '5px' },
+                  '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: '4px' },
+                }}
+              >
+                {selectedFiles.map((fileObj) => (
                   <Box
+                    key={fileObj.id}
                     sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: '6px',
-                      bgcolor: '#EDE9FE',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      gap: 1,
+                      p: 0.6,
+                      px: 1,
+                      borderRadius: '8px',
+                      bgcolor: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                       flexShrink: 0,
                     }}
                   >
-                    {getFileIcon(fileObj.file.name, fileObj.file.type)}
+                    {fileObj.previewUrl ? (
+                      <Box
+                        component="img"
+                        src={fileObj.previewUrl}
+                        alt={fileObj.file.name}
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '6px',
+                          objectFit: 'cover',
+                          flexShrink: 0,
+                          border: '1px solid #CBD5E1',
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '6px',
+                          bgcolor: '#EDE9FE',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {getFileIcon(fileObj.file.name, fileObj.file.type)}
+                      </Box>
+                    )}
+
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography
+                        noWrap
+                        sx={{
+                          fontSize: 11.5,
+                          fontWeight: 650,
+                          color: '#0F172A',
+                          maxWidth: 120,
+                        }}
+                      >
+                        {fileObj.file.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>
+                        {formatFileSize(fileObj.file.size)}
+                      </Typography>
+                    </Box>
+
+                    <Tooltip title="Remove file">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveFile(fileObj.id)}
+                        sx={{
+                          p: 0.2,
+                          ml: 0.2,
+                          color: '#94A3B8',
+                          '&:hover': { color: '#EF4444', bgcolor: '#FEE2E2' },
+                        }}
+                      >
+                        <X size={13} weight="bold" />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
-                )}
-
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography
-                    noWrap
-                    sx={{
-                      fontSize: 12.5,
-                      fontWeight: 650,
-                      color: '#0F172A',
-                      maxWidth: 150,
-                    }}
-                  >
-                    {fileObj.file.name}
-                  </Typography>
-                  <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>
-                    {formatFileSize(fileObj.file.size)}
-                  </Typography>
-                </Box>
-
-                <Tooltip title="Remove file">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleRemoveFile(fileObj.id)}
-                    sx={{
-                      p: 0.4,
-                      ml: 0.5,
-                      color: '#94A3B8',
-                      '&:hover': { color: '#EF4444', bgcolor: '#FEE2E2' },
-                    }}
-                  >
-                    <X size={14} weight="bold" />
-                  </IconButton>
-                </Tooltip>
+                ))}
               </Box>
-            ))}
-          </Box>
-        )}
+            </Box>
+          )}
 
-        {/* Text Input Area */}
-        <Box sx={{ px: 1.5, py: 1, minHeight: 44 }}>
-          <InputBase
-            inputRef={inputRef}
-            multiline
-            minRows={1}
-            maxRows={6}
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={selectedFiles.length > 0 ? 'Add a message or press Enter to send attachments...' : placeholder}
-            disabled={isUploading}
-            sx={{
-              width: '100%',
-              fontSize: 13.5,
-              fontWeight: isBold ? 700 : 450,
-              fontStyle: isItalic ? 'italic' : 'normal',
-              textDecoration: isStrike ? 'line-through' : 'none',
-              color: '#0F172A',
-              '& input': { p: 0 },
-            }}
-          />
-        </Box>
+          {/* Mentioned Team Members Banner */}
+          {mentionedUsers.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.8,
+                px: 1.6,
+                py: 0.6,
+                bgcolor: '#FAF5FF',
+                borderBottom: '1px solid #F3E8FF',
+                flexWrap: 'wrap',
+                animation: 'fadeIn 0.2s ease',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                <AlternateEmailRoundedIcon sx={{ fontSize: 13, color: '#7E22CE' }} />
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: '#6900C6' }}>
+                  Notifying:
+                </Typography>
+              </Box>
+              {mentionedUsers.map((mName, idx) => (
+                <Chip
+                  key={idx}
+                  size="small"
+                  avatar={
+                    <Avatar
+                      sx={{
+                        bgcolor: '#6900C6 !important',
+                        color: '#FFFFFF !important',
+                        fontSize: '9px !important',
+                        width: '16px !important',
+                        height: '16px !important',
+                      }}
+                    >
+                      {mName.charAt(0).toUpperCase()}
+                    </Avatar>
+                  }
+                  label={`@${mName}`}
+                  onDelete={() => removeMentionPill(mName)}
+                  sx={{
+                    height: 22,
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    bgcolor: '#EDE9FE',
+                    color: '#6900C6',
+                    borderRadius: '999px',
+                    border: '1px solid #DDD6FE',
+                    '& .MuiChip-deleteIcon': {
+                      color: '#7C3AED',
+                      fontSize: 13,
+                      '&:hover': { color: '#EF4444' },
+                    },
+                  }}
+                />
+              ))}
+            </Box>
+          )}
 
-        {/* Bottom Actions Row */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            px: 1,
-            py: 0.5,
-          }}
-        >
-          {/* Left Shortcuts / Attachments */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-            <input
-              type="file"
-              multiple
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              onChange={handleFileInputChange}
+          {/* Rich Mention ContentEditable Input Area */}
+          <Box sx={{ px: 1.8, pt: 1.2, pb: 0.6, minHeight: 46, position: 'relative' }}>
+            <Box
+              ref={editorRef}
+              contentEditable={!isUploading}
+              suppressContentEditableWarning
+              spellCheck={false}
+              onInput={handleEditorInput}
+              onKeyDown={handleEditorKeyDown}
+              onPaste={handleEditorPaste}
+              data-placeholder={
+                selectedFiles.length > 0
+                  ? 'Add a message or press Enter to send attachments...'
+                  : (placeholder || 'Reply to optigo carefully...')
+              }
+              data-empty={isEmpty}
+              sx={{
+                width: '100%',
+                minHeight: 42,
+                maxHeight: 160,
+                overflowY: 'auto',
+                outline: 'none',
+                fontSize: 13.5,
+                lineHeight: 1.55,
+                color: '#0F172A',
+                fontWeight: isBold ? 700 : 450,
+                fontStyle: isItalic ? 'italic' : 'normal',
+                textDecoration: isStrike ? 'line-through' : 'none',
+                wordBreak: 'break-word',
+                position: 'relative',
+                '&[data-empty="true"]::before': {
+                  content: 'attr(data-placeholder)',
+                  color: '#94A3B8',
+                  pointerEvents: 'none',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  userSelect: 'none',
+                },
+                '& .mention-pill': {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  bgcolor: '#EDE9FE',
+                  color: '#6900C6',
+                  border: '1px solid #DDD6FE',
+                  borderRadius: '6px',
+                  px: '6px',
+                  py: '1px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  mx: '2px',
+                  my: '1px',
+                  verticalAlign: 'baseline',
+                  userSelect: 'all',
+                  cursor: 'default',
+                  transition: 'all 0.12s ease',
+                  '&:hover': {
+                    bgcolor: '#DDD6FE',
+                  },
+                },
+                '& .mention-pill-avatar': {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  bgcolor: '#6900C6',
+                  color: '#FFFFFF',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  flexShrink: 0,
+                },
+              }}
             />
-            <Tooltip title="Attach file, image, or video">
-              <IconButton
-                size="small"
-                onClick={() => fileInputRef.current?.click()}
-                sx={{ color: selectedFiles.length > 0 ? '#6900C6' : '#64748B', p: 0.4, borderRadius: '4px', bgcolor: selectedFiles.length > 0 ? '#EDE9FE' : 'transparent' }}
-              >
-                <Paperclip size={16} weight="bold" />
-              </IconButton>
-            </Tooltip>
           </Box>
 
-          {/* Right Send Button */}
-          <IconButton
-            size="small"
-            onClick={handleSend}
-            disabled={isSendDisabled}
+          {/* Bottom Actions Row: Formatting Tools (B, I, S, @), Attachment (Clip), and Send Button */}
+          <Box
             sx={{
-              bgcolor: !isSendDisabled ? '#007A5A' : 'transparent',
-              color: !isSendDisabled ? '#FFFFFF' : '#94A3B8',
-              borderRadius: '6px',
-              p: 0.6,
-              transition: 'all 0.15s ease',
-              '&:hover': {
-                bgcolor: !isSendDisabled ? '#006046' : 'transparent',
-              },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 1,
+              py: 0.5,
             }}
           >
-            {isUploading ? (
-              <CircularProgress size={16} sx={{ color: '#6900C6' }} />
-            ) : (
-              <PaperPlaneRight size={16} weight="fill" />
-            )}
-          </IconButton>
+            {/* Left Tools: Formatting + Attachments */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2 }}>
+              {/* Bold */}
+              <Tooltip title="Bold (⌘B)">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    document.execCommand('bold', false, null);
+                    setIsBold(!isBold);
+                  }}
+                  sx={{ color: isBold ? '#6900C6' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isBold ? '#EDE9FE' : 'transparent', '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' } }}
+                >
+                  <TextB size={15} weight="bold" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Italic */}
+              <Tooltip title="Italic (⌘I)">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    document.execCommand('italic', false, null);
+                    setIsItalic(!isItalic);
+                  }}
+                  sx={{ color: isItalic ? '#6900C6' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isItalic ? '#EDE9FE' : 'transparent', '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' } }}
+                >
+                  <TextItalic size={15} weight="bold" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Strikethrough */}
+              <Tooltip title="Strikethrough">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    document.execCommand('strikeThrough', false, null);
+                    setIsStrike(!isStrike);
+                  }}
+                  sx={{ color: isStrike ? '#6900C6' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isStrike ? '#EDE9FE' : 'transparent', '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' } }}
+                >
+                  <TextStrikethrough size={15} weight="bold" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Mention */}
+              <Tooltip title="Mention employee (@)">
+                <IconButton
+                  size="small"
+                  onClick={handleMentionButtonClick}
+                  sx={{
+                    color: isMentionOpen ? '#6900C6' : '#64748B',
+                    p: 0.5,
+                    borderRadius: '6px',
+                    bgcolor: isMentionOpen ? '#EDE9FE' : 'transparent',
+                    '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' },
+                  }}
+                >
+                  <AlternateEmailRoundedIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+
+              {/* Attachment Clip */}
+              <Tooltip title="Attach file, image, or video">
+                <IconButton
+                  size="small"
+                  onClick={() => fileInputRef.current?.click()}
+                  sx={{
+                    color: selectedFiles.length > 0 ? '#6900C6' : '#64748B',
+                    p: 0.5,
+                    borderRadius: '6px',
+                    bgcolor: selectedFiles.length > 0 ? '#EDE9FE' : 'transparent',
+                    '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' },
+                  }}
+                >
+                  <Paperclip size={16} weight="bold" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Right Send Button (Circular button matching reference Image 2) */}
+            <IconButton
+              size="small"
+              onClick={handleSend}
+              disabled={isSendDisabled}
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: !isSendDisabled ? '#6900C6' : '#E2E8F0',
+                color: !isSendDisabled ? '#FFFFFF' : '#94A3B8',
+                borderRadius: '50%',
+                p: 0,
+                boxShadow: !isSendDisabled ? '0 2px 6px rgba(105, 0, 198, 0.25)' : 'none',
+                transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                '&:hover': {
+                  bgcolor: !isSendDisabled ? '#5800A8' : '#E2E8F0',
+                  transform: !isSendDisabled ? 'scale(1.06)' : 'none',
+                  boxShadow: !isSendDisabled ? '0 4px 12px rgba(105, 0, 198, 0.35)' : 'none',
+                },
+                '&:active': {
+                  transform: !isSendDisabled ? 'scale(0.96)' : 'none',
+                },
+              }}
+            >
+              {isUploading ? (
+                <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
+              ) : (
+                <PaperPlaneRight size={15} weight="fill" />
+              )}
+            </IconButton>
+          </Box>
         </Box>
       </Box>
 
