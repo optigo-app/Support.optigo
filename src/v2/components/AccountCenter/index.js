@@ -10,16 +10,15 @@ import {
   DialogContentText,
   DialogActions,
   Paper,
-  IconButton,
-  Tooltip,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import Cookies from "js-cookie";
 
 // Icons
-import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
 import { useAuth } from "../../context/UseAuth";
 import { removeSkeyCookie } from "../../utils/AuthUtils";
@@ -74,91 +73,97 @@ export default function AccountCenter() {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        bgcolor: "#ffffff",
+        bgcolor: "#F5F7FB",
         width: "100%",
-        overflowY: "auto",
+        overflow: "auto",
       }}
     >
-      {/* --- MAIN BODY --- */}
       <Box
         sx={{
           flexGrow: 1,
-          px: { xs: 3, md: 5 },
-          py: 5,
+          width: "100%",
+          maxWidth: 900,
+          mx: "auto",
+          px: { xs: 2, sm: 3, lg: 4 },
+          py: { xs: 1.75, md: 2.5 },
         }}
       >
-        <Box sx={{ maxWidth: 680, mx: "auto" }}>
-          {/* Welcome Header */}
-          <Box
-            sx={{ mb: 4.5, display: "flex", alignItems: "center", gap: 2.5 }}
+        <Box
+          sx={{
+            mb: 2,
+            px: { xs: 1.75, md: 2 },
+            py: { xs: 1.5, md: 1.75 },
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            borderRadius: "20px",
+            color: "#172033",
+            bgcolor: "#FFFFFF",
+            border: "1px solid #E7EAF0",
+            boxShadow: "0 2px 8px rgba(16, 24, 40, 0.03)",
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 42,
+              height: 42,
+              fontSize: 17,
+              fontWeight: 800,
+              bgcolor: "#F1EDFF",
+              color: "#5B35C9",
+            }}
           >
-            <Avatar
-              sx={{
-                width: 60,
-                height: 60,
-                fontSize: 20,
-                fontWeight: 800,
-                background: "linear-gradient(135deg, #fc466b 0%, #3f5efb 100%)",
-                flexShrink: 0,
-              }}
-            >
-              {initials}
-            </Avatar>
-            <Box>
-              <Typography
-                variant="h5"
-                fontWeight={600}
-                color="text.primary"
-                gutterBottom
-              >
-                Welcome, {fullName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Manage your credentials, notifications, saved workspaces, and
-                get support help.
-              </Typography>
-            </Box>
+            {initials}
+          </Avatar>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontSize: { xs: 18, md: 21 }, lineHeight: 1.25, fontWeight: 750 }}>
+              Welcome, {fullName}
+            </Typography>
+            <Typography sx={{ fontSize: 12.5, color: "#788398", mt: 0.4 }}>
+              Manage your profile, notifications, and saved workspaces.
+            </Typography>
           </Box>
+          <Box sx={{ display: { xs: "none", sm: "flex" }, alignItems: "center", gap: 0.6, px: 1.25, py: 0.7, borderRadius: "999px", bgcolor: "#ECFDF3", color: "#15803D", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+            <CheckCircleRoundedIcon sx={{ fontSize: 15 }} />
+            Signed in
+          </Box>
+        </Box>
 
-          {/* Compact Sections Stack */}
-          <Box sx={{ display: "flex", flexDirection: "column" }}>
-            {/* 1. Profile section */}
-            <ProfileTab />
+        <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <ProfileTab />
+          <Box sx={{ mb: 2.5 }}>
+            <PWAQuickInstallBtn variant="card" />
+          </Box>
+          <NotificationsTab />
+          <AccountsTab />
+          <SupportTab />
+        </Box>
 
-            {/* PWA App Card */}
-            <Box sx={{ mb: 3 }}>
-              <PWAQuickInstallBtn variant="card" />
-            </Box>
-
-            {/* 2. Notifications section */}
-            <NotificationsTab />
-
-            {/* 3. Saved accounts section */}
-            <AccountsTab />
-
-            {/* 4. Support section */}
-            <SupportTab />
-
-            {/* 5. Call Session Reset Section */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mt: 3, mb: 0.5 }}
-            >
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+            mt: 0.5,
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            {/* Call session reset section */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mt: 1, mb: 0.5 }}>
               Call Session & Troubleshooting
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Reset stuck call timers, paused calls, or hung active call overlays without logging out
+              Reset stuck call timers or overlays without signing out.
             </Typography>
 
             <Paper
               onClick={() => setResetSessionOpen(true)}
               sx={{
                 borderRadius: "16px",
-                border: "1px solid",
-                borderColor: "warning.light",
-                bgcolor: "rgba(255, 152, 0, 0.04)",
-                px: 3,
-                py: 2.2,
+                border: "1px solid #FED7AA",
+                bgcolor: "#FFFAF4",
+                px: { xs: 2, md: 2.5 },
+                py: 2,
                 mb: 3,
                 display: "flex",
                 alignItems: "center",
@@ -166,100 +171,54 @@ export default function AccountCenter() {
                 gap: 2,
                 cursor: "pointer",
                 transition: "all 0.2s ease",
-                "&:hover": {
-                  bgcolor: "rgba(255, 152, 0, 0.1)",
-                  borderColor: "warning.main",
-                  transform: "translateY(-1px)",
-                  boxShadow: "0 4px 12px rgba(255, 152, 0, 0.12)",
-                },
+                "&:hover": { bgcolor: "#FFF3E5", borderColor: "#FB923C", boxShadow: "0 6px 18px rgba(234, 88, 12, 0.08)" },
               }}
               elevation={0}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "12px",
-                    bgcolor: "rgba(255, 152, 0, 0.12)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#ED6C02",
-                  }}
-                >
-                  <RestartAltRoundedIcon sx={{ fontSize: 22 }} />
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box sx={{ width: 38, height: 38, borderRadius: "12px", bgcolor: "#FFEDD5", display: "grid", placeItems: "center", color: "#EA580C", flexShrink: 0 }}>
+                  <RestartAltRoundedIcon sx={{ fontSize: 21 }} />
                 </Box>
                 <Box>
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    color="text.primary"
-                  >
-                    Clear Active Call & Timer Session
+                  <Typography variant="body2" fontWeight={700} color="text.primary">
+                    Clear active call & timer session
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Un-freezes stuck '+ ADD' call button and clears hung timers (Keeps login active)
+                    Keeps your login active
                   </Typography>
                 </Box>
               </Box>
-
-              <Button
-                variant="outlined"
-                color="warning"
-                size="small"
-                sx={{
-                  textTransform: "none",
-                  borderRadius: "10px",
-                  fontWeight: 700,
-                  fontSize: "0.78rem",
-                  px: 2,
-                }}
-              >
-                Reset Session
+              <Button variant="outlined" color="warning" size="small" sx={{ textTransform: "none", borderRadius: "999px", fontWeight: 700, px: 1.75, flexShrink: 0 }}>
+                Reset
               </Button>
             </Paper>
-
-            {/* 6. Sign Out section */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mt: 3, mb: 0.5 }}
-            >
-              Sign Out
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mt: 1, mb: 0.5 }}>
+              Sign out
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Logout of your account session on this browser
+              End your account session on this browser.
             </Typography>
-
             <Paper
               onClick={() => setLogoutOpen(true)}
               sx={{
                 borderRadius: "16px",
-                border: "1px solid",
-                borderColor: "divider",
-                px: 3,
-                py: 2.2,
-                mb: 6,
+                border: "1px solid #E6E9EF",
+                px: { xs: 2, md: 2.5 },
+                py: 2,
+                mb: 3,
                 display: "flex",
                 alignItems: "center",
-                gap: 2,
+                gap: 1.5,
                 cursor: "pointer",
-                transition: "background-color 0.2s",
-                "&:hover": {
-                  bgcolor: "error.light",
-                  borderColor: "error.main",
-                  "& .logout-label": { color: "error.dark" },
-                },
+                transition: "all 0.2s ease",
+                "&:hover": { bgcolor: "#FFF7F7", borderColor: "#FDA4AF", "& .logout-label": { color: "#BE123C" } },
               }}
               elevation={0}
             >
-              <LogoutRoundedIcon sx={{ color: "error.main", fontSize: 22 }} />
-              <Typography
-                variant="body2"
-                fontWeight={500}
-                color="text.primary"
-                className="logout-label"
-              >
+              <LogoutRoundedIcon sx={{ color: "error.main", fontSize: 21 }} />
+              <Typography variant="body2" fontWeight={600} color="text.primary" className="logout-label">
                 Logout from this device
               </Typography>
             </Paper>

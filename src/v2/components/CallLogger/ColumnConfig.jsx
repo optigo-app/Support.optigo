@@ -641,7 +641,7 @@ export const getCallColumns = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (sr) {
-                    window.open(`/newCall?sr=${sr}`, "_blank");
+                    window.open(`/newCall?sr=${sr}&status=all`, "_blank");
                   }
                 }}
                 sx={{

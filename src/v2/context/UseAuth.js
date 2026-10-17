@@ -227,8 +227,25 @@ export function AuthProvider({ children }) {
       }
     };
 
+    const handleAccountSwitch = (event) => {
+      if (
+        event.origin !== window.location.origin ||
+        event.data?.type !== "OPTIGO_ACCOUNT_SESSION_SWITCH" ||
+        !event.data?.token
+      ) return;
+
+      // A login popup has its own sessionStorage. Re-select the chosen account
+      // in this tab before reloading the opener into the app.
+      setActiveAuthSession(event.data.token);
+      window.location.href = `${getAppBasePath()}/`;
+    };
+
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    window.addEventListener("message", handleAccountSwitch);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("message", handleAccountSwitch);
+    };
   }, []);
 
   useEffect(() => {
@@ -238,7 +255,7 @@ export function AuthProvider({ children }) {
           const messageChannel = new MessageChannel();
           messageChannel.port1.onmessage = (event) => {
             if (event.data === "CHECK_COOKIE") {
-              // Session lives in our own cookie (cl_auth_token); nothing to heal here.
+              // Sessions live in app-owned account cookies; nothing to heal here.
               // IMPORTANT: Never call clearActiveAuthSession() here in a background timer!
             }
           };

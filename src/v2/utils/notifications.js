@@ -74,7 +74,7 @@ export const showBrowserNotification = async ({
         if ((type === "UPDATE_TICKET" || type === "CLOSE_TICKET") && !prefs.onTicketUpdate) {
             return;
         }
-        if (type === "TICKET_COMMENT" && !prefs.onComment) {
+        if ((type === "TICKET_COMMENT" || type === "ADDCOMMENTS") && !prefs.onComment) {
             return;
         }
     }

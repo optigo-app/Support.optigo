@@ -15,14 +15,24 @@ import withNotification from "../../../hoc/withNotification";
 
 const PillToggle = ({ checked, disabled, onChange }) => {
   const handleClick = () => {
-    if (onChange) {
+    if (onChange && !disabled) {
       onChange(!checked);
     }
   };
 
   return (
     <Box
+      role="switch"
+      aria-checked={checked}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
       onClick={handleClick}
+      onKeyDown={(event) => {
+        if (!disabled && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
       sx={{
         display: "inline-flex",
         alignItems: "center",
@@ -34,7 +44,8 @@ const PillToggle = ({ checked, disabled, onChange }) => {
         cursor: "pointer",
         userSelect: "none",
         transition: "all 0.15s ease",
-        opacity: disabled ? 0.8 : 1,
+        opacity: disabled ? 0.55 : 1,
+        pointerEvents: disabled ? "none" : "auto",
         bgcolor: checked ? "#e8f0fe" : "#f1f3f4",
         color: checked ? "#1a73e8" : "#5f6368",
         border: "1px solid",
@@ -66,13 +77,13 @@ const PrefRow = ({ icon, label, description, prefKey, prefs, onToggle }) => (
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      py: 1.8,
-      px: 3,
+      py: 1.1,
+      px: 2,
       transition: "background-color 0.2s",
       "&:hover": { bgcolor: "action.hover" },
     }}
   >
-    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
       <Box
         sx={{
           color: "text.secondary",
@@ -186,22 +197,21 @@ function NotificationsTab({ showNotification = () => {} }) {
 
   return (
     <Box sx={{ mb: 4 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1, mb: 0.5 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 650, mt: 1, mb: 0.5, color: "#191919" }}>
         Notifications
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: 13 }}>
         Configure how and when you receive desktop and sound alerts
       </Typography>
 
       {/* Box 1: Browser & In-App Main Notification Switchers */}
       <Box
         sx={{
-          borderRadius: 6,
-          border: "1px solid",
-          borderColor: "divider",
+          borderRadius: "12px",
+          border: "1px solid #e7e5e2",
           overflow: "hidden",
-          bgcolor: "background.paper",
-          mb: 2,
+          bgcolor: "#fff",
+          mb: 1.5,
         }}
       >
         {/* Row 1: Browser Notifications */}
@@ -210,13 +220,13 @@ function NotificationsTab({ showNotification = () => {} }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            py: 1.8,
-            px: 3,
+            py: 1.15,
+            px: 2,
             transition: "background-color 0.2s",
             "&:hover": { bgcolor: "action.hover" },
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Box
               sx={{
                 color: isBrowserActive ? "#1a73e8" : "text.secondary",
@@ -235,7 +245,7 @@ function NotificationsTab({ showNotification = () => {} }) {
             <Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Typography variant="body2" fontWeight={500} color="text.primary">
-                  Browser Notifications
+                  Desktop Notifications
                 </Typography>
                 {permissionState === "denied" && (
                   <Chip
@@ -255,7 +265,7 @@ function NotificationsTab({ showNotification = () => {} }) {
                 )}
                 {permissionState === "granted" && !isBrowserActive && (
                   <Chip
-                    label="Muted in App"
+                    label="Paused here"
                     size="small"
                     sx={{ fontSize: 9, height: 16, fontWeight: 700, bgcolor: "#F1F5F9", color: "#64748B" }}
                   />
@@ -271,8 +281,8 @@ function NotificationsTab({ showNotification = () => {} }) {
               </Box>
               <Typography variant="caption" color="text.secondary" display="block">
                 {isBrowserActive
-                  ? "Receiving desktop push alerts for support events"
-                  : "Desktop push alerts are paused"}
+                  ? "Desktop alerts are enabled for this app"
+                  : "This app will not send desktop alerts"}
               </Typography>
             </Box>
           </Box>
@@ -286,13 +296,13 @@ function NotificationsTab({ showNotification = () => {} }) {
         {permissionState === "granted" && !isBrowserActive && (
           <Box sx={{ px: 3, pb: 1.5 }}>
             <Typography variant="caption" sx={{ color: "#64748B", fontSize: 11, display: "block" }}>
-              💡 <strong>Note:</strong> Alerts are muted in the app. Web browsers do not allow websites to toggle Chrome site settings programmatically. To also revoke permission at the browser level, click the site settings icon next to your URL bar.
+              Turning this off stops desktop alerts from this app. To block notifications for the whole site in Windows or your browser, change the site notification permission in system or browser settings.
             </Typography>
           </Box>
         )}
 
         {permissionState === "denied" && (
-          <Box sx={{ px: 3, pb: 1.8 }}>
+          <Box sx={{ px: 2, pb: 1.4 }}>
             <Alert severity="warning" sx={{ borderRadius: 2, py: 0.5, fontSize: 11 }}>
               Notifications are blocked by your browser settings. Please click the lock/settings icon next to your URL bar to allow notifications.
             </Alert>
@@ -300,15 +310,15 @@ function NotificationsTab({ showNotification = () => {} }) {
         )}
 
         {permissionState === "default" && (
-          <Box sx={{ px: 3, pb: 1.8 }}>
+          <Box sx={{ px: 2, pb: 1.4 }}>
             <Button
               size="small"
               variant="outlined"
               onClick={handleEnableClick}
               startIcon={<NotificationsActiveRoundedIcon />}
-              sx={{ textTransform: "none", borderRadius: 2, py: 0.3, fontSize: 11, fontWeight: 600 }}
+              sx={{ textTransform: "none", borderRadius: "7px", py: 0.3, fontSize: 11, fontWeight: 600 }}
             >
-              Request Browser Notification Permission
+              Enable Desktop Notifications
             </Button>
           </Box>
         )}
@@ -321,13 +331,13 @@ function NotificationsTab({ showNotification = () => {} }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            py: 1.8,
-            px: 3,
+            py: 1.15,
+            px: 2,
             transition: "background-color 0.2s",
             "&:hover": { bgcolor: "action.hover" },
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Box
               sx={{
                 color: notifPrefs?.inAppEnabled ? "#1a73e8" : "text.secondary",
@@ -361,11 +371,10 @@ function NotificationsTab({ showNotification = () => {} }) {
       {/* Box 2: Per-Event Preferences Switches */}
       <Box
         sx={{
-          borderRadius: 6,
-          border: "1px solid",
-          borderColor: "divider",
+          borderRadius: "12px",
+          border: "1px solid #e7e5e2",
           overflow: "hidden",
-          bgcolor: "background.paper",
+          bgcolor: "#fff",
         }}
       >
         <PrefRow
@@ -433,4 +442,3 @@ function NotificationsTab({ showNotification = () => {} }) {
 }
 
 export default withNotification(NotificationsTab);
-

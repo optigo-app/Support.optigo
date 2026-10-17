@@ -436,10 +436,10 @@ class CallLogApi extends BaseAPI {
   }) {
     try {
       const params = { CallLogid: callLogId, CreatedBy: createdBy };
-      if (statusId) {
+      if (statusId !== undefined && statusId !== null && statusId !== "") {
         params.Estatus = statusId;
       }
-      if (priorityId) {
+      if (priorityId !== undefined && priorityId !== null && priorityId !== "") {
         params.PriorityId = priorityId;
       }
 
@@ -447,6 +447,7 @@ class CallLogApi extends BaseAPI {
         mode: "ES",
         params,
         functionName: "ES",
+        socketEvent: "ES",
       });
 
       return response?.rd?.[0];

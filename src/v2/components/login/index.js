@@ -11,14 +11,15 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineRounded";
 import AddIcon from "@mui/icons-material/AddRounded";
 import svg1 from "../../assets/logos/Black_Optigo_R_Logo.svg";
 import { BaseAPI } from "../../apis/BaseAPI";
-import Cookies from "js-cookie";
 import { createJWT } from "../../utils/jwt.js";
 import MetaWrapper from "../../meta/MetaWrapper.jsx";
 import { useAuth } from "../../context/UseAuth";
-import { removeSkeyCookie, setActiveAuthSession, getRememberMe } from "../../utils/AuthUtils";
+import { removeSkeyCookie, setActiveAuthSession, getActiveAuthToken, getRememberMe } from "../../utils/AuthUtils";
 
-const THEME_GREEN = "rgb(253, 238, 19)";
-const TEXT_COLOR = "#2d2d2d";
+const AUTH_BACKGROUND = "#fbfaf9";
+const AUTH_TEXT = "#191919";
+const AUTH_MUTED = "#74716d";
+const AUTH_BORDER = "#e7e5e2";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -83,7 +84,10 @@ export default function LoginPage() {
   const redirectAndClose = () => {
     if (window.opener && !window.opener.closed) {
       try {
-        window.opener.location.href = "/";
+        window.opener.postMessage({
+          type: "OPTIGO_ACCOUNT_SESSION_SWITCH",
+          token: getActiveAuthToken(),
+        }, window.location.origin);
         window.close();
         return;
       } catch (e) {
@@ -122,8 +126,8 @@ export default function LoginPage() {
     // Check if account already exists in saved list
     const existing = savedAccounts.find(
       (acc) =>
-        acc.companyCode.toLowerCase() === companyCode.trim().toLowerCase() &&
-        acc.email.toLowerCase() === email.trim().toLowerCase()
+        (acc.companyCode || "").toLowerCase() === companyCode.trim().toLowerCase() &&
+        (acc.email || "").toLowerCase() === email.trim().toLowerCase()
     );
 
     if (existing) {
@@ -206,29 +210,29 @@ export default function LoginPage() {
   const inputStyles = {
     "& .MuiOutlinedInput-root": {
       backgroundColor: "#fff",
-      borderRadius: "0px",
+      borderRadius: "7px",
       "& fieldset": {
-        borderColor: "#e0e0e0",
-        borderRadius: "0px",
+        borderColor: AUTH_BORDER,
+        borderRadius: "7px",
       },
       "&:hover fieldset": {
         borderColor: "#b0b0b0",
       },
       "&.Mui-focused fieldset": {
-        borderColor: "#909090",
+        borderColor: "#2876d2",
         borderWidth: "1px",
       },
     },
     "& .MuiInputBase-input": {
-      padding: "12px 14px",
-      fontSize: "15px",
-      borderRadius: "0px",
+      padding: "10px 12px",
+      fontSize: "14px",
+      borderRadius: "7px",
     },
   };
 
   const labelStyle = {
-    fontSize: "14px",
-    color: "#555",
+    fontSize: "13px",
+    color: AUTH_TEXT,
     fontWeight: 500,
     mb: 0.5,
     display: "block",
@@ -246,27 +250,30 @@ export default function LoginPage() {
     return (
       <>
         <MetaWrapper page="ChooseAccount" />
-        <Box sx={{ minHeight: "100vh", backgroundColor: "#fff !important" }}>
+        <Box sx={{ minHeight: "100vh", backgroundColor: `${AUTH_BACKGROUND} !important` }}>
           {/* Header Section */}
           <Box
             sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              px: 4,
-              py: 2,
+              px: { xs: 2.5, sm: 4 },
+              py: 1.5,
             }}
           >
-            <Box component="img" src={svg1} alt="Logo" sx={{ height: 45 }} />
+            <Box component="img" src={svg1} alt="Logo" sx={{ height: 38 }} />
             <Button
               variant="contained"
               disableElevation
               sx={{
-                bgcolor: THEME_GREEN,
-                color: TEXT_COLOR,
+                bgcolor: "transparent",
+                color: AUTH_TEXT,
                 textTransform: "none",
-                fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(250, 237, 51, 1)" },
+                fontWeight: 500,
+                borderRadius: 1.5,
+                px: 1.5,
+                minWidth: 0,
+                "&:hover": { bgcolor: "#f0efed" },
               }}
             >
               Contact Us
@@ -293,32 +300,33 @@ export default function LoginPage() {
               elevation={0}
               sx={{
                 width: "100%",
-                border: "1px solid #e0e0e0",
-                borderRadius: "8px",
+                border: `1px solid ${AUTH_BORDER}`,
+                borderRadius: "12px",
                 overflow: "hidden",
-                p: 3,
+                p: 2.5,
                 textAlign: "center",
-                bgcolor: "#fafafa"
+                bgcolor: "#fff",
+                boxShadow: "0 8px 28px rgba(25, 25, 25, 0.045)",
               }}
             >
               <Avatar
                 sx={{
-                  bgcolor: "#2d2d2d",
-                  color: THEME_GREEN,
+                  bgcolor: "#f1f0ee",
+                  color: AUTH_TEXT,
                   fontWeight: 700,
-                  width: 56,
-                  height: 56,
+                  width: 48,
+                  height: 48,
                   mx: "auto",
-                  mb: 2,
-                  fontSize: "18px"
+                  mb: 1.5,
+                  fontSize: "16px"
                 }}
               >
                 {initials}
               </Avatar>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: "#222", mb: 0.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 650, color: AUTH_TEXT, mb: 0.5, fontSize: 19 }}>
                 {name}
               </Typography>
-              <Typography variant="body2" sx={{ color: "#666", mb: 4 }}>
+              <Typography variant="body2" sx={{ color: AUTH_MUTED, mb: 2.5, fontSize: 13 }}>
                 {user.userid} {user.designation ? `• ${user.designation}` : ""}
               </Typography>
 
@@ -327,15 +335,15 @@ export default function LoginPage() {
                 fullWidth
                 onClick={redirectAndClose}
                 sx={{
-                  bgcolor: "#2d2d2d",
+                  bgcolor: "#2876d2",
                   color: "#fff",
-                  mb: 2,
-                  py: 1.2,
+                  mb: 1.25,
+                  py: 1,
                   textTransform: "none",
                   fontWeight: 600,
-                  fontSize: "15px",
-                  borderRadius: 1,
-                  "&:hover": { bgcolor: "#111" }
+                  fontSize: "14px",
+                  borderRadius: "7px",
+                  "&:hover": { bgcolor: "#1f68bd" }
                 }}
               >
                 Go to Dashboard
@@ -346,15 +354,15 @@ export default function LoginPage() {
                 fullWidth
                 onClick={() => setForceShowForm(true)}
                 sx={{
-                  mb: 2,
-                  py: 1.2,
+                  mb: 1.25,
+                  py: 1,
                   textTransform: "none",
                   fontWeight: 600,
-                  fontSize: "15px",
-                  borderRadius: 1,
-                  borderColor: "#d1d5db",
-                  color: "#374151",
-                  "&:hover": { borderColor: "#9ca3af", bgcolor: "#f3f4f6" }
+                  fontSize: "14px",
+                  borderRadius: "7px",
+                  borderColor: AUTH_BORDER,
+                  color: AUTH_TEXT,
+                  "&:hover": { borderColor: "#cfccc8", bgcolor: "#f7f6f4" }
                 }}
               >
                 + Add another account
@@ -379,19 +387,19 @@ export default function LoginPage() {
                   window.location.reload();
                 }}
                 sx={{
-                  py: 1.2,
+                  py: 1,
                   textTransform: "none",
                   fontWeight: 600,
-                  fontSize: "15px",
-                  borderRadius: 1,
+                  fontSize: "14px",
+                  borderRadius: "7px",
                 }}
               >
                 Log Out
               </Button>
             </Paper>
 
-            <Box sx={{ textAlign: "center", mt: 4 }}>
-              <Link href="#" underline="hover" sx={{ color: "#666", fontSize: "12px", fontWeight: 500 }}>
+            <Box sx={{ textAlign: "center", mt: 2.5 }}>
+              <Link href="#" underline="hover" sx={{ color: AUTH_MUTED, fontSize: "11.5px", fontWeight: 400 }}>
                 If you don’t have an account, please contact the admin.
               </Link>
             </Box>
@@ -410,17 +418,55 @@ export default function LoginPage() {
         ? [detectedSession]
         : [];
 
+    // Merge saved app logins and shared-cookie suggestions into one list.
+    const accountChoices = [];
+    savedAccounts.forEach((account) => {
+      const email = (account.email || "").trim().toLowerCase();
+      const company = (account.companyCode || "").trim().toLowerCase();
+      const duplicate = accountChoices.find((saved) => {
+        if (account.skey && saved.skey === account.skey) return true;
+        return email && email === (saved.email || "").trim().toLowerCase() &&
+          company === (saved.companyCode || "").trim().toLowerCase();
+      });
+      if (!duplicate) accountChoices.push({ ...account, isSaved: true });
+    });
+    sessionsToDisplay.forEach((session) => {
+      const email = (session.email || "").trim().toLowerCase();
+      const company = (session.companyCode || "").trim().toLowerCase();
+      const match = accountChoices.find((account) => {
+        if (account.skey && account.skey === session.skey) return true;
+        const savedEmail = (account.email || "").trim().toLowerCase();
+        const savedCompany = (account.companyCode || "").trim().toLowerCase();
+        return email && savedEmail === email && (!company || !savedCompany || savedCompany === company);
+      });
+      if (match) {
+        match.detectedSession = session;
+        match.skey = session.skey || match.skey;
+        match.firstname = match.firstname || session.firstname;
+        match.lastname = match.lastname || session.lastname;
+        match.designation = match.designation || session.designation;
+        match.companyCode = match.companyCode || session.companyCode;
+      } else {
+        accountChoices.push({ ...session, isSaved: false, detectedSession: session });
+      }
+    });
+
     const handleChooseDetectedSession = (session) => {
       setActiveAuthSession(session.skey);
       try {
         const savedList = JSON.parse(localStorage.getItem("saved_accounts_list") || "[]");
+        const existing = savedList.find((account) =>
+          (account.skey && account.skey === session.skey) ||
+          ((account.email || "").trim().toLowerCase() === (session.email || "").trim().toLowerCase() &&
+            (!session.companyCode || !account.companyCode || String(account.companyCode).toLowerCase() === String(session.companyCode).toLowerCase()))
+        );
         const newAccount = {
-          companyCode: session.companyCode || "",
+          companyCode: session.companyCode || existing?.companyCode || "",
           email: session.email || "",
           skey: session.skey,
-          firstname: session.firstname || "",
-          lastname: session.lastname || "",
-          designation: session.designation || "",
+          firstname: session.firstname || existing?.firstname || "",
+          lastname: session.lastname || existing?.lastname || "",
+          designation: session.designation || existing?.designation || "",
           lastActive: Date.now(),
         };
         const filtered = savedList.filter(
@@ -441,27 +487,30 @@ export default function LoginPage() {
     return (
       <>
         <MetaWrapper page="ChooseAccount" />
-        <Box sx={{ minHeight: "100vh", backgroundColor: "#fff !important" }}>
+        <Box sx={{ minHeight: "100vh", backgroundColor: `${AUTH_BACKGROUND} !important` }}>
           {/* Header Section */}
           <Box
             sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              px: 4,
-              py: 2,
+              px: { xs: 2.5, sm: 4 },
+              py: 1.5,
             }}
           >
-            <Box component="img" src={svg1} alt="Logo" sx={{ height: 45 }} />
+            <Box component="img" src={svg1} alt="Logo" sx={{ height: 38 }} />
             <Button
               variant="contained"
               disableElevation
               sx={{
-                bgcolor: THEME_GREEN,
-                color: TEXT_COLOR,
+                bgcolor: "transparent",
+                color: AUTH_TEXT,
                 textTransform: "none",
-                fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(250, 237, 51, 1)" },
+                fontWeight: 500,
+                borderRadius: 1.5,
+                px: 1.5,
+                minWidth: 0,
+                "&:hover": { bgcolor: "#f0efed" },
               }}
             >
               Contact Us
@@ -471,16 +520,16 @@ export default function LoginPage() {
           <Container
             maxWidth="xs"
             sx={{
-              pt: 5,
+              pt: { xs: 5, sm: 7 },
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
             }}
           >
-            <Typography variant="h6" sx={{ fontWeight: 600, color: "#111", mb: 0.5, fontSize: 19 }}>
+            <Typography variant="h5" sx={{ fontWeight: 650, color: AUTH_TEXT, mb: 0.5, fontSize: 25, letterSpacing: "-0.04em" }}>
               Choose an account
             </Typography>
-            <Typography variant="body2" sx={{ color: "#666", mb: 4, textAlign: "center" }}>
+            <Typography variant="body2" sx={{ color: AUTH_MUTED, mb: 2.5, textAlign: "center", fontSize: 13 }}>
               to continue to Support Optigo
             </Typography>
 
@@ -488,165 +537,50 @@ export default function LoginPage() {
               elevation={0}
               sx={{
                 width: "100%",
-                border: "1px solid #e0e0e0",
-                borderRadius: "8px",
+                border: `1px solid ${AUTH_BORDER}`,
+                borderRadius: "12px",
                 overflow: "hidden",
-                bgcolor: "#fafafa",
+                bgcolor: "#fff",
+                boxShadow: "0 8px 28px rgba(25, 25, 25, 0.045)",
               }}
             >
-              {/* --- DETECTED SESSIONS SECTION --- */}
-              {sessionsToDisplay.length > 0 && (
-                <Box
-                  sx={{
-                    p: 2.5,
-                    borderBottom: "1px solid #eee",
-                    bgcolor: "rgba(253, 238, 19, 0.08)",
-                  }}
-                >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px",
-                        color: "#887000",
-                        bgcolor: "rgba(253, 238, 19, 0.3)",
-                        px: 1.2,
-                        py: 0.4,
-                        borderRadius: "4px",
-                        fontSize: "10px",
-                        mx: "auto"
-                      }}
-                    >
-                      {sessionsToDisplay.length > 1
-                        ? `Multiple Browser Sessions (${sessionsToDisplay.length})`
-                        : "Central Session Detected"}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                    {sessionsToDisplay.map((s, idx) => {
-                      const sName = s.firstname && s.lastname
-                        ? `${s.firstname} ${s.lastname}`
-                        : s.email;
-                      const sInitials = s.firstname && s.lastname
-                        ? `${s.firstname[0]}${s.lastname[0]}`.toUpperCase()
-                        : (s.email?.[0] || "U").toUpperCase();
-
-                      return (
-                        <Box
-                          key={s.skey || `${s.email}-${idx}`}
-                          sx={{
-                            p: 1.5,
-                            bgcolor: "#fff",
-                            borderRadius: "6px",
-                            border: "1px solid #e5e5e5",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                          }}
-                        >
-                          <Avatar
-                            sx={{
-                              bgcolor: "#2d2d2d",
-                              color: THEME_GREEN,
-                              fontWeight: 700,
-                              fontSize: "13px",
-                              width: 36,
-                              height: 36,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {sInitials}
-                          </Avatar>
-                          <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                              <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: "13.5px", color: "#222" }}>
-                                {sName}
-                              </Typography>
-                              {s.companyCode && (
-                                <Box
-                                  sx={{
-                                    fontSize: "9.5px",
-                                    bgcolor: "#f0f0f0",
-                                    px: 0.8,
-                                    py: 0.2,
-                                    borderRadius: "3px",
-                                    fontWeight: 700,
-                                    color: "#555",
-                                    border: "1px solid #ddd",
-                                    textTransform: "uppercase"
-                                  }}
-                                >
-                                  {s.companyCode}
-                                </Box>
-                              )}
-                            </Box>
-                            <Typography variant="caption" noWrap sx={{ color: "#666", fontSize: "11.5px", display: "block", mt: 0.2 }}>
-                              {s.email} {s.designation ? `• ${s.designation}` : ""}
-                            </Typography>
-                          </Box>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => handleChooseDetectedSession(s)}
-                            sx={{
-                              bgcolor: "#2d2d2d",
-                              color: "#fff",
-                              textTransform: "none",
-                              fontWeight: 600,
-                              fontSize: "12px",
-                              px: 1.6,
-                              py: 0.6,
-                              borderRadius: "5px",
-                              flexShrink: 0,
-                              "&:hover": { bgcolor: "#111" }
-                            }}
-                          >
-                            Sign In
-                          </Button>
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              )}
-              {/* --- END DETECTED SESSIONS SECTION --- */}
 
               <List disablePadding>
-                {savedAccounts.map((account, index) => {
+                {accountChoices.map((account, index) => {
                   const name = account.firstname && account.lastname
                     ? `${account.firstname} ${account.lastname}`
                     : account.email;
                   const initials = account.firstname && account.lastname
                     ? `${account.firstname[0]}${account.lastname[0]}`.toUpperCase()
-                    : account.email[0].toUpperCase();
+                    : (account.email?.[0] || account.firstname?.[0] || "U").toUpperCase();
 
                   return (
-                    <Box key={`${account.companyCode}-${account.email}`}>
+                    <Box key={`${account.companyCode || "unknown"}-${account.email || account.skey || index}`}>
                       {index > 0 && <Divider sx={{ borderColor: "#eee" }} />}
                       <ListItemButton
-                        onClick={() => handleSelectAccount(account)}
+                        onClick={() => account.detectedSession
+                          ? handleChooseDetectedSession(account.detectedSession)
+                          : handleSelectAccount(account)}
                         sx={{
-                          py: 1.8,
-                          px: 2.5,
+                          py: 1.1,
+                          px: 1.75,
                           cursor: "pointer",
                           backgroundColor: "#fff",
-                          transition: "background-color 0.25s, transform 0.2s",
+                          transition: "background-color 0.18s ease",
                           "&:hover": {
-                            backgroundColor: "rgba(0,0,0,0.015)",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+                            backgroundColor: "#f7f6f4",
                           },
                         }}
                       >
                         <ListItemAvatar>
                           <Avatar
                             sx={{
-                              bgcolor: "#2d2d2d",
-                              color: THEME_GREEN,
+                              bgcolor: "#f1f0ee",
+                              color: AUTH_TEXT,
                               fontWeight: 700,
-                              fontSize: "14px",
+                              fontSize: "13px",
+                              width: 38,
+                              height: 38,
                             }}
                           >
                             {initials}
@@ -655,33 +589,33 @@ export default function LoginPage() {
                         <ListItemText
                           primary={
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "14.5px", color: "#222" }}>
+                              <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "13.5px", color: AUTH_TEXT }}>
                                 {name}
                               </Typography>
                               <Box
                                 sx={{
                                   fontSize: "10px",
-                                  bgcolor: "#f0f0f0",
-                                  px: 1,
+                                  bgcolor: "#f5f4f2",
+                                  px: 0.75,
                                   py: 0.2,
                                   borderRadius: "4px",
                                   fontWeight: 700,
-                                  color: "#555",
-                                  border: "1px solid #ddd",
+                                  color: "#686560",
+                                  border: `1px solid ${AUTH_BORDER}`,
                                   textTransform: "uppercase"
                                 }}
                               >
-                                {account.companyCode}
+                                {account.companyCode || "Account"}
                               </Box>
                             </Box>
                           }
                           secondary={
-                            <Typography variant="body2" sx={{ color: "#666", fontSize: "12.5px", mt: 0.3 }}>
+                            <Typography variant="body2" sx={{ color: AUTH_MUTED, fontSize: "12px", mt: 0.15 }}>
                               {account.email} {account.designation ? `• ${account.designation}` : ""}
                             </Typography>
                           }
                         />
-                        <IconButton
+                        {account.isSaved && <IconButton
                           edge="end"
                           aria-label="delete"
                           size="small"
@@ -694,7 +628,7 @@ export default function LoginPage() {
                           }}
                         >
                           <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
+                        </IconButton>}
                       </ListItemButton>
                     </Box>
                   );
@@ -705,24 +639,22 @@ export default function LoginPage() {
                 <ListItemButton
                   onClick={() => setShowChooser(false)}
                   sx={{
-                    py: 2,
-                    px: 2.5,
+                    py: 1.1,
+                    px: 1.75,
                     cursor: "pointer",
                     backgroundColor: "#fff",
-                    transition: "background-color 0.2s",
-                    "&:hover": {
-                      backgroundColor: "rgba(0,0,0,0.02)",
-                    },
+                      transition: "background-color 0.18s ease",
+                      "&:hover": { backgroundColor: "#f7f6f4" },
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: "#f5f5f5", color: "#555" }}>
+                    <Avatar sx={{ bgcolor: "#f1f0ee", color: AUTH_TEXT, width: 38, height: 38 }}>
                       <AddIcon fontSize="small" />
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Typography sx={{ fontWeight: 600, fontSize: "14.5px", color: "#333" }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "13.5px", color: AUTH_TEXT }}>
                         Use another account
                       </Typography>
                     }
@@ -731,8 +663,8 @@ export default function LoginPage() {
               </List>
             </Paper>
 
-            <Box sx={{ textAlign: "center", mt: 4 }}>
-              <Link href="#" underline="hover" sx={{ color: "#666", fontSize: "12px", fontWeight: 500 }}>
+            <Box sx={{ textAlign: "center", mt: 2.5 }}>
+              <Link href="#" underline="hover" sx={{ color: AUTH_MUTED, fontSize: "11.5px", fontWeight: 400 }}>
                 If you don’t have an account, please contact the admin.
               </Link>
             </Box>
@@ -747,27 +679,30 @@ export default function LoginPage() {
     <>
       <MetaWrapper page="Login" />
 
-      <Box sx={{ minHeight: "100vh", backgroundColor: "#fff !important" }}>
+      <Box sx={{ minHeight: "100vh", backgroundColor: `${AUTH_BACKGROUND} !important` }}>
         {/* Header Section */}
         <Box
           sx={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            px: 4,
-            py: 2,
+            px: { xs: 2.5, sm: 4 },
+            py: 1.5,
           }}
         >
-          <Box component="img" src={svg1} alt="Logo" sx={{ height: 45 }} />
+          <Box component="img" src={svg1} alt="Logo" sx={{ height: 38 }} />
           <Button
             variant="contained"
             disableElevation
             sx={{
-              bgcolor: THEME_GREEN,
-              color: TEXT_COLOR,
+              bgcolor: "transparent",
+              color: AUTH_TEXT,
               textTransform: "none",
-              fontWeight: 600,
-              "&:hover": { bgcolor: "rgba(250, 237, 51, 1)" },
+              fontWeight: 500,
+              borderRadius: 1.5,
+              px: 1.5,
+              minWidth: 0,
+              "&:hover": { bgcolor: "#f0efed" },
             }}
           >
             Contact Us
@@ -777,19 +712,19 @@ export default function LoginPage() {
         <Container
           maxWidth="xs"
           sx={{
-            pt: 5,
+            pt: { xs: 5, sm: 7 },
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 600, color: "#111", mb: 5, fontSize: 19 }}>
-            Welcome to Optigo - Please log in
+          <Typography variant="h4" sx={{ fontWeight: 700, color: AUTH_TEXT, mb: 3, fontSize: 30, letterSpacing: "-0.045em" }}>
+            Sign in to Optigo
           </Typography>
 
-          <Box component="form" onSubmit={handleLogin} sx={{ width: "100%", maxWidth: 450 }}>
+          <Box component="form" onSubmit={handleLogin} sx={{ width: "100%", maxWidth: 380 }}>
             {/* Field 1: Company Code */}
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 1.5 }}>
               <Typography component="label" sx={labelStyle}>
                 Company Code
               </Typography>
@@ -797,7 +732,7 @@ export default function LoginPage() {
             </Box>
 
             {/* Field 2: Email */}
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 1.5 }}>
               <Typography component="label" sx={labelStyle}>
                 Email or username
               </Typography>
@@ -805,7 +740,7 @@ export default function LoginPage() {
             </Box>
 
             {/* Field 3: Password */}
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 1.5 }}>
               <Typography component="label" sx={labelStyle}>
                 Password
               </Typography>
@@ -848,23 +783,23 @@ export default function LoginPage() {
                 />
               }
               label="Remember me"
-              sx={{ "& .MuiTypography-root": { fontSize: "14px", color: "#555" } }}
+              sx={{ ml: -0.5, "& .MuiTypography-root": { fontSize: "13px", color: AUTH_MUTED } }}
             />
 
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25, mt: 2 }}>
               <Button
                 type="submit"
                 disabled={loading}
                 disableElevation
                 sx={{
-                  bgcolor: THEME_GREEN,
-                  color: TEXT_COLOR,
+                  bgcolor: "#2876d2",
+                  color: "#fff",
                   fontWeight: 600,
-                  py: 1.2,
+                  py: 1.05,
                   textTransform: "none",
-                  fontSize: "16px",
-                  borderRadius: 1,
-                  "&:hover": { bgcolor: "rgba(250, 237, 51, 1)" },
+                  fontSize: "14px",
+                  borderRadius: "7px",
+                  "&:hover": { bgcolor: "#1f68bd" },
                   "&.Mui-disabled": { bgcolor: "#f0f0f0", color: "#aaa" },
                 }}
                 fullWidth
@@ -877,13 +812,13 @@ export default function LoginPage() {
                   onClick={() => setShowChooser(true)}
                   variant="outlined"
                   sx={{
-                    color: "#555",
-                    borderColor: "#ddd",
                     fontWeight: 600,
-                    py: 1.2,
+                    py: 1.05,
                     textTransform: "none",
                     fontSize: "15px",
-                    borderRadius: 1,
+                    borderRadius: "7px",
+                    borderColor: AUTH_BORDER,
+                    color: AUTH_TEXT,
                     "&:hover": { bgcolor: "#fafafa", borderColor: "#bbb" },
                   }}
                   fullWidth
@@ -893,8 +828,8 @@ export default function LoginPage() {
               )}
             </Box>
 
-            <Box sx={{ textAlign: "center", mt: 4 }}>
-              <Link href="#" underline="hover" sx={{ color: "#666", fontSize: "12px", fontWeight: 500 }}>
+            <Box sx={{ textAlign: "center", mt: 2.5 }}>
+              <Link href="#" underline="hover" sx={{ color: AUTH_MUTED, fontSize: "11.5px", fontWeight: 400 }}>
                 If you don’t have an account, please contact the admin.
               </Link>
             </Box>

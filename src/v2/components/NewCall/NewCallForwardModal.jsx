@@ -148,14 +148,35 @@ export default function NewCallForwardModal() {
     }
 
     // Filter out the currently logged-in user
-    if (user?.id) {
+    const currentUserId = user?.id || user?.userid || user?.userId;
+    const currentUserName = (
+      user?.fullName ||
+      `${user?.firstname || ''} ${user?.lastname || ''}` ||
+      user?.user ||
+      ''
+    ).trim().toLowerCase();
+
+    if (currentUserId || currentUserName) {
       list = list.filter((emp) => {
         const empId =
           emp?.userid ||
           emp?.userId ||
           emp?.EmpId ||
           (String(emp?.id || '').includes(',') ? emp.id.split(',')[1] : emp?.id);
-        return String(empId) !== String(user.id);
+        if (currentUserId && empId && String(empId).trim() === String(currentUserId).trim()) {
+          return false;
+        }
+        const empName = (
+          emp?.user ||
+          emp?.person ||
+          emp?.EmpName ||
+          emp?.name ||
+          ''
+        ).trim().toLowerCase();
+        if (empName && currentUserName && empName === currentUserName) {
+          return false;
+        }
+        return true;
       });
     }
     return list;
@@ -210,7 +231,7 @@ export default function NewCallForwardModal() {
 
       const result = await ForwardCall(callId, payload);
 
-      if (result && !result.success && result.msg?.stat === 0) {
+      if (result && !result.success) {
         return;
       }
 
@@ -227,6 +248,9 @@ export default function NewCallForwardModal() {
       // Optimistically patch primary call in callStreamService
       callStreamService.patchPrimaryCall(callId, {
         ForwardedEmp: empName,
+        ForwardedEmpId: empId,
+        receivedBy: empName,
+        AssignedEmpName: empName,
         status: 'Forwarded',
         Estatus: 'Forwarded',
         InternalStatus: 'Forwarded',

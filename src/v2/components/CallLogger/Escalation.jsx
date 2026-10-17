@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Menu,
   MenuItem,
@@ -68,7 +68,55 @@ const EscalationMenu = ({
   const { ForwardCall, departmentsNames, CALLFORWARD_REASON_MASTER } =
     useCallLog();
 
-  const departments = departmentsNames || {};
+  const currentUserId = user?.id || user?.userid || user?.userId;
+  const currentUserName = (
+    user?.fullName ||
+    `${user?.firstname || ""} ${user?.lastname || ""}` ||
+    user?.user ||
+    ""
+  ).trim().toLowerCase();
+
+  const isSelf = (person) => {
+    if (!person) return false;
+    const personId =
+      person?.userid ||
+      person?.userId ||
+      person?.EmpId ||
+      person?.empId ||
+      (String(person?.id || "").includes(",")
+        ? person.id.split(",")[1]
+        : person?.id);
+    if (
+      currentUserId &&
+      personId &&
+      String(personId).trim() === String(currentUserId).trim()
+    ) {
+      return true;
+    }
+    const personName = (
+      person?.user ||
+      person?.person ||
+      person?.EmpName ||
+      person?.name ||
+      ""
+    ).trim().toLowerCase();
+    if (personName && currentUserName && personName === currentUserName) {
+      return true;
+    }
+    return false;
+  };
+
+  const departments = useMemo(() => {
+    if (!departmentsNames) return {};
+    const filtered = {};
+    Object.entries(departmentsNames).forEach(([dept, people]) => {
+      const remaining = (people || []).filter((person) => !isSelf(person));
+      if (remaining.length > 0) {
+        filtered[dept] = remaining;
+      }
+    });
+    return filtered;
+  }, [departmentsNames, currentUserId, currentUserName]);
 
   const handleMenuClose = () => {
     setAnchorEl({ anchor: null, id: null });
@@ -116,12 +164,16 @@ const EscalationMenu = ({
 
   const handleReasonSelect = async (reasonId) => {
     if (!pendingSelection) return;
+    if (isSelf(pendingSelection)) {
+      showNotification?.("You cannot forward a call to yourself.", "warning");
+      return;
+    }
     try {
       setForwardSelection(pendingSelection);
       const { msg } = await ForwardCall(id, {
         deptId: pendingSelection?.designationId,
         empId: pendingSelection?.userId,
-        createdBy: user?.id,
+        createdBy: currentUserId,
         ResonId: reasonId,
       });
       handleStatusNotification(msg, showNotification);
@@ -139,18 +191,22 @@ const EscalationMenu = ({
 
   const filteredPeople =
     forwardSelection?.designation &&
-    departments[forwardSelection?.designation]?.filter((user) =>
-      user?.user?.toLowerCase()?.includes(searchTerm?.toLowerCase()),
+    departments[forwardSelection?.designation]?.filter(
+      (person) =>
+        !isSelf(person) &&
+        person?.user?.toLowerCase()?.includes(searchTerm?.toLowerCase()),
     );
 
   const directSearchResults = directSearchTerm
     ? Object.entries(departments)
         ?.flatMap(([dept, people]) =>
           people
-            ?.filter((person) =>
-              person.user
-                .toLowerCase()
-                .includes(directSearchTerm.toLowerCase()),
+            ?.filter(
+              (person) =>
+                !isSelf(person) &&
+                person?.user
+                  ?.toLowerCase()
+                  ?.includes(directSearchTerm.toLowerCase()),
             )
             ?.map((person) => ({
               dept,

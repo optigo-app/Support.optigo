@@ -16,7 +16,11 @@ import { useSocketEvent } from "../hooks/useSocketListener";
 import { notify } from "../libs/NOTIFICATION_TEMPLATES";
 import { useNavigate } from "react-router-dom";
 import { concatMap } from "rxjs/operators";
-import { statusPriorityUpdates$, commentUpdates$ } from "../rxjs/callUpdateQueue";
+import {
+  statusPriorityUpdates$,
+  commentUpdates$,
+  callLogStatusEvents$,
+} from "../rxjs/callUpdateQueue";
 import { callStreamService } from "../services/callStreamService";
 import { parseFollowUpList, isForwardedCall } from "../utils/callLogUtils";
 import {
@@ -324,11 +328,13 @@ export function CallLogProvider(props) {
                 setCallLog((prev) => {
                   if (!Array.isArray(prev)) return prev;
                   return prev.map((c) =>
-                    String(c.sr) === String(callId) ? originalRow : c,
+                    String(c.sr) === String(callId) && originalRow
+                      ? originalRow
+                      : c,
                   );
                 });
                 setCurrentCall((prev) => {
-                  if (!prev || String(prev.sr) !== String(callId)) return prev;
+                  if (!originalRow || !prev || String(prev.sr) !== String(callId)) return prev;
                   return originalRow;
                 });
                 resolve({ msg: data, success: false, type });
@@ -355,11 +361,13 @@ export function CallLogProvider(props) {
               setCallLog((prev) => {
                 if (!Array.isArray(prev)) return prev;
                 return prev.map((c) =>
-                  String(c.sr) === String(callId) ? originalRow : c,
+                  String(c.sr) === String(callId) && originalRow
+                    ? originalRow
+                    : c,
                 );
               });
               setCurrentCall((prev) => {
-                if (!prev || String(prev.sr) !== String(callId)) return prev;
+                if (!originalRow || !prev || String(prev.sr) !== String(callId)) return prev;
                 return originalRow;
               });
               reject(err);
@@ -477,12 +485,15 @@ export function CallLogProvider(props) {
     [triggerRefresh, callLog, setCallLog],
   );
 
+
   const editCall = useCallback(
     async (callId, updatedFields) => {
       try {
+        const userid = updatedFields?.CreatedBy ? updatedFields?.CreatedBy : user?.id ?? user?.id;
+        console.log(updatedFields, userid, "updatedFields")
         const data = await CallLogApi.editCallApi(
           callId,
-          updatedFields.CreatedBy,
+          userid,
           updatedFields.CustomerName,
           updatedFields.PriorityId,
           updatedFields.ParentId,
@@ -520,13 +531,9 @@ export function CallLogProvider(props) {
         const originalRow = callLogRef.current.find(
           (c) => String(c.sr) === String(callId),
         );
-        if (!originalRow) {
-          reject(new Error("Call log row not found."));
-          return;
-        }
 
         // Clone originalRow to avoid mutations and reference issues during rollback
-        const originalRowCopy = { ...originalRow };
+        const originalRowCopy = originalRow ? { ...originalRow } : null;
 
         // 2. Compute optimistic updates
         const optimisticFields = {};
@@ -601,9 +608,11 @@ export function CallLogProvider(props) {
   const UpdateCall = useCallback(
     async (callId, updatedFields) => {
       try {
+        const userid = updatedFields?.CreatedBy ? updatedFields?.CreatedBy : user?.id ?? user?.id;
+        console.log(updatedFields, userid, "updatedFields")
         const response = await CallLogApi.updateCallDynamic({
           CallLogid: callId,
-          ...updatedFields,
+          ...{ ...updatedFields, createdBy: userid },
         });
         const rd = response?.rd;
         const raw = Array.isArray(rd) ? rd[0] : null;
@@ -1315,6 +1324,58 @@ export function CallLogProvider(props) {
     });
     notify(data, "FORWARDED_CALL", user);
   });
+
+  useSocketEvent("ES", (data) => {
+    callLogStatusEvents$.next(data);
+  });
+
+  useEffect(() => {
+    const subscription = callLogStatusEvents$.subscribe((event) => {
+      const callId = event?.CallLogId ?? event?.CallLogid ?? event?.sr;
+      const statusId = event?.Estatus ?? event?.EstatusId ?? event?.statusId;
+      if (callId == null || statusId == null || statusId === 0 || statusId === '0' || statusId === '') return;
+
+      const found = ESTATUS_LIST.find(
+        (status) =>
+          String(status.value) === String(statusId) ||
+          String(status.label).toLowerCase() === String(statusId).toLowerCase()
+      );
+      const statusLabel =
+        found?.label ||
+        (typeof statusId === 'string' && isNaN(Number(statusId)) && statusId.trim() !== ''
+          ? statusId
+          : null);
+
+      if (!statusLabel || statusLabel === '0') return;
+
+      const updatedFields = {
+        Estatus: statusLabel,
+        estatus: statusLabel,
+        EstatusId: found?.value ?? statusId,
+        estatusId: found?.value ?? statusId,
+        ...(event?.UpdatedBy !== undefined && { UpdatedBy: event.UpdatedBy }),
+        ...(event?.ModifiedDate && { ModifiedDate: event.ModifiedDate }),
+      };
+
+      setCallLog((previous) =>
+        Array.isArray(previous)
+          ? previous.map((call) =>
+            String(call?.sr) === String(callId)
+              ? { ...call, ...updatedFields }
+              : call,
+          )
+          : previous,
+      );
+      setCurrentCall((previous) =>
+        previous && String(previous.sr) === String(callId)
+          ? { ...previous, ...updatedFields }
+          : previous,
+      );
+      callStreamService.updateCallStatus(callId, updatedFields);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [ESTATUS_LIST]);
 
   const contextValue = useMemo(
     () => ({

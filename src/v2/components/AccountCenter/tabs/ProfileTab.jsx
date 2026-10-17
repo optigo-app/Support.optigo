@@ -12,8 +12,8 @@ const InfoRow = ({ icon, label, value }) => (
     sx={{
       display: "flex",
       alignItems: "center",
-      py: 1.8,
-      px: 3,
+      py: 1.15,
+      px: 2,
       transition: "background-color 0.2s",
       "&:hover": { bgcolor: "action.hover" },
     }}
@@ -44,7 +44,6 @@ const InfoRow = ({ icon, label, value }) => (
 
 export default function ProfileTab() {
   const { user, CompanyInfo } = useAuth();
-  console.log(user, "user");
 
   const initials =
     [user?.firstname?.[0], user?.lastname?.[0]]
@@ -58,17 +57,17 @@ export default function ProfileTab() {
     "Unknown";
 
   return (
-    <Box sx={{ mb: 4 }}>
+    <Box sx={{ mb: 2.5 }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1, mb: 0.5 }}>
         Personal info
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.75 }}>
         Basic info about you and your role in the system
       </Typography>
       {/* Box 2: Profile Details */}
       <Box
         sx={{
-          borderRadius: 6,
+          borderRadius: "18px",
           border: "1px solid",
           borderColor: "divider",
           overflow: "hidden",

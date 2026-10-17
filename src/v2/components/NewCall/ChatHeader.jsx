@@ -12,6 +12,8 @@ import {
   Skeleton,
   Rating,
   Button,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   CaretDown,
@@ -134,6 +136,10 @@ export default function ChatHeader({
     return () => sub.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (activeVoipCall) setStartCallAnchor(null);
+  }, [activeVoipCall]);
+
   const handleAcceptHeaderCall = async () => {
     if (!activeThread?.sr) return;
     setIsAcceptingHeader(true);
@@ -209,7 +215,23 @@ export default function ChatHeader({
 
   // Determine if call is active (ongoing/running/pending) vs ended
   const isCallEnded = React.useMemo(() => {
-    // 1. If active VoIP call matches this thread, it is currently in progress
+    const rawStatus = String(raw.status || activeThread?.status || '').toLowerCase().trim();
+    const rawEstatus = String(raw.Estatus || raw.estatus || activeThread?.Estatus || activeThread?.estatus || '').toLowerCase().trim();
+    if (rawStatus === 'solved' || rawStatus === 'closed' || rawEstatus === 'completed') {
+      return true;
+    }
+
+    // Persisted end data is authoritative. The VoIP session can remain selected
+    // after a call has ended, so it must not mask the completed call record.
+    const closed = raw.callClosed || activeThread?.callClosed;
+    const hasClosedDate = isValidDate(closed);
+    const duration =
+      raw.CallDuration || activeThread?.duration || raw.callDuration || '';
+    const hasDuration = duration && duration !== '00:00:00' && duration !== '0';
+
+    if (hasClosedDate || hasDuration) return true;
+
+    // Only treat the call as active when no persisted end data exists.
     if (
       activeVoipCall &&
       (String(activeVoipCall.sr) === String(raw.sr) ||
@@ -217,17 +239,9 @@ export default function ChatHeader({
     ) {
       return false;
     }
-    // 2. Check callClosed date
-    const closed = raw.callClosed || activeThread?.callClosed;
-    const hasClosedDate = isValidDate(closed);
 
-    // 3. Check duration
-    const duration =
-      raw.CallDuration || activeThread?.duration || raw.callDuration || '';
-    const hasDuration = duration && duration !== '00:00:00' && duration !== '0';
-
-    return Boolean(hasClosedDate || hasDuration);
-  }, [activeVoipCall, raw.callClosed, raw.CallDuration, raw.sr, activeThread]);
+    return false;
+  }, [activeVoipCall, raw.callClosed, raw.CallDuration, raw.sr, raw.status, raw.Estatus, raw.estatus, activeThread]);
 
   const isPrimaryPending = !isCallEnded;
 
@@ -248,7 +262,31 @@ export default function ChatHeader({
 
   const currentPriority = activeThread?.priority || raw.priority || 'Normal';
   const currentRating = raw.rating || activeThread?.rating || 0;
-  const isForwarded = raw.CallType === 'Forwarded' || Boolean(raw.ForwardedEmp);
+  const isForwarded = raw.CallType === 'Forwarded' || Boolean(raw.ForwardedEmp || raw.ForwardedEmpId);
+  const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim() || user?.name || '';
+  const forwardedOwnerName = raw.ForwardedEmp || activeThread?.ForwardedEmp || '';
+  const forwardedOwnerId = raw.ForwardedEmpId || activeThread?.ForwardedEmpId;
+  const isForwardedToAnotherUser = Boolean(isForwarded && (
+    forwardedOwnerId
+      ? String(forwardedOwnerId) !== String(user?.id)
+      : !forwardedOwnerName || !currentUserName || forwardedOwnerName.trim().toLowerCase() !== currentUserName.trim().toLowerCase()
+  ));
+  const isThisCallLive = Boolean(activeVoipCall && !activeVoipCall.isFollowUp && String(activeVoipCall.sr) === String(activeThread?.sr));
+  const hasActiveCall = Boolean(activeVoipCall);
+
+  const [restrictionSnackbar, setRestrictionSnackbar] = useState({
+    open: false,
+    message: '',
+  });
+
+  const notifyForwardedRestricted = (action = 'perform this action') => {
+    const target = forwardedOwnerName ? ` to ${forwardedOwnerName}` : '';
+    setRestrictionSnackbar({
+      open: true,
+      message: `This call is already forwarded${target}. You cannot ${action}.`,
+    });
+    return true;
+  };
 
   // Dynamic master-based color configs matching CallLog datagrid
   const extConfig = getStatusStyle(currentExtStatus);
@@ -295,49 +333,61 @@ export default function ChatHeader({
 
     const textToCopy = lines.join('\n');
 
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(textToCopy);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = textToCopy;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
+    const copyWithDocumentCommand = () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = textToCopy;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '-9999px';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } finally {
         document.body.removeChild(textarea);
       }
-      // toast.success(
-      //   resolvedTicketId
-      //     ? `Copied Call #${callId} & Ticket #${resolvedTicketId} info to clipboard`
-      //     : `Copied Call #${callId} info to clipboard`
-      // );
+      if (!copied) throw new Error('Browser did not copy the call information');
+    };
+
+    try {
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+        await navigator.clipboard.writeText(textToCopy);
+      } catch (_) {
+        // Clipboard API can be denied on local or non-secure origins. Retry
+        // through the same document.execCommand copy path used by older browsers.
+        copyWithDocumentCommand();
+      }
+      toast.success('Call information copied');
     } catch (err) {
       console.error('Failed to copy call info:', err);
-      // toast.error('Failed to copy information to clipboard');
+      toast.error('Could not copy call information');
     }
   };
 
   const handleUpdateExtStatus = async (opt) => {
     setExtStatusAnchor(null);
-    if (!activeThread?.sr && !activeThread?.id) return;
-    if (!isCallEnded) {
-      // toast.error('Cannot change status while call is still active. Please end the call first.');
+    if (isForwardedToAnotherUser) {
+      notifyForwardedRestricted('change external status');
       return;
     }
-    const statusVal = opt.value || opt.id || opt.label;
+    const callLogId = activeThread?.sr || raw.sr;
+    if (!callLogId) {
+      toast.error('Call log ID is missing; external status was not saved.');
+      return;
+    }
+    const statusVal = opt.value ?? opt.id ?? opt.label;
     const statusLabel = opt.label || opt.Name || opt.name || opt;
 
-    callStreamService.updateCallStatus(activeThread.id, {
-      estatus: statusLabel,
-      estatusId: statusVal,
-    });
-
-    if (UpdateStatusAndPriority && activeThread.sr) {
+    if (UpdateStatusAndPriority) {
       try {
         const res = await UpdateStatusAndPriority(
-          activeThread.sr,
+          callLogId,
           { statusId: statusVal, createdBy: user?.id },
           INTERNAL_ESTATUS_LIST
         );
@@ -345,45 +395,41 @@ export default function ChatHeader({
           const errorMsg =
             res?.msg?.stat_msg ||
             'You do not have permission to change the External Status.';
-          // toast.error(errorMsg);
+          toast.error(errorMsg);
           return;
         }
-        callStreamService.updateCallStatus(activeThread.id, {
+        callStreamService.updateCallStatus(activeThread.id || callLogId, {
           estatus: statusLabel,
           estatusId: statusVal,
         });
         // toast.success('The External status is updated.');
       } catch (e) {
-        // toast.error(e?.message || 'Failed to update external status');
+        console.error('Failed to update external status:', e);
+        toast.error(e?.message || 'Failed to update external status');
       }
     } else {
-      callStreamService.updateCallStatus(activeThread.id, {
-        estatus: statusLabel,
-        estatusId: statusVal,
-      });
-      // toast.success('The External status is updated.');
+      toast.error('Status update service is unavailable.');
     }
   };
 
   const handleUpdateIntStatus = async (opt) => {
     setIntStatusAnchor(null);
-    if (!activeThread?.sr && !activeThread?.id) return;
-    if (!isCallEnded) {
-      // toast.error('Cannot change status while call is still active. Please end the call first.');
+    if (isForwardedToAnotherUser) {
+      notifyForwardedRestricted('change internal status');
       return;
     }
-    const statusVal = opt.value || opt.id || opt.label;
+    const callLogId = activeThread?.sr || raw.sr;
+    if (!callLogId) {
+      toast.error('Call log ID is missing; internal status was not saved.');
+      return;
+    }
+    const statusVal = opt.value ?? opt.id ?? opt.label;
     const statusLabel = opt.label || opt.Name || opt.name || opt;
 
-    callStreamService.updateCallStatus(activeThread.id, {
-      status: statusLabel,
-      statusId: statusVal,
-    });
-
-    if (UpdateStatusAndPriority && activeThread.sr) {
+    if (UpdateStatusAndPriority) {
       try {
         const res = await UpdateStatusAndPriority(
-          activeThread.sr,
+          callLogId,
           { statusId: statusVal, createdBy: user?.id },
           INTERNAL_STATUS_LIST
         );
@@ -391,36 +437,41 @@ export default function ChatHeader({
           const errorMsg =
             res?.msg?.stat_msg ||
             'You do not have permission to change the Internal Status.';
-          // toast.error(errorMsg);
+          toast.error(errorMsg);
           return;
         }
-        callStreamService.updateCallStatus(activeThread.id, {
+        callStreamService.updateCallStatus(activeThread.id || callLogId, {
           status: statusLabel,
           statusId: statusVal,
         });
         // toast.success('The Internal status is updated.');
       } catch (e) {
-        // toast.error(e?.message || 'Failed to update internal status');
+        console.error('Failed to update internal status:', e);
+        toast.error(e?.message || 'Failed to update internal status');
       }
     } else {
-      callStreamService.updateCallStatus(activeThread.id, {
-        status: statusLabel,
-        statusId: statusVal,
-      });
-      // toast.success('The Internal status is updated.');
+      toast.error('Status update service is unavailable.');
     }
   };
 
   const handleUpdatePriority = async (opt) => {
     setPriorityAnchor(null);
-    if (!activeThread?.sr && !activeThread?.id) return;
-    const priorityVal = opt.value || opt.id || opt.label;
+    if (isForwardedToAnotherUser) {
+      notifyForwardedRestricted('change priority');
+      return;
+    }
+    const callLogId = activeThread?.sr || raw.sr;
+    if (!callLogId) {
+      toast.error('Call log ID is missing; priority was not saved.');
+      return;
+    }
+    const priorityVal = opt.value ?? opt.id ?? opt.label;
     const priorityLabel = opt.label || opt.Name || opt.name || opt;
 
-    if (UpdateStatusAndPriority && activeThread.sr) {
+    if (UpdateStatusAndPriority) {
       try {
         const res = await UpdateStatusAndPriority(
-          activeThread.sr,
+          callLogId,
           { priorityId: priorityVal, createdBy: user?.id },
           INTERNAL_ESTATUS_LIST
         );
@@ -428,28 +479,29 @@ export default function ChatHeader({
           const errorMsg =
             res?.msg?.stat_msg ||
             'You do not have permission to change the Priority.';
-          // toast.error(errorMsg);
+          toast.error(errorMsg);
           return;
         }
-        callStreamService.updateCallStatus(activeThread.id, {
+        callStreamService.updateCallStatus(activeThread.id || callLogId, {
           priority: priorityLabel,
           priorityId: priorityVal,
         });
         // toast.success('The Priority is updated.');
       } catch (e) {
-        // toast.error(e?.message || 'Failed to update priority');
+        console.error('Failed to update priority:', e);
+        toast.error(e?.message || 'Failed to update priority');
       }
     } else {
-      callStreamService.updateCallStatus(activeThread.id, {
-        priority: priorityLabel,
-        priorityId: priorityVal,
-      });
-      // toast.success('The Priority is updated.');
+      toast.error('Priority update service is unavailable.');
     }
   };
 
   const handleUpdateRating = async (newRating) => {
     setRatingAnchor(null);
+    if (isForwardedToAnotherUser) {
+      notifyForwardedRestricted('rate this call');
+      return;
+    }
     if (!activeThread?.sr && !activeThread?.id) return;
 
     callStreamService.updateCallStatus(activeThread.id, { rating: newRating });
@@ -743,15 +795,12 @@ export default function ChatHeader({
             >
               {/* External Status Pill */}
               <Tooltip
-                title={
-                  !isCallEnded
-                    ? 'Call is still in progress. Status options are disabled until the call is ended.'
-                    : 'Click to change External Status'
-                }
+                title="Click to change External Status"
               >
                 <Box
                   onClick={(e) => {
-                    if (!isCallEnded) {
+                    if (isForwardedToAnotherUser) {
+                      notifyForwardedRestricted('change external status');
                       return;
                     }
                     setExtStatusAnchor(e.currentTarget);
@@ -765,11 +814,11 @@ export default function ChatHeader({
                     borderRadius: '10px',
                     bgcolor: extStatusAnchor ? '#fff' : 'transparent',
                     color: '#000',
-                    cursor: !isCallEnded ? 'not-allowed' : 'pointer',
-                    opacity: !isCallEnded ? 0.65 : 1,
+                    cursor: 'pointer',
+                    opacity: 1,
                     boxShadow: extStatusAnchor ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
                     transition: 'all 0.15s ease',
-                    '&:hover': !isCallEnded ? {} : {
+                    '&:hover': {
                       bgcolor: '#fff',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)'
                     },
@@ -793,7 +842,7 @@ export default function ChatHeader({
                       maxWidth: 110,
                     }}
                   >
-                    {currentExtStatus}
+                    {currentExtStatus || 'Select status'}
                   </Typography>
                   <CaretDown size={12} weight="bold" color="#64748B" />
                 </Box>
@@ -803,15 +852,12 @@ export default function ChatHeader({
 
               {/* Internal Status Pill */}
               <Tooltip
-                title={
-                  !isCallEnded
-                    ? 'Call is still in progress. Status options are disabled until the call is ended.'
-                    : 'Click to change Internal Workflow Status'
-                }
+                title="Click to change Internal Workflow Status"
               >
                 <Box
                   onClick={(e) => {
-                    if (!isCallEnded) {
+                    if (isForwardedToAnotherUser) {
+                      notifyForwardedRestricted('change internal status');
                       return;
                     }
                     setIntStatusAnchor(e.currentTarget);
@@ -825,11 +871,11 @@ export default function ChatHeader({
                     borderRadius: '10px',
                     bgcolor: intStatusAnchor ? '#fff' : 'transparent',
                     color: '#000',
-                    cursor: !isCallEnded ? 'not-allowed' : 'pointer',
-                    opacity: !isCallEnded ? 0.65 : 1,
+                    cursor: 'pointer',
+                    opacity: 1,
                     boxShadow: intStatusAnchor ? '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
                     transition: 'all 0.15s ease',
-                    '&:hover': !isCallEnded ? {} : {
+                    '&:hover': {
                       bgcolor: '#fff',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.04)'
                     },
@@ -853,7 +899,7 @@ export default function ChatHeader({
                       maxWidth: 110,
                     }}
                   >
-                    {currentIntStatus}
+                    {currentIntStatus || 'Select status'}
                   </Typography>
                   <CaretDown size={12} weight="bold" color="#64748B" />
                 </Box>
@@ -864,7 +910,13 @@ export default function ChatHeader({
               {/* Priority Pill */}
               <Tooltip title="Click to change Priority">
                 <Box
-                  onClick={(e) => setPriorityAnchor(e.currentTarget)}
+                  onClick={(e) => {
+                    if (isForwardedToAnotherUser) {
+                      notifyForwardedRestricted('change priority');
+                      return;
+                    }
+                    setPriorityAnchor(e.currentTarget);
+                  }}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -958,6 +1010,10 @@ export default function ChatHeader({
               <MenuItem
                 onClick={() => {
                   setProfileAnchor(null);
+                  if (isForwardedToAnotherUser) {
+                    notifyForwardedRestricted('edit call duration');
+                    return;
+                  }
                   if (activeThread) openDurationModal(activeThread?.rawRecord || activeThread);
                 }}
                 sx={{ fontSize: 13.5, fontWeight: 600, color: '#0284C7', borderRadius: '8px', py: 1, px: 1.5, mb: 0.5, '&:hover': { bgcolor: '#F0F9FF' } }}
@@ -996,7 +1052,9 @@ export default function ChatHeader({
           </Typography>
           {(ESTATUS_LIST.length > 0 ? ESTATUS_LIST : EXTERNAL_STATUS_FALLBACK)
             .filter((opt) => {
-              const label = String(opt.label || opt.Name || opt.name || opt).trim().toLowerCase();
+              const rawLabel = String(opt.label || opt.Name || opt.name || opt).trim();
+              const label = rawLabel.toLowerCase();
+              if (!rawLabel || rawLabel === '0' || !isNaN(Number(rawLabel))) return false;
               if (!hasTicket && label === 'ticket generated') return false;
               return true;
             })
@@ -1062,7 +1120,9 @@ export default function ChatHeader({
           </Typography>
           {(STATUS_LIST.length > 0 ? STATUS_LIST : INTERNAL_STATUS_FALLBACK)
             .filter((opt) => {
-              const label = String(opt.label || opt.Name || opt.name || opt).trim().toLowerCase();
+              const rawLabel = String(opt.label || opt.Name || opt.name || opt).trim();
+              const label = rawLabel.toLowerCase();
+              if (!rawLabel || rawLabel === '0' || !isNaN(Number(rawLabel))) return false;
               if (!hasTicket && label === 'ticket generated') return false;
               return true;
             })
@@ -1126,12 +1186,7 @@ export default function ChatHeader({
           <Typography sx={{ px: 1.2, py: 0.5, pb: 0.8, fontSize: 10.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Priority Level
           </Typography>
-          {(PRIORITY_LIST.length > 0 ? PRIORITY_LIST : [
-            { value: 1, label: 'High' },
-            { value: 2, label: 'Medium' },
-            { value: 3, label: 'Normal' },
-            { value: 4, label: 'Low' },
-          ]).map((opt) => {
+          {PRIORITY_LIST?.map((opt) => {
             const label = opt.label || opt.PriorityName || opt.Name || opt;
             const isSelected = String(currentPriority).toLowerCase() === String(label).toLowerCase();
             const itemStyle = getPriorityStyle(label);
@@ -1184,7 +1239,13 @@ export default function ChatHeader({
                   disableElevation
                   disableRipple
                   disabled={isPrimaryPending}
-                  onClick={() => openAddFollowUpModal(activeThread)}
+                  onClick={() => {
+                    if (isForwardedToAnotherUser) {
+                      notifyForwardedRestricted('add a follow-up call');
+                      return;
+                    }
+                    openAddFollowUpModal(activeThread);
+                  }}
                   startIcon={<ArrowsClockwise size={16} weight="bold" />}
                   sx={{
                     px: 1.75,
@@ -1222,7 +1283,14 @@ export default function ChatHeader({
             <Button
               disableElevation
               disableRipple
-              onClick={() => openForwardCallModal(activeThread)}
+              disabled={isThisCallLive}
+              onClick={() => {
+                if (isForwardedToAnotherUser) {
+                  notifyForwardedRestricted('forward this call again');
+                  return;
+                }
+                openForwardCallModal(activeThread);
+              }}
               startIcon={<ShareNetwork size={16} weight="bold" />}
               sx={{
                 px: 1.75,
@@ -1254,7 +1322,13 @@ export default function ChatHeader({
             <Button
               disableElevation
               disableRipple
-              onClick={() => openEditCallModal(activeThread)}
+              onClick={() => {
+                if (isForwardedToAnotherUser) {
+                  notifyForwardedRestricted('edit this call');
+                  return;
+                }
+                openEditCallModal(activeThread);
+              }}
               startIcon={<PencilSimple size={16} weight="bold" />}
               sx={{
                 px: 1.75,
@@ -1289,8 +1363,12 @@ export default function ChatHeader({
               <Button
                 disableElevation
                 disableRipple
-                disabled={isAcceptingHeader}
+                disabled={isAcceptingHeader || hasActiveCall}
                 onClick={(e) => {
+                  if (isForwardedToAnotherUser) {
+                    notifyForwardedRestricted('start or accept this call');
+                    return;
+                  }
                   if (isUnassigned) {
                     handleAcceptHeaderCall();
                   } else if (hasMultipleOptions) {
@@ -1329,7 +1407,7 @@ export default function ChatHeader({
           {/* Smart Start Call Options Menu (Pending Calls Only) */}
           <Menu
             anchorEl={startCallAnchor}
-            open={Boolean(startCallAnchor)}
+            open={Boolean(startCallAnchor) && !hasActiveCall}
             onClose={() => setStartCallAnchor(null)}
             MenuListProps={{
               sx: {
@@ -1376,16 +1454,29 @@ export default function ChatHeader({
             {/* Pending Follow-Up & Forwarded Calls */}
             {pendingFollowUps.map((fu, idx) => {
               const isForward = Boolean(
+                fu.IsForwardFollowup === 1 || fu.IsForwardFollowup === '1' || fu.IsForwardFollowup === true ||
+                String(fu.CallType || fu.callType).toLowerCase() === 'forwarded' ||
                 fu.ForwardedEmp ||
-                String(fu.InternalStatus).toLowerCase() === 'forwarded' ||
-                fu.InternalStatusId === 5
+                fu.ForwardedEmpId ||
+                String(fu.InternalStatus || fu.internalStatus).toLowerCase() === 'forwarded' ||
+                String(fu.InternalStatusId ?? fu.internalStatusId) === '5'
               );
+              const followUpOwnerId = fu.ForwardedEmpId || fu.forwardedEmpId || fu.EmpId || fu.empId;
+              const followUpOwnerName = fu.ForwardedEmp || fu.forwardedEmp || fu.AssignedEmpName || fu.EmpName || '';
+              const isForwardedToAnotherAgent = isForward && (
+                followUpOwnerId
+                  ? String(followUpOwnerId) !== String(user?.id)
+                  : !followUpOwnerName || !currentUserName || followUpOwnerName.trim().toLowerCase() !== currentUserName.trim().toLowerCase()
+              );
+
+              if (isForwardedToAnotherAgent) return null;
 
               return (
                 <MenuItem
                   key={fu.Id || idx}
                   onClick={async () => {
                     setStartCallAnchor(null);
+                    if (callStreamService.activeCall$.getValue()) return;
                     try {
                       if (startFollowUpCall && fu.Id && activeThread?.sr) {
                         const res = await startFollowUpCall(fu.Id, activeThread.sr);
@@ -1400,6 +1491,8 @@ export default function ChatHeader({
                         followUpId: fu.Id,
                         isFollowUp: true,
                         isForwarded: isForward,
+                        ownerId: followUpOwnerId || user?.id,
+                        ownerName: followUpOwnerName || currentUserName,
                         title: isForward ? `Forwarded Call #${fu.Id}` : `Follow-Up #${fu.Id}`,
                       });
                     } catch (err) {
@@ -1496,6 +1589,31 @@ export default function ChatHeader({
           </Tooltip>
         </Box>
       </Box>
+
+      {/* Forwarded Call Action Restriction Warning Snackbar */}
+      <Snackbar
+        open={restrictionSnackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setRestrictionSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ zIndex: 99999, top: { xs: 16, sm: 24 } }}
+      >
+        <Alert
+          onClose={() => setRestrictionSnackbar((prev) => ({ ...prev, open: false }))}
+          severity="warning"
+          variant="filled"
+          sx={{
+            width: '100%',
+            borderRadius: '10px',
+            fontWeight: 650,
+            fontSize: 13.5,
+            alignItems: 'center',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
+          }}
+        >
+          {restrictionSnackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -94,6 +94,11 @@ const TaskDetailSidebar = ({
 
   const COMMENTS_PER_PAGE = 10;
 
+  const fullName = (taskData) => {
+    return `${taskData?.firstname} ${taskData?.lastname}`;
+  }
+
+
   useEffect(() => {
     setComments([]);
     setCommentsPage(1);
@@ -373,7 +378,8 @@ const TaskDetailSidebar = ({
                     </Typography>
                   </Stack>
                   <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: '#0F172A' }}>
-                    User: {taskData?.createdbyid || 'Unknown'}
+                    User: {fullName(taskData)}
+
                   </Typography>
                 </InfoCard>
               </Grid>

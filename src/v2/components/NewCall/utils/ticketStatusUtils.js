@@ -76,24 +76,47 @@ export const getResolvedTicketId = (record) => {
   return '';
 };
 
+const isInvalidStatus = (val) => {
+  if (val == null) return true;
+  const s = String(val).trim();
+  if (!s || s === '0' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') return true;
+  // If it's purely numeric (e.g. "0", "1", "44"), it is an ID not a status name
+  if (!isNaN(Number(s))) return true;
+  return false;
+};
+
 /**
- * Sanitizes External and Internal statuses so that ticket-less calls NEVER display 'Ticket generated'.
+ * Sanitizes External and Internal statuses so that ticket-less calls NEVER display 'Ticket generated',
+ * and invalid / numeric / '0' statuses safely fallback to appropriate active/completed labels.
  */
 export const getSanitizedStatuses = (record, isCallEnded = true) => {
   const raw = record?.rawRecord || record || {};
   const hasTicket = hasRealTicket(record);
 
-  let extStatus = record?.estatus || raw.Estatus || (isCallEnded ? 'Completed' : 'Running');
-  let intStatus = record?.status || raw.status || (isCallEnded ? 'Solved' : 'Pending');
+  const rawExt = !isInvalidStatus(record?.estatus)
+    ? record.estatus
+    : !isInvalidStatus(raw.Estatus)
+    ? raw.Estatus
+    : !isInvalidStatus(raw.estatus)
+    ? raw.estatus
+    : null;
+
+  const rawInt = !isInvalidStatus(record?.status)
+    ? record.status
+    : !isInvalidStatus(raw.status)
+    ? raw.status
+    : !isInvalidStatus(raw.Status)
+    ? raw.Status
+    : null;
+
+  let extStatus = rawExt || '';
+  let intStatus = rawInt || '';
 
   if (!hasTicket) {
-    if (String(extStatus).trim().toLowerCase() === 'ticket generated') {
-      extStatus = isCallEnded ? 'Completed' : 'Running';
-    }
-    if (String(intStatus).trim().toLowerCase() === 'ticket generated') {
-      intStatus = isCallEnded ? 'Solved' : 'Pending';
-    }
+    if (String(extStatus).trim().toLowerCase() === 'ticket generated') extStatus = '';
+    if (String(intStatus).trim().toLowerCase() === 'ticket generated') intStatus = '';
   }
 
   return { extStatus, intStatus, hasTicket };
 };
+

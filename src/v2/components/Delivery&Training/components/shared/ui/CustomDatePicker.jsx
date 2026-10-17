@@ -11,7 +11,7 @@ const formatDate = (date) => {
   return d instanceof Date && !isNaN(d) ? d.toLocaleDateString("en-GB") : "";
 };
 
-const CustomDualDatePicker = ({ showAdvanceFilter = false, value = {}, onChange = () => {} }) => {
+const CustomDualDatePicker = ({ showAdvanceFilter = false, value = {}, onChange = () => { } }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [anchorElStatus, setAnchorElStatus] = useState(null);
   const open = Boolean(anchorEl);
@@ -84,9 +84,9 @@ const CustomDualDatePicker = ({ showAdvanceFilter = false, value = {}, onChange 
               padding: "8.5px 12px",
               fontSize: "14px",
             },
-            width: "350px",
+            width: "100%",
           }}
-          placeholder="🗓️Select Date Range"
+          placeholder="Select Date Range"
           readOnly
           InputProps={{
             startAdornment: (

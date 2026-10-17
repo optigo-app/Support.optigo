@@ -37,7 +37,6 @@ function getChipColor(statusName) {
 }
 
 export default function CallLogCard({ record = {} }) {
-  console.log(record, "record")
   const [activeCall, setActiveCall] = useState(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const [localReceivedBy, setLocalReceivedBy] = useState(null);
@@ -145,12 +144,12 @@ export default function CallLogCard({ record = {} }) {
   const isMissed = statusLower.includes('missed') || statusLower.includes('fail') || statusLower.includes('abandon');
   const isRunningStatus = isRunning || statusLower.includes('progress') || statusLower.includes('live') || statusLower.includes('running');
   const topicRaised = record.topicRaisedBy || 'help.optigoapps.com';
-  let iconBg = '#9CA3AF'; // Default gray
+  let iconBg = '#9CA3AF';
   let iconColor = '#FFFFFF';
   let IconComp = PhoneIncoming;
 
   if (isRunningStatus) {
-    iconBg = '#34D399'; // Vibrant green
+    iconBg = '#34D399';
     IconComp = PhoneCall;
   } else if (isMissed) {
     iconBg = '#EF4444'; // Red

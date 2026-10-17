@@ -83,12 +83,22 @@ export function normalizeCallRecord(rec, idx = 0) {
 
   const hasTicket = hasRealTicket(rec);
   const isEnded = Boolean(
-    (rec.callClosed && isValidDate(rec.callClosed)) ||
-    (rec.CallDuration && rec.CallDuration !== '00:00:00' && rec.CallDuration !== '0')
+    ((rec.callClosed || rec.CallClosed) && isValidDate(rec.callClosed || rec.CallClosed)) ||
+    (rec.CallDuration && !['00:00:00', '00:00', '0'].includes(String(rec.CallDuration)))
   );
 
+  // A missing close time/duration means the call has not been completed.
+  // Do not infer "Solved" or "Completed" from an absent status.
   let rawStatus = rec.status || (isEnded ? 'Solved' : 'Pending');
   let rawEstatus = rec.Estatus || rec.estatus || (isEnded ? 'Completed' : 'Running');
+  if (!isEnded && !isValidDate(rec.callStart || rec.CallStart) &&
+      String(rawStatus).trim().toLowerCase() === 'solved') {
+    rawStatus = 'Pending';
+  }
+  if (!isEnded && !isValidDate(rec.callStart || rec.CallStart) &&
+      String(rawEstatus).trim().toLowerCase() === 'completed') {
+    rawEstatus = 'Running';
+  }
 
   if (!hasTicket) {
     if (String(rawStatus).trim().toLowerCase() === 'ticket generated') {
@@ -475,17 +485,50 @@ class CallStreamService {
     this.currentUser$.next(user);
   }
 
+  markThreadRead(id) {
+    this.unreadThreadIds.delete(id);
+    this.unreadThreadIds.delete(String(id));
+    this.unreadThreadIds.delete(`call-${id}`);
+  }
+
   // Update Call Status, Priority, Rating in stream
   updateCallStatus(threadId, updates = {}) {
+    const cleanUpdates = { ...updates };
+    // Prevent 0, '0', empty string or numeric ID values from polluting status labels
+    if (
+      cleanUpdates.estatus === 0 ||
+      cleanUpdates.estatus === '0' ||
+      cleanUpdates.estatus === '' ||
+      (typeof cleanUpdates.estatus === 'number')
+    ) {
+      delete cleanUpdates.estatus;
+    }
+    if (
+      cleanUpdates.Estatus === 0 ||
+      cleanUpdates.Estatus === '0' ||
+      cleanUpdates.Estatus === '' ||
+      (typeof cleanUpdates.Estatus === 'number')
+    ) {
+      delete cleanUpdates.Estatus;
+    }
+    if (
+      cleanUpdates.status === 0 ||
+      cleanUpdates.status === '0' ||
+      cleanUpdates.status === '' ||
+      (typeof cleanUpdates.status === 'number')
+    ) {
+      delete cleanUpdates.status;
+    }
+
     const currentThreads = this.threads$.getValue();
     const updated = currentThreads.map((t) => {
       if (t.id === threadId || String(t.sr) === String(threadId)) {
         return {
           ...t,
-          ...updates,
+          ...cleanUpdates,
           rawRecord: {
             ...t.rawRecord,
-            ...updates,
+            ...cleanUpdates,
           },
         };
       }
@@ -547,6 +590,7 @@ class CallStreamService {
   // Optimistically patch primary call data (CallClosed, CallDuration, Status) in stream
   patchPrimaryCall(callLogId, patchData = {}) {
     if (!callLogId) return;
+    this.markThreadRead(callLogId);
     const currentThreads = this.threads$.getValue();
     const updatedThreads = currentThreads.map((t) => {
       if (String(t.sr) !== String(callLogId) && String(t.id) !== String(callLogId)) {
@@ -555,6 +599,7 @@ class CallStreamService {
       return {
         ...t,
         ...patchData,
+        unread: false,
         rawRecord: {
           ...t.rawRecord,
           ...patchData,
@@ -770,6 +815,16 @@ class CallStreamService {
 
   // VoIP call start / update / end
   startCall(thread, options = {}) {
+    // Keep one authoritative timer/session at a time. Starting another call
+    // must not silently overwrite the active call in memory and localStorage.
+    if (this.activeCall$.getValue()) return null;
+    if (thread?.sr) {
+      this.markThreadRead(thread.sr);
+      this.threads$.next(
+        this.threads$.getValue().map((t) => (String(t.sr) === String(thread.sr) ? { ...t, unread: false } : t))
+      );
+    }
+
     const isFu = Boolean(options.isFollowUp || options.followUpId);
     const active = {
       callId: `live-${Date.now()}`,
@@ -777,6 +832,8 @@ class CallStreamService {
       followUpId: options.followUpId || null,
       isFollowUp: isFu,
       isForwarded: Boolean(options.isForwarded),
+      ownerId: options.ownerId || thread?.ForwardedEmpId || thread?.AssignedEmpId || null,
+      ownerName: options.ownerName || thread?.ForwardedEmp || thread?.AssignedEmpName || thread?.receivedBy || '',
       callTitle:
         options.title ||
         (isFu

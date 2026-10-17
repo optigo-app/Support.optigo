@@ -95,12 +95,6 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
   const [isEditingDescr, setIsEditingDescr] = useState(false);
   const [inlineDescr, setInlineDescr] = useState('');
 
-  // Subscribe to live active call stream
-  useEffect(() => {
-    const sub = callStreamService.activeCall$.subscribe(setActiveCall);
-    return () => sub.unsubscribe();
-  }, []);
-
   const fuId = followup.Id ?? followup.id ?? followup.followUpCallId ?? '';
   const callLogId = followup.callLogId ?? followup.sr ?? '';
 
@@ -153,6 +147,8 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
     followup.CreatedBy || followup.createdBy || followup.agentName || '';
   const fuReceivedBy = followup.ReceivedBy || followup.receivedBy || '';
   const fuForwardedEmp = followup.ForwardedEmp || followup.forwardedEmp || '';
+  const fuForwardedEmpId = followup.ForwardedEmpId || followup.forwardedEmpId || null;
+  const fuAssignedEmpId = fuForwardedEmpId || followup.EmpId || followup.empId || null;
   const fuInternalStatus =
     followup.InternalStatus ||
     followup.internalStatus ||
@@ -164,10 +160,41 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
 
   const isForward =
     followup.isForwarded ||
+    followup.IsForwardFollowup === 1 ||
+    followup.IsForwardFollowup === '1' ||
+    followup.IsForwardFollowup === true ||
+    String(followup.CallType || followup.callType).toLowerCase() === 'forwarded' ||
+    Boolean(fuForwardedEmpId) ||
     Boolean(fuForwardedEmp) ||
     String(fuInternalStatus).toLowerCase() === 'forwarded' ||
-    followup.InternalStatusId === 5 ||
-    followup.internalStatusId === 5;
+    String(followup.InternalStatusId ?? followup.internalStatusId) === '5';
+
+  const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim() || user?.name || '';
+  const isForwardedToAnotherUser = Boolean(isForward && (
+    (fuAssignedEmpId && String(fuAssignedEmpId) !== String(user?.id)) ||
+    (!fuAssignedEmpId && (!fuForwardedEmp || !currentUserName || fuForwardedEmp.trim().toLowerCase() !== currentUserName.trim().toLowerCase()))
+  ));
+
+  // Subscribe after resolving this card's owner so restored sessions are also
+  // protected by the forwarded-recipient rule.
+  useEffect(() => {
+    const sub = callStreamService.activeCall$.subscribe((call) => {
+      setActiveCall(call);
+      const isThisForwardedCall = Boolean(
+        isForward &&
+        call?.isFollowUp &&
+        String(call.followUpId) === String(fuId) &&
+        String(call.sr) === String(callLogId)
+      );
+      if (isThisForwardedCall && !call.ownerId && !call.ownerName && (fuAssignedEmpId || fuForwardedEmp)) {
+        callStreamService.updateActiveCall({
+          ownerId: fuAssignedEmpId || null,
+          ownerName: fuForwardedEmp,
+        });
+      }
+    });
+    return () => sub.unsubscribe();
+  }, [isForward, fuId, callLogId, fuAssignedEmpId, fuForwardedEmpId, fuForwardedEmp]);
 
   const isCurrentRunning = Boolean(
     activeCall &&
@@ -331,6 +358,14 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
   // 2. Call Handlers
   const handleStart = async (e) => {
     e?.stopPropagation();
+    if (callStreamService.activeCall$.getValue()) {
+      setStartErrorWithAutoClear('End the active call before starting another one.');
+      return;
+    }
+    if (isForwardedToAnotherUser) {
+      setStartErrorWithAutoClear(`This call is already forwarded to ${fuForwardedEmp || 'another agent'}. Action is not allowed.`);
+      return;
+    }
     if (!fuId || !callLogId) {
       setStartErrorWithAutoClear('Missing follow-up or call reference.');
       return;
@@ -358,6 +393,9 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
           callerName: callerName || 'Client',
           isFollowUp: true,
           followUpId: fuId,
+          isForwarded: isForward,
+          ownerId: isForward ? fuAssignedEmpId : user?.id,
+          ownerName: isForward ? fuForwardedEmp : currentUserName,
           title: `Follow-Up Call #${fuId}`
         }
       );
@@ -388,6 +426,10 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
 
   const handleEnd = async (e) => {
     e?.stopPropagation();
+    if (isForwardedToAnotherUser) {
+      setStartErrorWithAutoClear(`This call is already forwarded to ${fuForwardedEmp || 'another agent'}. Action is not allowed.`);
+      return;
+    }
     try {
       const nowStr = new Date().toISOString();
       const durStr = activeCall?.duration || fuDuration || '00:00:00';
@@ -557,14 +599,14 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
             </Box>
           ) : null}
 
-          {/* Caller -> Agent flow */}
+          {/* Caller -> Agent / Forwarder -> Recipient flow */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', height: 22, px: 1, bgcolor: '#FFFFFF', color: '#4B5563', borderRadius: '999px', fontSize: 11, fontWeight: 600, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              {callerName.split(' ')[0] || 'Caller'}
+              {isForward ? ((fuCreatedBy || fuReceivedBy || 'Sender').split(' ')[0]) : (callerName.split(' ')[0] || 'Caller')}
             </Box>
             <ArrowRight size={10} color="#9CA3AF" weight="bold" />
             <Box sx={{ display: 'flex', alignItems: 'center', height: 22, px: 1, bgcolor: '#FFFFFF', color: '#111827', borderRadius: '999px', fontSize: 11, fontWeight: 700, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              {(fuForwardedEmp || fuReceivedBy || fuCreatedBy || 'Team').split(' ')[0]}
+              {isForward ? ((fuForwardedEmp || 'Recipient').split(' ')[0]) : ((fuForwardedEmp || fuReceivedBy || fuCreatedBy || 'Team').split(' ')[0])}
             </Box>
           </Box>
         </Box>
@@ -721,7 +763,7 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
         >
           {isCurrentRunning ? (
             <>
-              <Button
+              {!isForwardedToAnotherUser && <Button
                 variant="outlined"
                 size="small"
                 onClick={handleTogglePause}
@@ -744,8 +786,8 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 }}
               >
                 {isPaused ? 'Resume' : 'Pause'}
-              </Button>
-              <Button
+              </Button>}
+              {!isForwardedToAnotherUser && <Button
                 variant="contained"
                 size="small"
                 onClick={handleEnd}
@@ -764,11 +806,16 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 }}
               >
                 End Call
-              </Button>
+              </Button>}
+              {isForwardedToAnotherUser && (
+                <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 700 }}>
+                  Assigned to {fuForwardedEmp || 'another agent'}
+                </Typography>
+              )}
             </>
           ) : isPending ? (
             <>
-              <Button
+              {!isForwardedToAnotherUser && <Button
                 variant="contained"
                 size="small"
                 onClick={handleStart}
@@ -788,8 +835,8 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 }}
               >
                 {isStarting ? 'Starting...' : 'Start Call'}
-              </Button>
-              <Button
+              </Button>}
+              {!isForwardedToAnotherUser && <Button
                 variant="outlined"
                 size="small"
                 onClick={(e) => setTransferAnchorEl(e.currentTarget)}
@@ -809,7 +856,12 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 }}
               >
                 Transfer
-              </Button>
+              </Button>}
+              {isForwardedToAnotherUser && (
+                <Typography sx={{ fontSize: 11, color: '#64748B', fontWeight: 700 }}>
+                  Forwarded to {fuForwardedEmp || 'another agent'}
+                </Typography>
+              )}
             </>
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -819,7 +871,7 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                   Completed • {durationStr !== '—' ? durationStr : '00:00:00'}
                 </Typography>
               </Box>
-              <Button
+              {!isForwardedToAnotherUser && <Button
                 variant="outlined"
                 size="small"
                 onClick={(e) => setTransferAnchorEl(e.currentTarget)}
@@ -839,7 +891,7 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 }}
               >
                 Transfer
-              </Button>
+              </Button>}
             </Box>
           )}
         </Box>
@@ -998,9 +1050,16 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
                 const name = (emp.person || emp.EmpName || emp.name || emp.firstname || '').trim();
                 if (!name) return false;
 
-                if (!user?.id) return true;
+                const currentUserId = user?.id || user?.userid || user?.userId;
+                const currentUserName = (
+                  user?.fullName ||
+                  `${user?.firstname || ''} ${user?.lastname || ''}` ||
+                  user?.user ||
+                  ''
+                ).trim().toLowerCase();
                 const empId = emp?.userid || emp?.userId || emp?.EmpId || (String(emp?.id || '').includes(',') ? emp.id.split(',')[1] : emp?.id);
-                if (String(empId) === String(user.id)) return false;
+                if (currentUserId && empId && String(empId).trim() === String(currentUserId).trim()) return false;
+                if (currentUserName && name.toLowerCase() === currentUserName) return false;
 
                 if (searchQuery && !name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
 

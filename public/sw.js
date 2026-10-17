@@ -1,4 +1,6 @@
-const CACHE_NAME = "optigo-pwa-v1";
+const CACHE_NAME = "optigo-pwa-v2";
+const NOTIFICATION_PREFS_DB = "optigo-notification-settings";
+const NOTIFICATION_PREFS_STORE = "preferences";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -70,7 +72,72 @@ self.addEventListener("message", (event) => {
       }, 8000);
     }
   }
+
+  if (event.data?.type === "SYNC_NOTIFICATION_PREFS") {
+    event.waitUntil(saveNotificationPrefs(event.data.prefs));
+    if (event.data.prefs?.browserEnabled === false) {
+      event.waitUntil(self.registration.getNotifications().then((items) => items.forEach((item) => item.close())));
+    }
+  }
 });
+
+function openNotificationPrefsDb() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in self)) {
+      reject(new Error("IndexedDB is unavailable"));
+      return;
+    }
+    const request = indexedDB.open(NOTIFICATION_PREFS_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(NOTIFICATION_PREFS_STORE)) {
+        request.result.createObjectStore(NOTIFICATION_PREFS_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveNotificationPrefs(prefs) {
+  let db;
+  try {
+    db = await openNotificationPrefsDb();
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction(NOTIFICATION_PREFS_STORE, "readwrite");
+      transaction.objectStore(NOTIFICATION_PREFS_STORE).put(prefs || {}, "settings");
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    db?.close();
+  }
+}
+
+async function getNotificationPrefs() {
+  let db;
+  try {
+    db = await openNotificationPrefsDb();
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction(NOTIFICATION_PREFS_STORE, "readonly")
+        .objectStore(NOTIFICATION_PREFS_STORE).get("settings");
+      request.onsuccess = () => resolve(request.result || {});
+      request.onerror = () => reject(request.error);
+    });
+  } catch (_) {
+    return {};
+  } finally {
+    db?.close();
+  }
+}
+
+function isNotificationTypeEnabled(prefs, type) {
+  if (["ADD_CALL", "FORWARDED_CALL", "ACCEPT_CALL"].includes(type)) return prefs.onNewCall !== false;
+  if (type === "CREATE_TICKET") return prefs.onTicketCreate !== false;
+  if (["UPDATE_TICKET", "CLOSE_TICKET"].includes(type)) return prefs.onTicketUpdate !== false;
+  if (["TICKET_COMMENT", "ADDCOMMENTS"].includes(type)) return prefs.onComment !== false;
+  return true;
+}
 
 // Stale-while-revalidate fetch strategy for static assets, network-first for APIs/dynamic
 self.addEventListener("fetch", (event) => {
@@ -114,18 +181,26 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   console.log("📩 Push received:", event.data?.text());
 
-  const data = event.data ? JSON.parse(event.data.text()) : {};
-  const title = data.title || "New Notification";
-  const options = {
-    body: data.body || "You have a new update!",
-    icon: "https://cdn.pixabay.com/photo/2025/08/10/13/50/wolf-9766240_640.jpg",     
-    badge: "https://cdn.pixabay.com/photo/2025/09/09/18/12/moon-9824889_640.png",     
-    data,                       
-  };
+  event.waitUntil((async () => {
+    let data = {};
+    try {
+      data = event.data ? JSON.parse(event.data.text()) : {};
+    } catch (_) {
+      return;
+    }
+    const prefs = await getNotificationPrefs();
+    if (prefs.browserEnabled !== true || !isNotificationTypeEnabled(prefs, data.type)) return;
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+    const title = data.title || "New Notification";
+    const options = {
+      body: data.body || "You have a new update!",
+      icon: data.icon || "/ic_stat_o.png",
+      badge: data.badge || "/ic_stat_o.png",
+      data,
+      tag: data.tag,
+    };
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 // self.addEventListener("notificationclick", (event) => {

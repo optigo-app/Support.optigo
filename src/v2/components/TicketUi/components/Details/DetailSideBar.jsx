@@ -235,6 +235,7 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 	if (loading) {
 		<Loader />;
 	}
+	
 	const RatingData = useMemo(() => {
 		const data = DataParser(ticket?.Rating)?.data || [];
 		return data.sort((a, b) => new Date(b.EntryDate) - new Date(a.EntryDate));

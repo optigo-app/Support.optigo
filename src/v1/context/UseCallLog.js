@@ -114,6 +114,7 @@ const CallLogContext = createContext(null);
 
 export function CallLogProvider(props) {
   const { user } = useAuth();
+
   const [callLog, setCallLog] = useState([]);
   const [callQueue, setCallQueue] = useState([]);
   const [CurrentCall, setCurrentCall] = useState(null);
@@ -765,8 +766,8 @@ export function CallLogProvider(props) {
           setCallLog((prev) =>
             Array.isArray(prev)
               ? prev.map((c) =>
-                  c.sr === updatedCallData.sr ? updatedCallData : c,
-                )
+                c.sr === updatedCallData.sr ? updatedCallData : c,
+              )
               : prev,
           );
         }
@@ -874,7 +875,7 @@ export function CallLogProvider(props) {
             success: false,
             error: new Error(
               rdStatus?.stat_msg?.replace(/"/g, "") ||
-                "Failed to end follow-up call",
+              "Failed to end follow-up call",
             ),
           };
         }
@@ -1055,7 +1056,7 @@ export function CallLogProvider(props) {
         );
         console.log(data, "data");
         triggerRefresh();
-      } catch (error) {}
+      } catch (error) { }
     },
     [updateCallLog, currentTime],
   );
@@ -1226,9 +1227,9 @@ export function CallLogProvider(props) {
           return prevLog.map((c) =>
             String(c.sr) === String(callId) || String(c.id) === String(callId)
               ? {
-                  ...appendCommentToCallRecord(c, commentData),
-                  hasNewComment: isFromOtherUser ? true : c.hasNewComment,
-                }
+                ...appendCommentToCallRecord(c, commentData),
+                hasNewComment: isFromOtherUser ? true : c.hasNewComment,
+              }
               : c,
           );
         });

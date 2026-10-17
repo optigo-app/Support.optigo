@@ -348,7 +348,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                                             onClick={() => {
                                                 const sr = CurrentCall?.sr || CurrentCall?.id;
                                                 if (sr) {
-                                                    window.open(`/newCall?sr=${sr}`, '_blank');
+                                                    window.open(`/newCall?sr=${sr}&status=all`, '_blank');
                                                 }
                                             }}
                                             size="medium"

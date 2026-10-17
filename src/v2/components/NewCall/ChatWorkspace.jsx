@@ -59,10 +59,16 @@ export default function ChatWorkspace() {
   const [statusFilter, setStatusFilter] = useState(() => {
     const params = new URLSearchParams(location.search);
     const paramStatus = params.get('status');
+    const paramSr = params.get('sr') || params.get('callId');
     if (paramStatus !== null) {
       return paramStatus;
     }
-    return 44; // Default to 44 (Pending)
+    // When opened directly for a specific call/chat, show all statuses
+    if (paramSr) {
+      return 'all';
+    }
+    // Default to 44 (Pending) when coming from sidebar or general navigation
+    return 44;
   });
   const [filterBy, setFilterBy] = useState(''); // Date target field: 'date' | 'callStart' | 'callClosed'
   const [dateRangeObj, setDateRangeObj] = useState(null);
@@ -282,15 +288,19 @@ export default function ChatWorkspace() {
             if (!isNaN(dt.getTime())) {
               latestCommentTime = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
+
+      const isClean = (v) => v != null && v !== '' && v !== '0' && v !== 0 && isNaN(Number(v));
+      const nextStatus = isClean(fresh.status) ? fresh.status : isClean(fresh.Status) ? fresh.Status : t.status;
+      const nextEstatus = isClean(fresh.Estatus) ? fresh.Estatus : isClean(fresh.estatus) ? fresh.estatus : t.estatus;
 
       return {
         ...t,
         unread: isUnread,
-        status: fresh.status || t.status,
-        estatus: fresh.Estatus || fresh.estatus || t.estatus,
+        status: nextStatus,
+        estatus: nextEstatus,
         callStart: fresh.callStart || t.callStart,
         callClosed: fresh.callClosed || t.callClosed,
         lastMessage:
@@ -326,11 +336,11 @@ export default function ChatWorkspace() {
         const start = params.get('start') || '';
         const end = params.get('end') || '';
         const paramStatus = params.get('status');
-        const status = paramStatus !== null ? paramStatus : 44;
+        const targetSr = params.get('sr') || params.get('callId') || '';
+        const status = paramStatus !== null ? paramStatus : (targetSr ? 'all' : 44);
         const company = params.get('company') || params.get('companyStatus') || '';
         const target = params.get('target') || '';
         const search = params.get('search') || params.get('searchQuery') || '';
-        const targetSr = params.get('sr') || params.get('callId') || '';
 
         const resolvedProjectId = getProjectId(company);
         const resolvedStatusId = getStatusId(status);
@@ -542,7 +552,8 @@ export default function ChatWorkspace() {
       setIsQueueOpen(false);
     }
     const paramStatus = params.get('status');
-    const savedStatus = paramStatus !== null ? paramStatus : 44;
+    const targetSr = params.get('sr') || params.get('callId');
+    const savedStatus = paramStatus !== null ? paramStatus : (targetSr ? 'all' : 44);
     if (savedStatus !== statusFilter) {
       setStatusFilter(savedStatus);
     }
@@ -862,8 +873,8 @@ export default function ChatWorkspace() {
             (rec.topicRaisedBy
               ? `Client logged support call regarding ${rec.topicRaisedBy}`
               : ''),
-          status: rec.status || 'Solved',
-          Estatus: rec.Estatus || rec.estatus || 'Completed',
+          status: rec.status || (rec.callClosed || rec.CallClosed || (rec.CallDuration && !['00:00', '00:00:00', '0'].includes(String(rec.CallDuration))) ? 'Solved' : 'Pending'),
+          Estatus: rec.Estatus || rec.estatus || (rec.callClosed || rec.CallClosed || (rec.CallDuration && !['00:00', '00:00:00', '0'].includes(String(rec.CallDuration))) ? 'Completed' : 'Running'),
           priority: rec.priority || 'Normal',
           rating: rec.rating || 0,
         },
@@ -1315,6 +1326,19 @@ export default function ChatWorkspace() {
       // toast.error('Select a conversation to start a call');
       return;
     }
+    if (callStreamService.activeCall$.getValue()) return;
+
+    const rawCall = activeThread.rawRecord || activeThread;
+    const isForwardedPrimary = rawCall.CallType === 'Forwarded' || Boolean(
+      rawCall.ForwardedEmp || rawCall.ForwardedEmpId || activeThread.ForwardedEmp || activeThread.ForwardedEmpId
+    );
+    const forwardedToId = rawCall.ForwardedEmpId || activeThread.ForwardedEmpId;
+    const forwardedToName = rawCall.ForwardedEmp || activeThread.ForwardedEmp;
+    const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim() || user?.name || '';
+    if (
+      (forwardedToId && String(forwardedToId) !== String(user?.id)) ||
+      (!forwardedToId && forwardedToName && currentUserName && forwardedToName.trim().toLowerCase() !== currentUserName.trim().toLowerCase())
+    ) return;
 
     if (activeThread?.sr && callLogCtx?.startCall) {
       try {
@@ -1348,7 +1372,11 @@ export default function ChatWorkspace() {
       });
     }
 
-    const callData = callStreamService.startCall(activeThread);
+    const callData = callStreamService.startCall(activeThread, {
+      isForwarded: isForwardedPrimary,
+      ownerId: isForwardedPrimary ? forwardedToId : user?.id,
+      ownerName: isForwardedPrimary ? forwardedToName : userName,
+    });
     if (callData) {
 
     }

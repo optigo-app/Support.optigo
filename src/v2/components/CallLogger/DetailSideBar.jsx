@@ -92,7 +92,7 @@ export default function CallLogDetailsSidebar({
               onClick={() => {
                 const sr = defaultCallLogData?.sr || defaultCallLogData?.id;
                 if (sr) {
-                  window.open(`/newCall?sr=${sr}`, "_blank");
+                  window.open(`/newCall?sr=${sr}&status=all`, "_blank");
                 }
               }}
               sx={{

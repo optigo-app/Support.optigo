@@ -170,7 +170,7 @@ const KeywordModal = ({
           <Button 
             onClick={handleSaveTags} 
             variant="contained"
-            disabled={tempTags.length === 0}
+            disabled={!hasChanges}
           >
             Save Keywords
           </Button>

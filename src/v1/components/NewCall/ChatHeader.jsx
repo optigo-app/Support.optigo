@@ -206,7 +206,14 @@ export default function ChatHeader({
 
   // Determine if call is active (ongoing/running/pending) vs ended
   const isCallEnded = React.useMemo(() => {
-    // 1. If active VoIP call matches this thread, it is currently in progress
+    // Persisted end data takes precedence over a VoIP session that may remain selected.
+    const closed = raw.callClosed || activeThread?.callClosed;
+    const hasClosedDate = isValidDate(closed);
+    const duration =
+      raw.CallDuration || activeThread?.duration || raw.callDuration || '';
+    const hasDuration = duration && duration !== '00:00:00' && duration !== '0';
+
+    if (hasClosedDate || hasDuration) return true;
     if (
       activeVoipCall &&
       (String(activeVoipCall.sr) === String(raw.sr) ||
@@ -214,16 +221,7 @@ export default function ChatHeader({
     ) {
       return false;
     }
-    // 2. Check callClosed date
-    const closed = raw.callClosed || activeThread?.callClosed;
-    const hasClosedDate = isValidDate(closed);
-
-    // 3. Check duration
-    const duration =
-      raw.CallDuration || activeThread?.duration || raw.callDuration || '';
-    const hasDuration = duration && duration !== '00:00:00' && duration !== '0';
-
-    return Boolean(hasClosedDate || hasDuration);
+    return false;
   }, [activeVoipCall, raw.callClosed, raw.CallDuration, raw.sr, activeThread]);
 
   const isPrimaryPending = !isCallEnded;
@@ -326,11 +324,6 @@ export default function ChatHeader({
     const statusVal = opt.value || opt.id || opt.label;
     const statusLabel = opt.label || opt.Name || opt.name || opt;
 
-    callStreamService.updateCallStatus(activeThread.id, {
-      estatus: statusLabel,
-      estatusId: statusVal,
-    });
-
     if (UpdateStatusAndPriority && activeThread.sr) {
       try {
         const res = await UpdateStatusAndPriority(
@@ -345,7 +338,7 @@ export default function ChatHeader({
           toast.error(errorMsg);
           return;
         }
-        callStreamService.updateCallStatus(activeThread.id, {
+        callStreamService.updateCallStatus(activeThread.id || activeThread.sr, {
           estatus: statusLabel,
           estatusId: statusVal,
         });
@@ -354,7 +347,7 @@ export default function ChatHeader({
         toast.error(e?.message || 'Failed to update external status');
       }
     } else {
-      callStreamService.updateCallStatus(activeThread.id, {
+      callStreamService.updateCallStatus(activeThread.id || activeThread.sr, {
         estatus: statusLabel,
         estatusId: statusVal,
       });
@@ -372,11 +365,6 @@ export default function ChatHeader({
     const statusVal = opt.value || opt.id || opt.label;
     const statusLabel = opt.label || opt.Name || opt.name || opt;
 
-    callStreamService.updateCallStatus(activeThread.id, {
-      status: statusLabel,
-      statusId: statusVal,
-    });
-
     if (UpdateStatusAndPriority && activeThread.sr) {
       try {
         const res = await UpdateStatusAndPriority(
@@ -391,7 +379,7 @@ export default function ChatHeader({
           toast.error(errorMsg);
           return;
         }
-        callStreamService.updateCallStatus(activeThread.id, {
+        callStreamService.updateCallStatus(activeThread.id || activeThread.sr, {
           status: statusLabel,
           statusId: statusVal,
         });
@@ -400,7 +388,7 @@ export default function ChatHeader({
         toast.error(e?.message || 'Failed to update internal status');
       }
     } else {
-      callStreamService.updateCallStatus(activeThread.id, {
+      callStreamService.updateCallStatus(activeThread.id || activeThread.sr, {
         status: statusLabel,
         statusId: statusVal,
       });

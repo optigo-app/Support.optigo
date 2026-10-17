@@ -7,7 +7,11 @@ const ALLOWED_COMPANY = "optigohub";
 
 // Our OWN app session cookie. The shared `skey` cookie belongs to other
 // Optigo domains and must only be READ (to suggest a session), never written/removed.
-export const APP_AUTH_COOKIE = "cl_auth_token";
+// Namespaced so this app never collides with Optigo's shared `skey` or other
+// call logger versions running on the same host.
+export const APP_AUTH_COOKIE = "optigo_call_logger_v2_session";
+const LEGACY_APP_AUTH_COOKIE = "cl_auth_token";
+const ACTIVE_ACCOUNT_COOKIE = "optigo_call_logger_v2_active";
 const REMEMBER_ME_KEY = "cl_remember_me";
 const AUTH_EVENT_KEY = "cl_auth_event";
 const REMEMBER_DAYS = 30;
@@ -30,6 +34,28 @@ export function setRememberMe(remember) {
   try {
     localStorage.setItem(REMEMBER_ME_KEY, remember ? "1" : "0");
   } catch (_) {}
+}
+
+function getAccountSessionCookieName(token) {
+  const parsed = parseTokenPayload(token);
+  const identity = [parsed?.userId || token, parsed?.yc || "", parsed?.sv || ""].join("|");
+  // Two independent 32-bit hashes keep cookie names short without exposing
+  // email addresses or usernames in the browser's cookie list.
+  let first = 2166136261;
+  let second = 5381;
+  for (let i = 0; i < identity.length; i += 1) {
+    const code = identity.charCodeAt(i);
+    first = Math.imul(first ^ code, 16777619);
+    second = Math.imul(second, 33) ^ code;
+  }
+  const hash = `${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`;
+  return `${APP_AUTH_COOKIE}_${hash}`;
+}
+
+function removeCookie(name) {
+  if (typeof document === "undefined") return;
+  Cookies.remove(name, { path: "/" });
+  document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
 }
 
 // if (process.env.NODE_ENV === "development" || AllowedDomains.some((domain) => window.location.hostname.includes(domain))) {
@@ -142,28 +168,26 @@ export function parseTokenPayload(token) {
 /**
  * Reads all shared `skey` tokens from cookies (READ-ONLY) and returns parsed session objects.
  * Used only to SUGGEST a session on the login screen - never for auto-login.
- * Deduplicated by userId / email.
+ * Deduplicated by token value. Distinct tokens can belong to the same person
+ * in different companies, so userId alone is not a safe account identity.
  */
 export function getAllDetectedSessions() {
   const tokens = getAllSkeyTokens();
   const sessions = [];
-  const seenUserIds = new Set();
+  const seenTokens = new Set();
 
   for (const tok of tokens) {
     const parsed = parseTokenPayload(tok);
-    if (parsed?.userId) {
-      const key = parsed.userId.toLowerCase();
-      if (!seenUserIds.has(key)) {
-        seenUserIds.add(key);
-        sessions.push({
-          skey: tok,
-          email: parsed.userId,
-          yc: parsed.yc,
-          sv: parsed.sv,
-          exp: parsed.exp,
-          isExpired: parsed.isExpired,
-        });
-      }
+    if (parsed?.userId && !seenTokens.has(tok)) {
+      seenTokens.add(tok);
+      sessions.push({
+        skey: tok,
+        email: parsed.userId,
+        yc: parsed.yc,
+        sv: parsed.sv,
+        exp: parsed.exp,
+        isExpired: parsed.isExpired,
+      });
     }
   }
 
@@ -172,7 +196,7 @@ export function getAllDetectedSessions() {
 }
 
 /**
- * Purges OUR app auth cookie (cl_auth_token) across path/domain variants.
+ * Removes legacy shared app-session cookies across path/domain variants.
  * Does NOT touch the shared `skey` cookie used by other domains.
  */
 export function purgeAllSkeyCookies() {
@@ -194,12 +218,14 @@ export function purgeAllSkeyCookies() {
       try {
         const opts = { path: p };
         if (d) opts.domain = d;
-        Cookies.remove(APP_AUTH_COOKIE, opts);
+        for (const cookieName of [APP_AUTH_COOKIE, LEGACY_APP_AUTH_COOKIE, ACTIVE_ACCOUNT_COOKIE]) {
+          Cookies.remove(cookieName, opts);
 
-        // Direct manual cookie header expire fallback
-        let expireStr = `${APP_AUTH_COOKIE}=; Path=${p}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-        if (d) expireStr += `; Domain=${d}`;
-        document.cookie = expireStr;
+          // Direct manual cookie header expire fallback
+          let expireStr = `${cookieName}=; Path=${p}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+          if (d) expireStr += `; Domain=${d}`;
+          document.cookie = expireStr;
+        }
       } catch (_) {}
     }
   }
@@ -211,11 +237,20 @@ export function purgeAllSkeyCookies() {
  * - Remember me OFF -> session cookie (cleared when browser closes)
  */
 export function syncActiveSkeyCookie(token) {
-  purgeAllSkeyCookies();
   if (!token) return;
   const opts = { path: "/", sameSite: "Lax" };
   if (getRememberMe()) opts.expires = REMEMBER_DAYS;
-  Cookies.set(APP_AUTH_COOKIE, token, opts);
+  const sessionCookieName = getAccountSessionCookieName(token);
+  Cookies.set(sessionCookieName, token, opts);
+  Cookies.set(ACTIVE_ACCOUNT_COOKIE, sessionCookieName, opts);
+  try {
+    // Keep the selected account isolated per tab; the cookie is only the
+    // default for a newly opened tab.
+    sessionStorage.setItem(ACTIVE_ACCOUNT_COOKIE, sessionCookieName);
+  } catch (_) {}
+  // Migrate old single-session cookies once. Do not clear other account cookies.
+  removeCookie(APP_AUTH_COOKIE);
+  removeCookie(LEGACY_APP_AUTH_COOKIE);
 }
 
 /**
@@ -225,8 +260,22 @@ export function syncActiveSkeyCookie(token) {
  */
 export function getActiveAuthToken() {
   if (typeof window === "undefined") return null;
-  const tok = Cookies.get(APP_AUTH_COOKIE);
-  if (tok && parseTokenPayload(tok)?.userId) return tok.trim();
+  let activeCookieName = null;
+  try {
+    activeCookieName = sessionStorage.getItem(ACTIVE_ACCOUNT_COOKIE);
+  } catch (_) {}
+  activeCookieName = activeCookieName || Cookies.get(ACTIVE_ACCOUNT_COOKIE);
+  const accountToken = activeCookieName ? Cookies.get(activeCookieName) : null;
+  if (accountToken && parseTokenPayload(accountToken)?.userId) return accountToken.trim();
+
+  // Migrate sessions from earlier app versions without asking the user to log in again.
+  const namespacedToken = Cookies.get(APP_AUTH_COOKIE);
+  const legacyToken = Cookies.get(LEGACY_APP_AUTH_COOKIE);
+  const tok = namespacedToken || legacyToken;
+  if (tok && parseTokenPayload(tok)?.userId) {
+    syncActiveSkeyCookie(tok);
+    return tok.trim();
+  }
   return null;
 }
 
@@ -254,13 +303,24 @@ export function setActiveAuthSession(token, remember) {
  * Leaves the shared `skey` cookie untouched so other domains stay logged in.
  */
 export function clearActiveAuthSession() {
+  let activeCookieName = null;
+  if (typeof document !== "undefined") {
+    try {
+      activeCookieName = sessionStorage.getItem(ACTIVE_ACCOUNT_COOKIE);
+    } catch (_) {}
+    activeCookieName = activeCookieName || Cookies.get(ACTIVE_ACCOUNT_COOKIE);
+  }
   try {
     localStorage.removeItem("app_active_skey");
     localStorage.removeItem("app_direct_credentials");
     localStorage.removeItem("app_current_user");
     sessionStorage.removeItem("direct_token_credentials");
     sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem(ACTIVE_ACCOUNT_COOKIE);
   } catch (_) {}
+  if (activeCookieName && activeCookieName.startsWith(`${APP_AUTH_COOKIE}_`)) {
+    removeCookie(activeCookieName);
+  }
   purgeAllSkeyCookies();
   broadcastAuthEvent("logout");
 }
@@ -320,5 +380,3 @@ export function getCurrentUser() {
   } catch (_) {}
   return null;
 }
-
-

@@ -27,6 +27,24 @@ export const NotificationProvider = ({ children }) => {
   const [notifPrefs, setNotifPrefs] = useState(loadPrefs);
 
   useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    let cancelled = false;
+    navigator.serviceWorker.ready
+      .then((registration) => {
+        if (!cancelled) {
+          registration.active?.postMessage({
+            type: "SYNC_NOTIFICATION_PREFS",
+            prefs: notifPrefs,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [notifPrefs]);
+
+  useEffect(() => {
     if (!("Notification" in window)) return;
 
     const syncPermissionState = () => {

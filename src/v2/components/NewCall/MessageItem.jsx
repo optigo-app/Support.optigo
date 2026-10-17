@@ -456,12 +456,15 @@ export default function MessageItem({ message }) {
       Boolean(fuData.forwardedEmp || fuData.ForwardedEmp);
     const fuId = fuData.Id || fuData.id || fuData.followUpCallId;
     const senderName =
+      (isForward ? (fuData.CreatedBy || fuData.ReceivedBy || fuData.agentName) : '') ||
+      fuData.CreatedBy ||
+      fuData.ReceivedBy ||
       fuData.forwardedEmp ||
       fuData.ForwardedEmp ||
-      fuData.CreatedBy ||
       message.company ||
       message.sender ||
       'Support Team';
+    const targetRecipient = fuData.forwardedEmp || fuData.ForwardedEmp;
 
     return (
       <Box
@@ -500,7 +503,7 @@ export default function MessageItem({ message }) {
               {senderName}
             </Typography>
             <Chip
-              label={isForward ? `Forwarded Call • #${fuId}` : `Follow-Up Call • #${fuId}`}
+              label={isForward ? `Forwarded${targetRecipient ? ` to ${targetRecipient}` : ''} • #${fuId}` : `Follow-Up Call • #${fuId}`}
               size="small"
               sx={{
                 height: 19,

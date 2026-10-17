@@ -67,19 +67,22 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 		<Box
 			sx={{
 				width: "100%",
-				mt: "1rem",
-				mb: "1rem",
+				my: 1.5,
 				display: "flex",
-				justifyContent: "space-between",
+				flexWrap: "wrap",
 				alignItems: "center",
+				justifyContent: "space-between",
+				gap: 1.5,
 			}}
 		>
 			<Box
 				sx={{
 					display: "flex",
 					alignItems: "center",
-					flex: 0.6,
-					gap: "0.5rem",
+					flexWrap: "wrap",
+					gap: 1,
+					minWidth: 0,
+					flex: { xs: "1 1 100%", lg: "0 0 auto" },
 				}}
 			>
 				{isAdmin && (
@@ -89,29 +92,29 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 						sx={{
 							width: 38,
 							height: 38,
-							border: (theme) => `3px solid ${theme.palette.primary.main}`,
-							borderRadius: 4, // ~8px
+							border: (theme) => `2px solid ${theme.palette.primary.main}`,
+							borderRadius: 2,
 							color: "primary.main",
 							transition: "all 0.2s ease-in-out",
-							"&:hover": {
-								// backgroundColor: (theme) => theme.palette.action.hover,
-								// borderColor: (theme) => theme.palette.primary.dark,
-							},
 						}}
 					>
-						<AddRoundedIcon fontSize="large" />
+						<AddRoundedIcon fontSize="medium" />
 					</IconButton>
 				)}
-				<SearchBar filtercount={filtercount} filters={filters} handleSearchChange={handleSearchChange} />
+				<Box sx={{ minWidth: 200, maxWidth: 300, flex: { xs: "1 1 200px", sm: "0 0 auto" } }}>
+					<SearchBar filtercount={filtercount} filters={filters} handleSearchChange={handleSearchChange} />
+				</Box>
 			</Box>
 
 			<Box
 				sx={{
 					display: "flex",
 					alignItems: "center",
-					justifyContent: "flex-end",
-					gap: "0.5rem",
-					width: "65%",
+					justifyContent: { xs: "flex-start", sm: "flex-end" },
+					flexWrap: "wrap",
+					gap: 1.5,
+					flex: { xs: "1 1 100%", lg: "1 1 auto" },
+					minWidth: 0,
 				}}
 			>
 				{isAnyFilterActive() && (
@@ -128,28 +131,23 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 						<TuneRoundedIcon />
 					</IconButton>
 				)}
-				<DualDatePicker value={filters.dateRange} onChange={handleDateChange} />
+				<Box sx={{ minWidth: 220, maxWidth: 280, flex: "1 1 220px" }}>
+					<DualDatePicker value={filters.dateRange} onChange={handleDateChange} />
+				</Box>
 				{/* Company Selector */}
 				<FormControl
 					sx={{
-						width: "50%",
-
+						minWidth: 180,
+						maxWidth: { xs: "100%", md: 260 },
+						flex: "1 1 180px",
 						"& .MuiAutocomplete-inputRoot": {
-							flexWrap: "nowrap !important",
 							overflowX: "auto",
-							// overflowY: "hidden",
-							width: '100%'
 						},
-
 						"& .MuiChip-root": {
-							maxWidth: 120,
+							maxWidth: 100,
 							textOverflow: "ellipsis",
 							overflow: "hidden",
 							whiteSpace: "nowrap",
-						},
-
-						"& .MuiAutocomplete-tag": {
-							margin: "2px",
 						},
 					}}
 					size="small"
@@ -157,7 +155,7 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 					<Autocomplete
 						multiple
 						size="small"
-						limitTags={4}
+						limitTags={2}
 						options={
 							Array.from(
 								new Set(
@@ -179,7 +177,7 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 					/>
 				</FormControl>
 				{/* Training Type Selector */}
-				<FormControl sx={{ width: "20%" }} size="small">
+				<FormControl sx={{ minWidth: 130, flex: "1 1 130px" }} size="small">
 					<InputLabel>Training Type</InputLabel>
 					<Select name="trainingType" label="Training Type" value={filters.trainingType} onChange={handleTrainingTypeChange}>
 						<MenuItem value="All">All</MenuItem>
@@ -189,7 +187,7 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 					</Select>
 				</FormControl>
 				{/* Training Mode Selector */}
-				<FormControl sx={{ width: "20%" }} size="small">
+				<FormControl sx={{ minWidth: 130, flex: "1 1 130px" }} size="small">
 					<InputLabel>Training Mode</InputLabel>
 					<Select name="trainingMode" label="Training Mode" value={filters.trainingMode} onChange={handleTrainingModeChange}>
 						<MenuItem value="All">All</MenuItem>
@@ -197,7 +195,8 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 						<MenuItem value="OnSite">On Site</MenuItem>
 					</Select>
 				</FormControl>
-				<FormControl sx={{ width: "20%" }} size="small">
+				{/* Status Selector */}
+				<FormControl sx={{ minWidth: 130, flex: "1 1 130px" }} size="small">
 					<InputLabel>Status</InputLabel>
 					<Select name="status" label="Status" value={filters.status} onChange={handleStatusChange}>
 						<MenuItem value="All">All</MenuItem>

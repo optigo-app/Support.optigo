@@ -182,6 +182,13 @@ export default function FloatingCallWidget() {
     const formattedDuration = durationStr;
     const nowISO = new Date().toISOString();
     const endingCall = activeCall;
+    const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim() || user?.name || '';
+    const isUnauthorizedForwardedCall = Boolean(endingCall?.isForwarded && (
+      endingCall.ownerId
+        ? String(endingCall.ownerId) !== String(user?.id)
+        : !endingCall.ownerName || !currentUserName || endingCall.ownerName.trim().toLowerCase() !== currentUserName.trim().toLowerCase()
+    ));
+    if (isUnauthorizedForwardedCall) return;
 
     // 1. Optimistic Stream update for instant UI feedback
     if (endingCall?.isFollowUp && endingCall.followUpId && endingCall.sr) {
@@ -196,6 +203,8 @@ export default function FloatingCallWidget() {
         callClosed: nowISO,
         CallDuration: formattedDuration,
         Estatus: 'Completed',
+        estatus: 'Completed',
+        status: 'Solved',
       });
     }
 
@@ -379,6 +388,13 @@ export default function FloatingCallWidget() {
         {/* Wide Red End Button */}
         <Button
           variant="contained"
+          disabled={Boolean(
+            (activeCall?.isForwarded && (
+              activeCall.ownerId
+                ? String(activeCall.ownerId) !== String(user?.id)
+                : !activeCall.ownerName || !`${user?.firstname || ''} ${user?.lastname || ''}`.trim() || activeCall.ownerName.trim().toLowerCase() !== `${user?.firstname || ''} ${user?.lastname || ''}`.trim().toLowerCase()
+            ))
+          )}
           onClick={handleEndCall}
           sx={{
             flex: 1,
