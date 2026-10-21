@@ -1421,9 +1421,6 @@ export default function ChatWorkspace() {
           }}
         />
       )}
-
-      {/* Toast Notification Container */}
-      <Toaster position="bottom-right" closeButton />
     </Box>
   );
 }

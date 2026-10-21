@@ -2,9 +2,6 @@ import React from "react";
 import { Box, Typography, Avatar, Tooltip } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { tooltipClasses } from "@mui/material/Tooltip";
-import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
-import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 
 const PremiumTooltip = styled(({ className, ...props }) => <Tooltip {...props} classes={{ popper: className }} arrow />)(({ theme }) => ({
   [`& .MuiTooltip-tooltip`]: {

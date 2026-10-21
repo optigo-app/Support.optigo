@@ -17,6 +17,7 @@ import { useAuth } from '../../context/UseAuth';
 import CallLogApi from '../../apis/CallLogApiController';
 import { openDurationModal } from './rxjs/newCallEvents';
 import SourceBadge from './utils/SourceBadge';
+import { getCallSource } from './utils/callSource';
 
 function getChipColor(statusName) {
   const { color } = getStatusColor(statusName);
@@ -143,7 +144,7 @@ export default function CallLogCard({ record = {} }) {
   const statusLower = String(extStatus).toLowerCase();
   const isMissed = statusLower.includes('missed') || statusLower.includes('fail') || statusLower.includes('abandon');
   const isRunningStatus = isRunning || statusLower.includes('progress') || statusLower.includes('live') || statusLower.includes('running');
-  const topicRaised = record.topicRaisedBy || 'help.optigoapps.com';
+  const callSource = getCallSource(record) || 'Csystem';
   let iconBg = '#9CA3AF';
   let iconColor = '#FFFFFF';
   let IconComp = PhoneIncoming;
@@ -212,7 +213,7 @@ export default function CallLogCard({ record = {} }) {
                   </Box>
                 )}
               </Box>
-              <SourceBadge source={record.topicRaisedBy || 'helpdesk'} variant="pill" iconSize={12} labelSize="0.65rem" sx={{ bgcolor: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }} />
+              <SourceBadge source={callSource} variant="pill" iconSize={12} labelSize="0.65rem" sx={{ bgcolor: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }} />
             </Box>
 
           </Box>

@@ -2,7 +2,21 @@ import { BehaviorSubject, combineLatest } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { hasRealTicket } from '../utils/ticketStatusUtils';
 import { isValidDate, formatFriendlyTime, getLocalISOString } from '../utils/dateUtils';
+import { getCallSource } from '../utils/callSource';
+export const COMPANY_PALETTE = [
+  '#6900C6',
+  '#0284C7',
+  '#059669',
+  '#D97706',
+  '#DC2626',
+  '#4F46E5',
+  '#7C3AED',
+  '#DB2777',
+  '#0891B2',
+  '#475569',
+];
 
+export const normComp = (s) => (s ? String(s).toLowerCase().replace(/[\s\-_]/g, '') : '');
 /**
  * Normalizes a raw call record from live API into a clean thread item.
  */
@@ -136,7 +150,7 @@ export function normalizeCallRecord(rec, idx = 0) {
     callClosed: rec.callClosed,
     DeptName: rec.DeptName || '',
     appname: rec.appname || '',
-    topicRaisedBy: rec.topicRaisedBy || '',
+    topicRaisedBy: getCallSource(rec),
     unread: false,
     followUps: parsedFollowUps,
     comments: parsedComments,
@@ -393,19 +407,6 @@ class CallStreamService {
         }
       }
 
-      const palette = [
-        '#6900C6',
-        '#0284C7',
-        '#059669',
-        '#D97706',
-        '#DC2626',
-        '#4F46E5',
-        '#7C3AED',
-        '#DB2777',
-        '#0891B2',
-        '#475569',
-      ];
-
       companies = Array.from(companyMap.entries())
         .sort((a, b) => b[1].count - a[1].count)
         .map(([compName, meta], idx) => ({
@@ -413,9 +414,23 @@ class CallStreamService {
           projectId: meta.projectId ? Number(meta.projectId) : null,
           name: compName,
           count: meta.count,
-          avatarColor: palette[idx % palette.length],
+          avatarColor: COMPANY_PALETTE[idx % COMPANY_PALETTE.length],
           initial: compName.charAt(0).toUpperCase(),
         }));
+    }
+
+    // Attach company avatarColor to each thread directly so thread displays match company rail
+    if (companies && Array.isArray(companies)) {
+      const compColorMap = new Map();
+      companies.forEach((c) => {
+        if (c.name) compColorMap.set(normComp(c.name), c.avatarColor);
+        if (c.projectId) compColorMap.set(String(c.projectId), c.avatarColor);
+      });
+      normalizedThreads.forEach((t) => {
+        const cNorm = normComp(t.company);
+        const pId = String(t.projectId || '');
+        t.avatarColor = compColorMap.get(pId) || compColorMap.get(cNorm) || COMPANY_PALETTE[0];
+      });
     }
 
     this.threads$.next(normalizedThreads);

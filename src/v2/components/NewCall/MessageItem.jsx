@@ -17,6 +17,7 @@ import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
 import { useCallLog } from '../../context/UseCallLog';
 import MentionChip from './MentionChip';
 import { buildMentionRegex, findEmployeeByName, getEmployeesList } from './utils/mentionUtils';
+import { getCallSource, getCallSourceDisplay } from './utils/callSource';
 
 export default function MessageItem({ message }) {
   const navigate = useNavigate();
@@ -105,6 +106,8 @@ export default function MessageItem({ message }) {
       <Box
         sx={{
           display: 'flex',
+          width: '100%',
+          flexDirection: 'row-reverse',
           alignItems: 'flex-start',
           gap: 1.4,
           px: 3,
@@ -131,7 +134,13 @@ export default function MessageItem({ message }) {
           <Ticket size={18} weight="bold" />
         </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{
+          flex: '0 1 75%',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+        }}>
           {/* Header line: Sender + Ticket Chip + Time */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, mb: 0.35 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A' }}>
@@ -284,6 +293,8 @@ export default function MessageItem({ message }) {
       <Box
         sx={{
           display: 'flex',
+          width: '100%',
+          flexDirection: 'row-reverse',
           alignItems: 'flex-start',
           gap: 1.4,
           px: 3,
@@ -310,7 +321,13 @@ export default function MessageItem({ message }) {
           <CheckSquare size={18} weight="bold" />
         </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{
+          flex: '0 1 75%',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+        }}>
           {/* Header line: Sender + Task Chip + Time */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, mb: 0.35 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A' }}>
@@ -450,6 +467,8 @@ export default function MessageItem({ message }) {
     fuData &&
     (fuData.Id || fuData.id || fuData.followUpCallId)
   ) {
+    const sourceType = getCallSourceDisplay(fuData).type;
+    const isClientOrigin = sourceType === 'optigo' || sourceType === 'helpdesk';
     const isForward =
       message.isForwarded ||
       fuData.isForwarded ||
@@ -470,6 +489,8 @@ export default function MessageItem({ message }) {
       <Box
         sx={{
           display: 'flex',
+          width: '100%',
+          flexDirection: isClientOrigin ? 'row' : 'row-reverse',
           alignItems: 'flex-start',
           gap: 1.4,
           px: 3,
@@ -496,7 +517,13 @@ export default function MessageItem({ message }) {
           {senderName.charAt(0).toUpperCase()}
         </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{
+          flex: '0 1 75%',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: isClientOrigin ? 'flex-start' : 'flex-end',
+        }}>
           {/* Header line: Sender Name + Call Type Chip + Time */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, mb: 0.35 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A' }}>
@@ -528,6 +555,10 @@ export default function MessageItem({ message }) {
 
   // 5. Primary Voice Support Call Log Card Entry (Green/Emerald Theme)
   if (message.isCallRecord || message.record) {
+    const callSource = getCallSource(message.record);
+    const sourceType = getCallSourceDisplay(message.record).type;
+    const isClientOrigin = sourceType === 'optigo' || sourceType === 'helpdesk';
+    const showSourceAsType = callSource && callSource.toLowerCase() !== String(message.record?.company || '').toLowerCase();
     const callerOrAgent =
       message.record?.receivedBy ||
       message.record?.AssignedEmpName ||
@@ -539,6 +570,8 @@ export default function MessageItem({ message }) {
       <Box
         sx={{
           display: 'flex',
+          width: '100%',
+          flexDirection: isClientOrigin ? 'row' : 'row-reverse',
           alignItems: 'flex-start',
           gap: 1.4,
           px: 3,
@@ -565,7 +598,13 @@ export default function MessageItem({ message }) {
           {callerOrAgent.charAt(0).toUpperCase()}
         </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{
+          flex: '0 1 75%',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: isClientOrigin ? 'flex-start' : 'flex-end',
+        }}>
           {/* Header line: Name + Primary Call Chip + Time */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, mb: 0.35 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A' }}>
@@ -573,9 +612,8 @@ export default function MessageItem({ message }) {
             </Typography>
             <Chip
               label={
-                message.record?.topicRaisedBy &&
-                  message.record?.topicRaisedBy.toLowerCase() !== (message.record?.company || '').toLowerCase()
-                  ? message.record.topicRaisedBy
+                showSourceAsType
+                  ? callSource
                   : 'Main Call'
               }
               size="small"

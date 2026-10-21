@@ -42,7 +42,6 @@ import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
 import { getAppBasePath } from "../../../utils/AppBasePath";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
-import { callStreamService } from "../../NewCall/services/callStreamService";
 import ForwardedCallDrawer from "../../CallLogger/ForwardedCallDrawer";
 
 const NewHeader = () => {
@@ -112,17 +111,10 @@ const NewHeader = () => {
     setCurrentCall(call);
     handleFwdClose();
     const targetSr = call?.sr || call?.CallLogid || call?.id;
-    if (routerLocation.pathname === '/newCall') {
-      if (targetSr) {
-        callStreamService.selectThread(targetSr);
-      }
-    } else {
+    if (targetSr) {
+      navigate(`/newCall?sr=${encodeURIComponent(String(targetSr).replace(/^call-/, ''))}`);
+    } else if (routerLocation.pathname !== '/newCall') {
       navigate('/newCall');
-      if (targetSr) {
-        setTimeout(() => {
-          callStreamService.selectThread(targetSr);
-        }, 120);
-      }
     }
   };
 

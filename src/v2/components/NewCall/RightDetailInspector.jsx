@@ -31,6 +31,7 @@ import SimpleBar from './SimpleBar';
 import { openEditCallModal, openDurationModal } from './rxjs/newCallEvents';
 import { formatCallDateTime } from './utils/dateUtils';
 import { getSanitizedStatuses } from './utils/ticketStatusUtils';
+import { getCallSourceDisplay } from './utils/callSource';
 
 // Apple-inspired semantic status styling
 function getAppleStatusStyle(statusName = '') {
@@ -247,30 +248,29 @@ export default function RightDetailInspector({
   const rec = activeThread?.rawRecord || {};
 
   const sourceInfo = useMemo(() => {
-    const rawSource = (rec?.topicRaisedBy || activeThread?.topicRaisedBy || '').trim().toLowerCase();
-    if (rawSource === 'optigocarely') {
+    const { label, type, source } = getCallSourceDisplay(rec, activeThread);
+    if (type === 'optigo') {
       return {
-        label: 'OptigoCarely',
+        label,
         descriptionText: 'This call was raised by OptigoCarely',
         backgroundColor: '#D1FAE5',
         color: '#065F46',
         border: '#A7F3D0',
       };
     }
-    if (rawSource === 'helpdesk') {
+    if (type === 'helpdesk') {
       return {
-        label: 'help.optigoapps.com',
+        label,
         descriptionText: 'This call was raised by help.optigoapps.com',
         backgroundColor: '#FEF3C7',
         color: '#92400E',
         border: '#FDE68A',
       };
     }
-    const custom = (rec?.topicRaisedBy || activeThread?.topicRaisedBy || '').trim();
-    if (custom) {
+    if (type === 'custom') {
       return {
-        label: custom,
-        descriptionText: `Raised via ${custom}`,
+        label,
+        descriptionText: `Raised via ${source}`,
         backgroundColor: '#DBEAFE',
         color: '#1D4ED8',
         border: '#BFDBFE',
@@ -283,7 +283,7 @@ export default function RightDetailInspector({
       color: '#1D4ED8',
       border: '#BFDBFE',
     };
-  }, [rec?.topicRaisedBy, activeThread?.topicRaisedBy]);
+  }, [rec, activeThread]);
 
   const handleCopyCallSummary = () => {
     const summary = `Call #${rec.sr || activeThread?.sr || ''} | ${rec.company || activeThread?.company || ''} | Caller: ${rec.callBy || activeThread?.name || ''} | Agent: ${rec.receivedBy || rec.AssignedEmpName || ''} | Status: ${rec.status || ''}`;

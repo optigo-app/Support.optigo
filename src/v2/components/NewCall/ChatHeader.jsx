@@ -579,21 +579,21 @@ export default function ChatHeader({
             {/* Call Title, Call #, Caller & Profile Dropdown */}
             {(() => {
               const callSr = activeThread?.sr || activeThread?.rawRecord?.sr || activeThread?.rawRecord?.id || '';
-              const callDescr = (
+              const callDescr = String(
                 activeThread?.description ||
                 activeThread?.rawRecord?.description ||
                 activeThread?.rawRecord?.Descr ||
                 activeThread?.rawRecord?.Title ||
                 ''
               ).trim();
-              const callerName = (
+              const callerName = String(
                 activeThread?.callBy ||
                 activeThread?.name ||
                 activeThread?.rawRecord?.callBy ||
                 activeThread?.rawRecord?.CustomerName ||
                 'Client'
               ).trim();
-              const companyName = (
+              const companyName = String(
                 selectedCompany !== 'all'
                   ? selectedCompany
                   : (activeThread?.company || activeThread?.rawRecord?.company || activeThread?.rawRecord?.CompanyName || '')
@@ -1357,7 +1357,8 @@ export default function ChatHeader({
 
           {/* Prominent Voice Call Button */}
           {(() => {
-            const isUnassigned = !activeThread?.receivedBy || activeThread?.receivedBy === 'Support Desk' || !activeThread?.receivedBy?.trim();
+            const receivedBy = String(activeThread?.receivedBy || '');
+            const isUnassigned = !receivedBy || receivedBy === 'Support Desk' || !receivedBy.trim();
             const hasMultipleOptions = pendingFollowUps.length > 0;
             return (
               <Button

@@ -126,21 +126,25 @@ export default function TopBar({
   const allStatusOptions = React.useMemo(() => {
     const combined = [...STATUS_LIST, ...ESTATUS_LIST];
     if (combined.length > 0) {
-      const seen = new Set();
       const unique = [];
+      const selectedStatusIds = new Set(
+        (Array.isArray(statusFilter) ? statusFilter : statusFilter && statusFilter !== 'all' ? [statusFilter] : [])
+          .map(String)
+      );
 
       for (const s of combined) {
         const label = String(s.label || s.Name || s.name || s.value || '').trim();
         if (!label) continue;
         const normKey = label.toLowerCase();
+        const id = String(s.value !== undefined ? s.value : s.label);
+        const duplicateIndex = unique.findIndex((item) => item.label.toLowerCase() === normKey);
 
-        // Deduplicate so duplicate status names like 'Pending' appear only once
-        if (!seen.has(normKey)) {
-          seen.add(normKey);
-          unique.push({
-            id: String(s.value !== undefined ? s.value : s.label),
-            label: s.label || s.Name || s.name || String(s.value),
-          });
+        // Keep duplicate labels collapsed, but retain the ID currently used by
+        // the API so the selected status is visible in the filter control.
+        if (duplicateIndex === -1) {
+          unique.push({ id, label: s.label || s.Name || s.name || String(s.value) });
+        } else if (selectedStatusIds.has(id) && !selectedStatusIds.has(unique[duplicateIndex].id)) {
+          unique[duplicateIndex] = { id, label: s.label || s.Name || s.name || String(s.value) };
         }
       }
 
@@ -151,7 +155,7 @@ export default function TopBar({
       { id: '4', label: 'Solved' },
       { id: '5', label: 'Running' },
     ];
-  }, [STATUS_LIST, ESTATUS_LIST]);
+  }, [STATUS_LIST, ESTATUS_LIST, statusFilter]);
 
   const getFilterStyle = (isActive) => ({
     bgcolor: isActive ? '#fff' : 'transparent',

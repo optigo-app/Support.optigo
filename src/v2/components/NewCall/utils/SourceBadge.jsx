@@ -1,17 +1,19 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { Desktop, DeviceMobile, Headset } from '@phosphor-icons/react';
+import { getCallSourceDisplay } from './callSource';
 
 export default function SourceBadge({ source, sx = {}, iconSize = 10, labelSize = '0.55rem', variant = 'default' }) {
   if (!source) return null;
-  const sourceLower = String(source).trim().toLowerCase();
+  const sourceInfo = getCallSourceDisplay({ topicRaisedBy: source });
+  const sourceLower = sourceInfo.type;
 
   let label = "Csystem";
   let backgroundColor = "#DBEAFE";
   let color = "#1D4ED8";
   let icon = <Desktop weight="fill" size={iconSize} />;
 
-  if (sourceLower === "optigocarely" || sourceLower === "optigocare") {
+  if (sourceLower === "optigo") {
     label = "OptigoCarely";
     backgroundColor = "#D1FAE5";
     color = "#065F46";
@@ -21,6 +23,8 @@ export default function SourceBadge({ source, sx = {}, iconSize = 10, labelSize 
     backgroundColor = "#FEF3C7";
     color = "#92400E";
     icon = <Headset weight="fill" size={iconSize} />;
+  } else if (sourceLower === 'custom') {
+    label = sourceInfo.label;
   }
 
   if (variant === 'pill') {

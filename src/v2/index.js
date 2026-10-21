@@ -115,7 +115,7 @@ const Main = () => {
                           <LocalizationProvider dateAdapter={AdapterDateFns}>
                             <CssBaseline />
                             <Entry />
-                            <Toaster />
+                            <Toaster position="top-right" />
                           </LocalizationProvider>
                         </ThemeProvider>
                       </TicketProvider>

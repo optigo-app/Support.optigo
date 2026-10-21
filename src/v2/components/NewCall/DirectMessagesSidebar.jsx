@@ -24,26 +24,10 @@ import {
 } from '@phosphor-icons/react';
 import { getStatusColor } from '../../libs/data';
 import SourceBadge from './utils/SourceBadge';
+import { getCallSource } from './utils/callSource';
 
-const neoColors = [
-  '#FF6B6B', // Red
-  '#4ECDC4', // Mint
-  '#FFE66D', // Yellow
-  '#A06CD5', // Purple
-  '#FF9F1C', // Orange
-  '#2EC4B6', // Teal
-  '#FF90E8', // Light Pink
-  '#90A8ED', // Periwinkle
-];
+import { COMPANY_PALETTE, normComp } from './services/callStreamService';
 
-const getNeoColor = (str) => {
-  let hash = 0;
-  for (let i = 0; i < (str || '').length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  hash = Math.abs(hash);
-  return neoColors[hash % neoColors.length];
-};
 
 const ITEM_HEIGHT = 84; // Precise height per ticket row
 const OVERSCAN = 5;     // Extra items above and below viewport
@@ -69,14 +53,14 @@ export function getThreadDisplayInfo(thread) {
         ? JSON.parse(thread.rawRecord.comment)
         : thread.rawRecord.comment;
       if (Array.isArray(parsed)) comments = parsed;
-    } catch (_) {}
+    } catch (_) { }
   } else if (thread.rawRecord?.CommentsArray) {
     try {
       const parsed = typeof thread.rawRecord.CommentsArray === 'string'
         ? JSON.parse(thread.rawRecord.CommentsArray)
         : thread.rawRecord.CommentsArray;
       if (Array.isArray(parsed)) comments = parsed;
-    } catch (_) {}
+    } catch (_) { }
   }
 
   let latestCommentText = '';
@@ -101,7 +85,7 @@ export function getThreadDisplayInfo(thread) {
         if (!isNaN(dt.getTime())) {
           latestCommentTime = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -131,6 +115,8 @@ export default function DirectMessagesSidebar({
   isCompaniesOpen = true,
   onOpenCompanies,
   threads = [],
+  companies = [],
+  overallCallsCount,
   activeThreadId,
   onSelectThread,
   searchQuery = '',
@@ -143,6 +129,27 @@ export default function DirectMessagesSidebar({
   const scrollContainerRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(600);
+
+  // Fast lookup map matching company rail metadata (avatar color & initial)
+  const companyMetaMap = useMemo(() => {
+    const map = new Map();
+    if (!Array.isArray(companies)) return map;
+
+    companies.forEach((comp) => {
+      if (!comp) return;
+      const cNorm = normComp(comp.name);
+      if (cNorm) {
+        map.set(`name:${cNorm}`, comp);
+      }
+      if (comp.projectId) {
+        map.set(`proj:${String(comp.projectId)}`, comp);
+      }
+      if (comp.id) {
+        map.set(`id:${String(comp.id)}`, comp);
+      }
+    });
+    return map;
+  }, [companies]);
 
   // 1. High-Performance Memoized Filtering over 15,000+ items
   const filteredThreads = useMemo(() => {
@@ -226,14 +233,14 @@ export default function DirectMessagesSidebar({
                 ? JSON.parse(t.rawRecord.comment)
                 : t.rawRecord.comment;
               if (Array.isArray(parsed)) commentsList = parsed;
-            } catch (_) {}
+            } catch (_) { }
           } else if (t.rawRecord?.CommentsArray) {
             try {
               const parsed = typeof t.rawRecord.CommentsArray === 'string'
                 ? JSON.parse(t.rawRecord.CommentsArray)
                 : t.rawRecord.CommentsArray;
               if (Array.isArray(parsed)) commentsList = parsed;
-            } catch (_) {}
+            } catch (_) { }
           }
         }
 
@@ -299,6 +306,7 @@ export default function DirectMessagesSidebar({
 
   // 4. Calculate Virtual Slice (Only ~15-20 items attached to DOM!)
   const totalCount = filteredThreads.length;
+  const allCallsCount = overallCallsCount ?? totalCount;
   const totalHeight = totalCount * ITEM_HEIGHT;
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN);
@@ -440,7 +448,7 @@ export default function DirectMessagesSidebar({
                 All Calls
               </Typography>
               <Chip
-                label={totalCount > 999 ? `${(totalCount / 1000).toFixed(1)}k` : totalCount}
+                label={allCallsCount > 999 ? `${(allCallsCount / 1000).toFixed(1)}k` : allCallsCount}
                 size="small"
                 sx={{
                   height: 20,
@@ -586,8 +594,33 @@ export default function DirectMessagesSidebar({
                   const callerTotalCalls = callerCountMap.get(callerKey) || 1;
                   const { titleText, lastMessageText, timeText } = getThreadDisplayInfo(thread);
 
-                  const avatarText = (thread.name || thread.company || 'C').charAt(0).toUpperCase();
-                  const avatarColor = getNeoColor(thread.name || thread.company || 'Unknown');
+                  const tCompNorm = normComp(thread.company);
+                  const tNameNorm = normComp(thread.name);
+                  const tProjId = String(
+                    thread.projectId ||
+                    thread.rawRecord?.ProjectID ||
+                    thread.rawRecord?.projectID ||
+                    thread.rawRecord?.CompanyID ||
+                    ''
+                  );
+
+                  const compMeta =
+                    (tProjId && companyMetaMap.get(`proj:${tProjId}`)) ||
+                    (tCompNorm && companyMetaMap.get(`name:${tCompNorm}`)) ||
+                    (tNameNorm && companyMetaMap.get(`name:${tNameNorm}`)) ||
+                    null;
+
+                  let avatarColor = thread.avatarColor || compMeta?.avatarColor;
+                  if (!avatarColor) {
+                    const hashKey = tCompNorm || tNameNorm || 'company';
+                    let hash = 0;
+                    for (let i = 0; i < hashKey.length; i++) {
+                      hash = hashKey.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    avatarColor = COMPANY_PALETTE[Math.abs(hash) % COMPANY_PALETTE.length];
+                  }
+
+                  const avatarText = compMeta?.initial || (thread.company || thread.name || 'C').charAt(0).toUpperCase();
 
                   const outlineColor = '#0F172A';
                   const shadowColor = '#0F172A';
@@ -609,7 +642,10 @@ export default function DirectMessagesSidebar({
                         p: 1.2,
                         px: 1.5,
                         borderRadius: '12px',
-                        bgcolor: isActive ? '#F1F5F9' : thread.unread ? '#F8FAFC' : 'transparent',
+                        bgcolor: thread.unread
+                          ? (isActive ? '#F3E8FF' : '#FAF5FF')
+                          : (isActive ? '#F1F5F9' : 'transparent'),
+                        boxShadow: thread.unread ? 'inset 3px 0 0 #7C3AED' : 'none',
                         display: 'flex',
                         alignItems: 'flex-start',
                         gap: 1.2,
@@ -617,7 +653,9 @@ export default function DirectMessagesSidebar({
                         boxSizing: 'border-box',
                         transition: 'all 0.15s ease',
                         '&:hover': {
-                          bgcolor: isActive ? '#E2E8F0' : '#F1F5F9',
+                          bgcolor: thread.unread
+                            ? (isActive ? '#E9D5FF' : '#F3E8FF')
+                            : (isActive ? '#E2E8F0' : '#F1F5F9'),
                         },
                       }}
                     >
@@ -628,21 +666,22 @@ export default function DirectMessagesSidebar({
                           sx={{
                             width: 38,
                             height: 38,
-                            borderRadius: '10px',
+                            borderRadius: '50px',
                             bgcolor: avatarColor,
-                            color: '#0F172A',
+                            color: '#FFFFFF',
                             fontSize: 17,
                             fontWeight: 900,
-                            border: `1.5px solid ${outlineColor}`,
-                            boxShadow: `${shadowOffset} 0px ${shadowColor}`,
                             transition: 'all 0.2s ease',
+                            boxShadow: thread.unread ? '0 0 0 3px #E9D5FF' : 'none',
                             transform: 'rotate(0deg)',
                             '&:hover': {
                               transform: 'scale(1.05) rotate(-5deg)',
                             }
                           }}
                         >
-                          {avatarText}
+                          <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M12 2a5 5 0 1 0 0 10a5 5 0 1 0 0-10M4 22h16c.55 0 1-.45 1-1v-1c0-3.86-3.14-7-7-7h-4c-3.86 0-7 3.14-7 7v1c0 .55.45 1 1 1"></path>
+                          </svg>
                         </Avatar>
 
                         {/* Online green indicator */}
@@ -671,7 +710,7 @@ export default function DirectMessagesSidebar({
                             sx={{
                               fontSize: '0.86rem',
                               fontWeight: thread.unread ? 800 : 700,
-                              color: '#0F172A',
+                              color: thread.unread ? '#581C87' : '#0F172A',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -684,7 +723,7 @@ export default function DirectMessagesSidebar({
                             variant="caption"
                             sx={{
                               fontSize: '0.68rem',
-                              color: thread.unread ? '#0F172A' : '#64748B',
+                              color: thread.unread ? '#6B21A8' : '#64748B',
                               fontWeight: thread.unread ? 800 : 500,
                               flexShrink: 0,
                             }}
@@ -711,11 +750,10 @@ export default function DirectMessagesSidebar({
                           </Typography>
 
                           {(() => {
-                            const sourceVal = thread.topicRaisedBy || thread.rawRecord?.topicRaisedBy || "";
-                            if (!sourceVal) return null;
+                            const sourceVal = getCallSource(thread, thread.rawRecord);
                             return (
                               <SourceBadge
-                                source={sourceVal}
+                                source={sourceVal || 'Csystem'}
                                 iconSize={10}
                                 labelSize="0.55rem"
                               />
@@ -729,7 +767,7 @@ export default function DirectMessagesSidebar({
                             variant="caption"
                             sx={{
                               fontSize: 11,
-                              color: thread.unread ? '#111827' : (isActive ? '#374151' : '#64748B'),
+                              color: thread.unread ? '#4C1D95' : (isActive ? '#374151' : '#64748B'),
                               fontWeight: thread.unread ? 700 : 500,
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
@@ -748,7 +786,7 @@ export default function DirectMessagesSidebar({
                                 height: 18,
                                 px: 0.8,
                                 borderRadius: '9px',
-                                bgcolor: '#34c33b',
+                                bgcolor: '#7C3AED',
                                 color: '#FFFFFF',
                                 fontSize: '0.62rem',
                                 fontWeight: 800,
@@ -756,7 +794,7 @@ export default function DirectMessagesSidebar({
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 flexShrink: 0,
-                                boxShadow: '0 1px 2px rgba(52, 195, 59, 0.3)'
+                                boxShadow: '0 1px 3px rgba(124, 58, 237, 0.28)'
                               }}
                             >
                               New

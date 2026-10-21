@@ -37,6 +37,7 @@ import { useAuth } from '../../context/UseAuth';
 import { callStreamService } from './services/callStreamService';
 import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
 import { hasRealTicket } from './utils/ticketStatusUtils';
+import { getCallSourceDisplay } from './utils/callSource';
 import { getEmployeesList, findEmployeeByName, buildMentionRegex } from './utils/mentionUtils';
 
 function formatFileSize(bytes) {
@@ -161,14 +162,14 @@ const MessageComposer = React.memo(function MessageComposer({
 
   // Resolve Source label and styles
   const sourceInfo = useMemo(() => {
-    const rawSource = (rawRecord?.topicRaisedBy || activeThread?.topicRaisedBy || '').trim().toLowerCase();
-    if (rawSource === 'optigocarely') {
-      return { label: 'OptigoCarely', bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' };
+    const { label, type } = getCallSourceDisplay(rawRecord, activeThread);
+    if (type === 'optigo') {
+      return { label, bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' };
     }
-    if (rawSource === 'helpdesk') {
-      return { label: 'help.optigoapps.com', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' };
+    if (type === 'helpdesk') {
+      return { label, bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' };
     }
-    return { label: 'Csystem', bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' };
+    return { label, bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' };
   }, [rawRecord, activeThread]);
 
   const handleSelectFiles = useCallback((filesArray) => {

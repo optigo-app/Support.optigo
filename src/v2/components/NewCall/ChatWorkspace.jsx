@@ -37,6 +37,7 @@ import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
 import { filesUploadApi } from '../../apis/UploadFille';
 import { useSocketEvent } from '../../hooks/useSocketListener';
 import ChatBgPattern from '../../../assets/images/chat-bg.png';
+import { getCallSource } from './utils/callSource';
 
 const STORAGE_KEYS = {
   VOIP_SESSION: 'newcall_active_voip_session',
@@ -49,6 +50,7 @@ export default function ChatWorkspace() {
   const location = useLocation();
 
   const [threads, setThreads] = useState([]);
+  const [allThreads, setAllThreads] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('all'); // Sidebar Screen Filter
   const [topBarCompany, setTopBarCompany] = useState('all'); // TopBar Dropdown Server API Filter (ProjectID)
@@ -60,18 +62,27 @@ export default function ChatWorkspace() {
     const params = new URLSearchParams(location.search);
     const paramStatus = params.get('status');
     const paramSr = params.get('sr') || params.get('callId');
+    // A call opened from the legacy Call Log must not inherit list filters.
+    if (paramSr) return 'all';
     if (paramStatus !== null) {
       return paramStatus;
-    }
-    // When opened directly for a specific call/chat, show all statuses
-    if (paramSr) {
-      return 'all';
     }
     // Default to 44 (Pending) when coming from sidebar or general navigation
     return 44;
   });
   const [filterBy, setFilterBy] = useState(''); // Date target field: 'date' | 'callStart' | 'callClosed'
-  const [dateRangeObj, setDateRangeObj] = useState(null);
+  const [dateRangeObj, setDateRangeObj] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const start = params.get('start');
+    const end = params.get('end');
+    if (params.get('sr') || params.get('callId')) return null;
+    if (start && end) return { start: new Date(start), end: new Date(end) };
+    const today = new Date();
+    return {
+      start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+      end: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+    };
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [showCompanies, setShowCompanies] = useState(true);
@@ -100,6 +111,8 @@ export default function ChatWorkspace() {
 
   const lastFilterKeyRef = useRef('');
   const isInternalUrlUpdateRef = useRef(false);
+  const lastHandledExternalSrRef = useRef('');
+  const requestedCallSrRef = useRef('');
   // When ChatWorkspace has fetched its own filtered data, it "owns" the stream.
   // After that, UseCallLog background refreshes do a smart MERGE (patch existing threads)
   // instead of a full replace — so description saves, status updates etc. work smoothly.
@@ -333,20 +346,31 @@ export default function ChatWorkspace() {
       try {
         setIsLoading(true);
         const params = new URLSearchParams(location.search);
-        const start = params.get('start') || '';
-        const end = params.get('end') || '';
-        const paramStatus = params.get('status');
         const targetSr = params.get('sr') || params.get('callId') || '';
-        const status = paramStatus !== null ? paramStatus : (targetSr ? 'all' : 44);
-        const company = params.get('company') || params.get('companyStatus') || '';
-        const target = params.get('target') || '';
-        const search = params.get('search') || params.get('searchQuery') || '';
+        if (targetSr) requestedCallSrRef.current = String(targetSr).replace(/^call-/, '');
+        const clearFiltersForCallLink = Boolean(targetSr);
+        const today = new Date();
+        const todayString = formatLocalDateToYYYYMMDD(today);
+        const start = targetSr ? '' : (params.get('start') || todayString);
+        const end = targetSr ? '' : (params.get('end') || todayString);
+        const paramStatus = params.get('status');
+        const status = clearFiltersForCallLink ? 'all' : (paramStatus !== null ? paramStatus : 44);
+        const company = clearFiltersForCallLink ? '' : (params.get('company') || params.get('companyStatus') || '');
+        const target = clearFiltersForCallLink
+          ? ''
+          : (params.get('target') || (start && end ? 'date' : ''));
+        // Load the normal unfiltered list for deep links. Search by SR only as
+        // a fallback if the requested older call is outside that result set.
+        const search = targetSr ? '' : (params.get('search') || params.get('searchQuery') || '');
 
         const resolvedProjectId = getProjectId(company);
         const resolvedStatusId = getStatusId(status);
 
-        // Record initial key so filter-change effect does not double-fire on mount
-        lastFilterKeyRef.current = `${start}|${end}|${resolvedProjectId}|${resolvedStatusId}|${search}|${target}`;
+        // A direct call link is fetched by call ID below; mark the cleared
+        // filter state so the generic list fetch cannot overwrite that result.
+        lastFilterKeyRef.current = clearFiltersForCallLink
+          ? '|||||'
+          : `${start}|${end}|${resolvedProjectId}|${resolvedStatusId}|${search}|${target}`;
 
         const data = await CallLogApi.getCallLogs({
           endDate: end,
@@ -365,6 +389,7 @@ export default function ChatWorkspace() {
             const exists = data.rd.some((r) => String(r.sr || r.id) === cleanSr);
             if (!exists) {
               try {
+                requestedCallSrRef.current = cleanSr;
                 const specificRes = await CallLogApi.getCallLogs({ searchTerm: cleanSr });
                 if (specificRes?.rd && Array.isArray(specificRes.rd) && specificRes.rd.length > 0) {
                   data.rd = [...specificRes.rd, ...data.rd];
@@ -402,6 +427,7 @@ export default function ChatWorkspace() {
   // 3. Subscribe to RxJS Reactive Streams
   useEffect(() => {
     const subThreads = callStreamService.filteredThreads$.subscribe(setThreads);
+    const subAllThreads = callStreamService.threads$.subscribe(setAllThreads);
     const subCompanies = callStreamService.companies$.subscribe(setCompanies);
     const subSelectedComp = callStreamService.selectedCompany$.subscribe((comp) => {
       setSelectedCompany(comp);
@@ -419,6 +445,7 @@ export default function ChatWorkspace() {
 
     return () => {
       subThreads.unsubscribe();
+      subAllThreads.unsubscribe();
       subCompanies.unsubscribe();
       subSelectedComp.unsubscribe();
       subActiveId.unsubscribe();
@@ -427,6 +454,106 @@ export default function ChatWorkspace() {
       subCustomMsgs.unsubscribe();
     };
   }, []);
+
+  // Counts use the active result scope but deliberately omit the selected
+  // company rail filter. This keeps the rail and overall total stable while
+  // the call list is narrowed to one company.
+  const countScopeThreads = useMemo(() => {
+    const normalizeText = (value) => String(value || '').toLowerCase();
+    const query = String(searchQuery || '').trim().toLowerCase();
+    const validDateString = (value) => value && typeof value === 'string' && !value.startsWith('1900-01-01');
+    const loggedUser = user?.firstname
+      ? `${user.firstname} ${user.lastname || ''}`.trim().toLowerCase()
+      : normalizeText(user?.name);
+    const loggedUserId = String(user?.id || '').toLowerCase();
+    const startDateMs = dateRangeObj?.start ? new Date(dateRangeObj.start).setHours(0, 0, 0, 0) : null;
+    const endDateMs = dateRangeObj?.end ? new Date(dateRangeObj.end).setHours(23, 59, 59, 999) : null;
+
+    return (allThreads || []).filter((thread) => {
+      const raw = thread.rawRecord || {};
+      if (viewMode === 'normal' && (loggedUser || loggedUserId)) {
+        const receivedBy = normalizeText(thread.receivedBy || raw.receivedBy);
+        const assignedBy = normalizeText(thread.AssignedEmpName || raw.AssignedEmpName);
+        const createdBy = String(raw.CreatedBy || raw.createdBy || '').toLowerCase();
+        const employeeId = String(raw.EmpId || raw.empId || '').toLowerCase();
+        const isMyCall =
+          (loggedUser && (receivedBy === loggedUser || assignedBy === loggedUser || receivedBy.includes(loggedUser) || assignedBy.includes(loggedUser))) ||
+          (loggedUserId && (createdBy === loggedUserId || receivedBy === loggedUserId || employeeId === loggedUserId));
+        if (!isMyCall) return false;
+      }
+
+      if (viewMode === 'followUp-Pending' || viewMode === 'followUp-Completed') {
+        const followUps = thread.followUps || [];
+        const matchesFollowUpMode = followUps.some((fu) => {
+          const internalStatus = String(fu.InternalStatus || fu.internalStatus || fu.status || '').trim().toLowerCase();
+          const isSolved = fu.statusId === 4 || fu.StatusId === 4 || ['solved', 'completed', 'closed'].includes(internalStatus) ||
+            String(fu.Estatus || fu.estatus || '').trim().toLowerCase() === 'completed';
+          const isCompleted = isSolved || validDateString(fu.CallClosed) || Boolean(fu.CallDuration && fu.CallDuration !== '00:00:00');
+          return viewMode === 'followUp-Pending' ? !isCompleted : isCompleted;
+        });
+        if (!matchesFollowUpMode) return false;
+      }
+
+      if (startDateMs || endDateMs) {
+        const dateValue = filterBy === 'callStart'
+          ? (thread.callStart || raw.callStart)
+          : filterBy === 'callClosed'
+            ? (thread.callClosed || raw.callClosed)
+            : (thread.date || raw.EntryDate || raw.date || thread.callStart);
+        if (dateValue && !String(dateValue).startsWith('1900-01-01')) {
+          const time = new Date(dateValue).getTime();
+          if (!Number.isNaN(time) && ((startDateMs && time < startDateMs) || (endDateMs && time > endDateMs))) return false;
+        }
+      }
+
+      if (query) {
+        const searchable = [thread.name, thread.company, thread.callBy, thread.lastMessage, thread.sr, thread.receivedBy || thread.AssignedEmpName]
+          .map(normalizeText);
+        if (!searchable.some((value) => value.includes(query))) return false;
+      }
+      return true;
+    });
+  }, [allThreads, viewMode, user, dateRangeObj, filterBy, searchQuery]);
+
+  // Keep every company in the current result set visible while a rail company
+  // is selected; only the call list is narrowed by that local selection.
+  const visibleCompanies = useMemo(() => {
+    const companyCatalog = new Map();
+    const companyCounts = new Map();
+    const normalize = (value) => String(value || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+
+    (allThreads || []).forEach((thread) => {
+      const name = String(thread.company || '').trim();
+      if (!name || name.toLowerCase() === 'unknown company') return;
+      const key = normalize(name);
+      const projectId = thread.projectId || thread.rawRecord?.ProjectID || thread.rawRecord?.projectID || thread.rawRecord?.projectId || null;
+      const existing = companyCatalog.get(key);
+      if (existing) {
+        if (!existing.projectId && projectId) existing.projectId = projectId;
+      } else {
+        companyCatalog.set(key, { name, projectId });
+      }
+    });
+
+    countScopeThreads.forEach((thread) => {
+      const name = String(thread.company || '').trim();
+      if (!name || name.toLowerCase() === 'unknown company') return;
+      const key = normalize(name);
+      companyCounts.set(key, (companyCounts.get(key) || 0) + 1);
+    });
+
+    const colorByName = new Map((companies || []).map((company) => [normalize(company.name), company]));
+    const palette = ['#6900C6', '#0284C7', '#059669', '#D97706', '#DC2626', '#4F46E5', '#7C3AED', '#DB2777', '#0891B2', '#475569'];
+    return [...companyCatalog.entries()]
+      .map(([key, company], index) => ({
+        ...colorByName.get(key),
+        ...company,
+        count: companyCounts.get(key) || 0,
+        avatarColor: colorByName.get(key)?.avatarColor || palette[index % palette.length],
+        initial: company.name.charAt(0).toUpperCase(),
+      }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [allThreads, countScopeThreads, companies]);
 
   // 3b. Subscribe to global search query stream (from GlobalSearchBar)
   useEffect(() => {
@@ -445,11 +572,30 @@ export default function ChatWorkspace() {
     const savedSearch = params.get('search') || params.get('searchQuery') || '';
     const savedView = params.get('view') || 'team';
     const savedCompany = params.get('company') || params.get('companyStatus') || '';
+    const savedRailCompany = params.get('railCompany') || '';
     const savedStatus = params.get('status') || '';
     const savedTarget = params.get('target') || '';
     const start = params.get('start');
     const end = params.get('end');
     const targetSr = params.get('sr') || params.get('callId');
+
+    if (targetSr) {
+      const cleanSr = String(targetSr).replace(/^call-/, '');
+      setSearchQuery('');
+      setGlobalSearchQuery('');
+      callStreamService.setSearchQuery('');
+      setViewMode('team');
+      callStreamService.setViewMode('team');
+      setTopBarCompany('all');
+      callStreamService.selectCompany('all');
+      setStatusFilter('all');
+      callStreamService.setStatusFilter('all');
+      setFilterBy('');
+      setDateRangeObj(null);
+      callStreamService.setDateRange(null);
+      callStreamService.selectThread(`call-${cleanSr}`);
+      return;
+    }
 
     if (savedSearch) {
       setSearchQuery(savedSearch);
@@ -461,9 +607,14 @@ export default function ChatWorkspace() {
       callStreamService.setViewMode(savedView);
     }
     if (savedCompany && savedCompany !== 'all') {
-      setSelectedCompany(savedCompany);
       setTopBarCompany(savedCompany);
-      callStreamService.selectCompany(savedCompany);
+    } else {
+      setTopBarCompany('all');
+    }
+    if (savedRailCompany && savedRailCompany !== 'all') {
+      callStreamService.selectCompany(savedRailCompany);
+    } else {
+      callStreamService.selectCompany('all');
     }
     if (savedStatus && savedStatus !== 'all') {
       setStatusFilter(savedStatus);
@@ -476,10 +627,14 @@ export default function ChatWorkspace() {
       const range = { start: new Date(start), end: new Date(end) };
       setDateRangeObj(range);
       callStreamService.setDateRange({ ...range, field: savedTarget || 'date' });
-    }
-    if (targetSr) {
-      const cleanSr = String(targetSr).replace(/^call-/, '');
-      callStreamService.selectThread(`call-${cleanSr}`);
+    } else {
+      const today = new Date();
+      const todayRange = {
+        start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+        end: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+      };
+      setDateRangeObj(todayRange);
+      callStreamService.setDateRange({ ...todayRange, field: savedTarget || 'date' });
     }
   }, []);
 
@@ -489,32 +644,24 @@ export default function ChatWorkspace() {
     const newParams = new URLSearchParams();
     if (searchQuery) newParams.set('search', searchQuery);
     if (viewMode && viewMode !== 'team') newParams.set('view', viewMode);
-    const activeCompany =
-      topBarCompany && topBarCompany !== 'all'
-        ? topBarCompany
-        : selectedCompany && selectedCompany !== 'all'
-          ? selectedCompany
-          : '';
-    if (activeCompany) {
-      newParams.set('company', Array.isArray(activeCompany) ? activeCompany.join(',') : activeCompany);
+    if (topBarCompany && topBarCompany !== 'all') {
+      newParams.set('company', Array.isArray(topBarCompany) ? topBarCompany.join(',') : topBarCompany);
+    }
+    if (selectedCompany && selectedCompany !== 'all') {
+      newParams.set('railCompany', Array.isArray(selectedCompany) ? selectedCompany.join(',') : selectedCompany);
     }
     if (statusFilter && statusFilter !== 'all') {
       newParams.set('status', Array.isArray(statusFilter) ? statusFilter.join(',') : statusFilter);
-    } else if (statusFilter === 'all') {
-      newParams.set('status', 'all');
     }
     if (filterBy) newParams.set('target', filterBy);
     if (dateRangeObj?.start) newParams.set('start', formatLocalDateToYYYYMMDD(dateRangeObj.start));
     if (dateRangeObj?.end) newParams.set('end', formatLocalDateToYYYYMMDD(dateRangeObj.end));
 
-    // Preserve and synchronize current call sr if selected
-    if (activeThreadId) {
-      const cleanSr = String(activeThreadId).replace(/^call-/, '');
-      newParams.set('sr', cleanSr);
-    } else {
-      const existingSr = currentParams.get('sr') || currentParams.get('callId');
-      if (existingSr) newParams.set('sr', existingSr.replace(/^call-/, ''));
-    }
+    // Keep an incoming call deep link while no thread is selected yet. Do not
+    // add sr from the active thread: that turns normal chat selection into a
+    // deep link on refresh and can override the current date range.
+    const existingSr = currentParams.get('sr') || currentParams.get('callId');
+    if (existingSr && !activeThreadId) newParams.set('sr', existingSr.replace(/^call-/, ''));
 
     const newQueryStr = newParams.toString();
     const currentQueryStr = currentParams.toString();
@@ -533,15 +680,36 @@ export default function ChatWorkspace() {
     }
     const params = new URLSearchParams(location.search);
     const savedSearch = params.get('search') || params.get('searchQuery') || '';
+    const savedView = params.get('view') || 'team';
+    const savedCompany = params.get('company') || params.get('companyStatus') || 'all';
+    const savedRailCompany = params.get('railCompany') || 'all';
+    const savedTarget = params.get('target') || '';
+    const start = params.get('start');
+    const end = params.get('end');
     if (savedSearch !== searchQuery) {
       setSearchQuery(savedSearch);
       callStreamService.setSearchQuery(savedSearch);
       setGlobalSearchQuery(savedSearch);
     }
+    if (savedView !== viewMode) {
+      setViewMode(savedView);
+      callStreamService.setViewMode(savedView);
+    }
+    if (savedCompany !== topBarCompany) setTopBarCompany(savedCompany);
+    if (savedRailCompany !== selectedCompany) {
+      setSelectedCompany(savedRailCompany);
+      callStreamService.selectCompany(savedRailCompany);
+    }
+    if (savedTarget !== filterBy) setFilterBy(savedTarget);
     const externalSr = params.get('sr') || params.get('callId');
+    const cleanSr = externalSr ? String(externalSr).replace(/^call-/, '') : '';
+    const targetId = cleanSr ? `call-${cleanSr}` : '';
+    const shouldHandleExternalSr = Boolean(externalSr && lastHandledExternalSrRef.current !== cleanSr);
     if (externalSr) {
-      const cleanSr = String(externalSr).replace(/^call-/, '');
-      const targetId = `call-${cleanSr}`;
+      if (shouldHandleExternalSr) {
+        lastHandledExternalSrRef.current = cleanSr;
+        lastFilterKeyRef.current = '|||||';
+      }
       if (callStreamService.activeThreadId$.getValue() !== targetId) {
         callStreamService.selectThread(targetId);
       }
@@ -551,9 +719,63 @@ export default function ChatWorkspace() {
     } else if (params.get('queue') === '0') {
       setIsQueueOpen(false);
     }
+    if (shouldHandleExternalSr) {
+      // If this is a newly selected deep-linked call, clear list filters once.
+      setSearchQuery('');
+      setGlobalSearchQuery('');
+      callStreamService.setSearchQuery('');
+      setViewMode('team');
+      callStreamService.setViewMode('team');
+      setTopBarCompany('all');
+      setSelectedCompany('all');
+      callStreamService.selectCompany('all');
+      setStatusFilter('all');
+      callStreamService.setStatusFilter('all');
+      setFilterBy('');
+      setDateRangeObj(null);
+      callStreamService.setDateRange(null);
+      const currentThreads = callStreamService.threads$.getValue() || [];
+      const callExists = currentThreads.some((thread) => String(thread.sr) === cleanSr);
+      if (!callExists && requestedCallSrRef.current !== cleanSr) {
+        requestedCallSrRef.current = cleanSr;
+        CallLogApi.getCallLogs({ searchTerm: cleanSr })
+          .then((result) => {
+            const latestParams = new URLSearchParams(window.location.search);
+            const latestSr = latestParams.get('sr') || latestParams.get('callId');
+            if (String(latestSr || '').replace(/^call-/, '') !== cleanSr || !Array.isArray(result?.rd)) return;
+            const matchingCalls = result.rd.filter((record) => String(record.sr || record.id) === cleanSr);
+            if (matchingCalls.length === 0) return;
+            const existingRecords = (callStreamService.threads$.getValue() || []).map((thread) => thread.rawRecord || thread);
+            workspaceOwnsDataRef.current = true;
+            callStreamService.initData([...matchingCalls, ...existingRecords]);
+            callStreamService.selectThread(targetId);
+          })
+          .catch((error) => console.error('Failed to fetch linked call:', error));
+      }
+      return;
+    }
+    if (start && end) {
+      const nextRange = { start: new Date(start), end: new Date(end) };
+      setDateRangeObj((current) => {
+        if (
+          current?.start && current?.end &&
+          new Date(current.start).getTime() === nextRange.start.getTime() &&
+          new Date(current.end).getTime() === nextRange.end.getTime()
+        ) return current;
+        return nextRange;
+      });
+      callStreamService.setDateRange({ ...nextRange, field: savedTarget || 'date' });
+    } else if (!externalSr) {
+      const today = new Date();
+      const todayRange = {
+        start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+        end: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+      };
+      setDateRangeObj(todayRange);
+      callStreamService.setDateRange({ ...todayRange, field: savedTarget || 'date' });
+    }
     const paramStatus = params.get('status');
-    const targetSr = params.get('sr') || params.get('callId');
-    const savedStatus = paramStatus !== null ? paramStatus : (targetSr ? 'all' : 44);
+    const savedStatus = paramStatus !== null ? paramStatus : 44;
     if (savedStatus !== statusFilter) {
       setStatusFilter(savedStatus);
     }
@@ -1007,6 +1229,7 @@ export default function ChatWorkspace() {
             isForwarded: isForwarded,
             callerName: rec.callBy,
             companyName: rec.company,
+            topicRaisedBy: getCallSource(fu) || getCallSource(rec),
           };
 
           items.push({
@@ -1254,6 +1477,8 @@ export default function ChatWorkspace() {
   }, []);
 
   const handleSelectCompany = useCallback((compName) => {
+    // Rail selection filters the calls locally; keep the broader result set
+    // available so other companies and their counts remain visible.
     callStreamService.selectCompany(compName);
   }, []);
 
@@ -1644,11 +1869,11 @@ export default function ChatWorkspace() {
           onOpen={() => setShowCompanies(true)}
           isCallsOpen={showCallsList}
           onOpenCalls={() => setShowCallsList(true)}
-          companies={companies}
+          companies={visibleCompanies}
           selectedCompany={selectedCompany}
           onSelectCompany={handleSelectCompany}
           onClearAll={handleClearAllFilters}
-          totalCallsCount={threads.length}
+          totalCallsCount={countScopeThreads.length}
           isLoading={isLoading}
         />
 
@@ -1660,6 +1885,8 @@ export default function ChatWorkspace() {
           isCompaniesOpen={showCompanies}
           onOpenCompanies={() => setShowCompanies(true)}
           threads={threads}
+          companies={visibleCompanies}
+          overallCallsCount={countScopeThreads.length}
           activeThreadId={activeThreadId}
           onSelectThread={handleSelectThread}
           searchQuery={searchQuery}
@@ -1749,9 +1976,6 @@ export default function ChatWorkspace() {
           }}
         />
       )}
-
-      {/* Toast Notification Container */}
-      <Toaster position="bottom-right" closeButton />
     </Box>
   );
 }

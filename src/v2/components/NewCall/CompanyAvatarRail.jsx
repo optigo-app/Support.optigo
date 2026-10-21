@@ -31,8 +31,7 @@ export default function CompanyAvatarRail({
   totalCallsCount = 0,
   isLoading = false,
 }) {
-  const [viewMode, setViewMode] = useState('list'); // 'list' (expanded) | 'circle' (compact)
-
+  const [viewMode, setViewMode] = useState('list');
   const isListMode = viewMode === 'list';
   const targetWidth = isListMode ? 190 : 72;
 
@@ -259,7 +258,7 @@ export default function CompanyAvatarRail({
                   return (
                     <Box
                       key={comp.id}
-                      onClick={() => onSelectCompany(comp.projectId || comp.name)}
+                      onClick={() => onSelectCompany(comp.name)}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
@@ -384,7 +383,7 @@ export default function CompanyAvatarRail({
                       arrow
                     >
                       <Box
-                        onClick={() => onSelectCompany(comp.projectId || comp.name)}
+                        onClick={() => onSelectCompany(comp.name)}
                         sx={{
                           display: 'flex',
                           flexDirection: 'column',
