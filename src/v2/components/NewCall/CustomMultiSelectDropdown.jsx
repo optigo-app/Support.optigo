@@ -70,6 +70,7 @@ export default function CustomMultiSelectDropdown({
   selectedValues = [], // Array of selected string values
   onChange,
   triggerStyle = {},
+  singleSelect = false,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,6 +152,7 @@ export default function CustomMultiSelectDropdown({
     tempSelected.length > 0 && tempSelected.length < normalizedOptions.length;
 
   const handleToggleAll = () => {
+    if (singleSelect) return;
     if (allSelected) {
       setTempSelected([]);
     } else {
@@ -160,13 +162,14 @@ export default function CustomMultiSelectDropdown({
 
   const handleToggleItem = useCallback((id) => {
     setTempSelected((prev) => {
+      if (singleSelect) return prev.includes(id) ? [] : [id];
       if (prev.includes(id)) {
         return prev.filter((v) => v !== id);
       } else {
         return [...prev, id];
       }
     });
-  }, []);
+  }, [singleSelect]);
 
   // Trigger button label display
   const triggerLabel = useMemo(() => {
@@ -333,6 +336,8 @@ export default function CustomMultiSelectDropdown({
           </Box>
         </Box>
 
+        {!singleSelect && (
+        <>
         {/* Select All Option Row */}
         <Box sx={{ px: 1.5, py: 0.4 }}>
           <Box
@@ -393,6 +398,8 @@ export default function CustomMultiSelectDropdown({
         </Box>
 
         <Box sx={{ borderBottom: '1px solid #F1F5F9', my: 0.5 }} />
+        </>
+        )}
 
         {/* Scrollable Items List */}
         <Box

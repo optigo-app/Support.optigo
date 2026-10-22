@@ -535,9 +535,9 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
       const loggedUser = `${user.firstname} ${user.lastname}`.toLowerCase();
       filtered = filtered.filter(
         (call) =>
-          (call.receivedBy && call.receivedBy.toLowerCase() === loggedUser) ||
+          (call.receivedBy && String(call.receivedBy).toLowerCase() === loggedUser) ||
           (call.AssignedEmpName &&
-            call.AssignedEmpName.toLowerCase() === loggedUser),
+            String(call.AssignedEmpName).toLowerCase() === loggedUser),
       );
     } else if (viewMode === "followUp-Pending") {
       filtered = filtered.filter((call) => {

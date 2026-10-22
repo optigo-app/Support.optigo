@@ -32,6 +32,7 @@ import {
   Tag,
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useCallLog } from '../../context/UseCallLog';
 import { useAuth } from '../../context/UseAuth';
 import { callStreamService } from './services/callStreamService';
@@ -46,6 +47,29 @@ function formatFileSize(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+const SAFE_ATTACHMENT_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif',
+  'mp4', 'm4v', 'mov', 'avi', 'wmv', 'flv', 'mkv', 'webm', 'ogv', '3gp',
+  'mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac', 'opus', 'wma',
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'rtf', 'json', 'ppt', 'pptx',
+]);
+
+function isAllowedAttachment(file) {
+  const name = String(file?.name || '');
+  const extension = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+  const mimeType = String(file?.type || '').toLowerCase();
+  const blockedExtension = /\.(svg|html?|xhtml|js|mjs|cjs|jsx|ts|tsx|exe|dll|msi|bat|cmd|ps1|sh|vbs|vbe|scr|com|jar|app|apk|dmg|iso|lnk|url)$/i;
+  const blockedMime = /^(application\/(x-msdownload|x-executable|x-dosexec|javascript|x-javascript)|text\/(html|javascript)|image\/svg\+xml)/i;
+
+  if (!file || blockedExtension.test(name) || blockedMime.test(mimeType)) return false;
+  if (/^(image|video|audio)\//.test(mimeType)) return true;
+  if (mimeType && mimeType !== 'application/octet-stream' && mimeType !== 'application/zip') {
+    const safeDocumentMime = /^(application\/(pdf|msword|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet|presentationml\.presentation)|vnd\.ms-excel|vnd\.ms-powerpoint|rtf|json)|text\/(plain|csv|rtf))/;
+    if (!safeDocumentMime.test(mimeType)) return false;
+  }
+  return SAFE_ATTACHMENT_EXTENSIONS.has(extension);
 }
 
 function getFileIcon(fileName = '', mimeType = '') {
@@ -175,9 +199,15 @@ const MessageComposer = React.memo(function MessageComposer({
   const handleSelectFiles = useCallback((filesArray) => {
     if (!filesArray || filesArray.length === 0) return;
 
+    const allowedFiles = filesArray.filter(isAllowedAttachment);
+    if (allowedFiles.length !== filesArray.length) {
+      toast.error('Some files were not added. Choose media or a supported document type.');
+    }
+    if (allowedFiles.length === 0) return;
+
     setSelectedFiles((prev) => {
       const newFiles = [...prev];
-      for (const f of filesArray) {
+      for (const f of allowedFiles) {
         let url = null;
         if (f.type && (f.type.startsWith('image/') || f.type.startsWith('video/'))) {
           url = URL.createObjectURL(f);
@@ -622,7 +652,7 @@ const MessageComposer = React.memo(function MessageComposer({
         multiple
         ref={fileInputRef}
         onChange={handleFileInputChange}
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.ppt,.pptx,.zip,.rar"
+        accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.avif,.heic,.heif,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.json,.ppt,.pptx"
         style={{ display: 'none' }}
       />
 

@@ -24,6 +24,8 @@ import {
 } from './rxjs/newCallEvents';
 import { callStreamService } from './services/callStreamService';
 
+const normalizeText = (value) => String(value ?? '').trim().toLowerCase();
+
 export default function NewCallEditModal() {
   const modalState = useNewCallSubject(editCallModal$);
   const { open, call } = modalState || {};
@@ -52,9 +54,8 @@ export default function NewCallEditModal() {
       const companyObj =
         companyOptions?.find(
           (option) =>
-            option?.label?.split('/')?.[0]?.toLowerCase() ===
-              (callData?.company || '').toLowerCase() ||
-            option?.label?.toLowerCase() === (callData?.company || '').toLowerCase() ||
+            normalizeText(option?.label).split('/')[0] === normalizeText(callData?.company) ||
+            normalizeText(option?.label) === normalizeText(callData?.company) ||
             String(option?.value) ===
               String(callData?.projectID || callData?.ProjectID || callData?.company)
         ) || null;
@@ -68,8 +69,8 @@ export default function NewCallEditModal() {
       const callTypeObj =
         CALL_TYPE_MASTER?.find(
           (option) =>
-            option?.label?.toLowerCase() ===
-              (callData?.CallType || callData?.callType || '').toLowerCase() ||
+            normalizeText(option?.label) ===
+              normalizeText(callData?.CallType ?? callData?.callType) ||
             String(option?.value) === String(callData?.CallType || callData?.callType)
         ) || null;
 
@@ -80,7 +81,7 @@ export default function NewCallEditModal() {
         } else {
           const receivedByPerson = forwardOption?.find(
             (option) =>
-              option?.person?.toLowerCase() === String(callData?.receivedBy).toLowerCase() ||
+              normalizeText(option?.person) === normalizeText(callData?.receivedBy) ||
               option?.id?.split(',')?.[1] === String(callData?.receivedBy)
           );
 
@@ -105,13 +106,13 @@ export default function NewCallEditModal() {
         const forwardPerson = forwardOption?.find(
           (option) =>
             option?.id === callData.forward ||
-            option?.person?.toLowerCase() === (callData?.AssignedEmpName || '').toLowerCase()
+            normalizeText(option?.person) === normalizeText(callData?.AssignedEmpName)
         );
         forwardToValue = forwardPerson || null;
       } else if (callData?.AssignedEmpName) {
         const forwardPerson = forwardOption?.find(
           (option) =>
-            option?.person?.toLowerCase() === (callData.AssignedEmpName || '').toLowerCase() ||
+            normalizeText(option?.person) === normalizeText(callData.AssignedEmpName) ||
             option?.id === `${callData?.DeptId},${callData?.EmpId}`
         );
         forwardToValue = forwardPerson || null;
@@ -129,21 +130,21 @@ export default function NewCallEditModal() {
         STATUS_LIST?.find(
           (s) =>
             String(s.value) === String(callData?.StatusID || callData?.statusId) ||
-            s.label?.toLowerCase() === String(callData?.status || callData?.Status || '').toLowerCase()
+            normalizeText(s.label) === normalizeText(callData?.status ?? callData?.Status)
         ) || null;
 
       const estatusObj =
         ESTATUS_LIST?.find(
           (e) =>
             String(e.value) === String(callData?.EStatusId || callData?.estatusId) ||
-            e.label?.toLowerCase() === String(callData?.Estatus || callData?.estatus || '').toLowerCase()
+            normalizeText(e.label) === normalizeText(callData?.Estatus ?? callData?.estatus)
         ) || null;
 
       const priorityObj =
         PRIORITY_LIST?.find(
           (p) =>
             String(p.value) === String(callData?.PriorityId || callData?.priorityId) ||
-            p.label?.toLowerCase() === String(callData?.priority || callData?.Priority || '').toLowerCase()
+            normalizeText(p.label) === normalizeText(callData?.priority ?? callData?.Priority)
         ) || null;
 
       setFormData({
@@ -199,12 +200,12 @@ export default function NewCallEditModal() {
   };
 
   const filterForwardOptions = (options, { inputValue }) => {
-    const query = inputValue?.toLowerCase()?.trim() || '';
+    const query = normalizeText(inputValue);
     if (!query) return options;
 
     const keywords = query.split(' ').filter(Boolean);
     return options.filter((option) => {
-      const fullText = `${option?.designation || ''} ${option?.person || ''}`.toLowerCase();
+      const fullText = normalizeText(`${option?.designation || ''} ${option?.person || ''}`);
       return keywords.every((word) => fullText.includes(word));
     });
   };
@@ -227,7 +228,7 @@ export default function NewCallEditModal() {
 
       const sr = callData?.sr || callData?.id;
       if (!sr) {
-        // toast.error('Missing call log reference');
+        toast.error('Call log ID is missing; the call was not updated.');
         return;
       }
 
@@ -262,7 +263,7 @@ export default function NewCallEditModal() {
           result?.msg?.stat_msg ||
           result?.error?.message ||
           'You do not have permission to edit this call.';
-        // toast.error(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
@@ -285,12 +286,12 @@ export default function NewCallEditModal() {
         AssignedEmpName: formData?.forwardTo?.person || callData?.AssignedEmpName,
       });
 
-      // toast.success('Call log updated successfully');
+      toast.success('Call log updated successfully.');
       if (triggerRefresh) triggerRefresh();
       closeEditCallModal();
     } catch (error) {
       console.error('Error editing call:', error);
-      // toast.error('An error occurred while saving.');
+      toast.error(error?.message || 'An error occurred while saving the call.');
     } finally {
       setSaving(false);
     }

@@ -6,6 +6,7 @@ import { SideBarTheme } from "../../libs/DateTheme";
 import { useCallLog } from "../../context/UseCallLog";
 import { formatTimeX } from "../../libs/formatTime";
 import { useAuth } from "../../context/UseAuth";
+const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
 
 export default function EditCallLogDrawer({ open, onClose, callData, showNotification }) {
 	const [formData, setFormData] = useState({});
@@ -18,11 +19,11 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 
 	useEffect(() => {
 		if (open && callData) {
-			const companyObj = companyOptions?.find((option) => option?.label?.split("/")?.[0]?.toLocaleLowerCase() === callData?.company?.toLocaleLowerCase() || null);
+			const companyObj = companyOptions?.find((option) => normalizeText(option?.label).split("/")[0] === normalizeText(callData?.company) || null);
 			const appnameObj = APPNAME_LIST?.find((option) => option?.AppName === callData?.appname || option?.AppId === callData?.appname);
 			const callTypeObj = CALL_TYPE_MASTER?.find(
 				(option) =>
-					option?.label?.toLowerCase() === callData?.CallType?.toLowerCase() ||
+					normalizeText(option?.label) === normalizeText(callData?.CallType) ||
 					option?.value === callData?.CallType
 			);
 			let receivedByValue = null;
@@ -103,7 +104,7 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 	};
 
 	const filterForwardOptions = (options, { inputValue }) => {
-		const query = inputValue?.toLowerCase()?.trim() || "";
+		const query = normalizeText(inputValue);
 		if (!query) return options;
 
 		const keywords = query?.split(" ").filter(Boolean);
@@ -157,7 +158,7 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 			}
 		} catch (error) {
 			console.error("Error editing call:", error);
-			showNotification?.("An error occurred while saving.", "error");
+			showNotification?.(error?.message || "An error occurred while saving the call.", "error");
 		} finally {
 			setSaving(false);
 		}

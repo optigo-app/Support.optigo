@@ -507,8 +507,12 @@ export function CallLogProvider(props) {
           updatedFields.CallType,
           updatedFields.AppId,
         );
-        const statusObj = data?.rd?.[0];
-        if (statusObj?.stat === 0 || statusObj?.stat_code === 1001) {
+        const responseData = data?.Data ?? data?.data?.Data ?? data?.data ?? data;
+        const statusObj = responseData?.rd?.[0] ?? responseData?.rd1?.[0] ?? null;
+        const isRejected =
+          Number(statusObj?.stat) === 0 || Number(statusObj?.stat_code) === 1001 ||
+          statusObj?.success === false;
+        if (isRejected) {
           return { success: false, msg: statusObj };
         }
         if (statusObj?.sr) {

@@ -45,6 +45,15 @@ try {
     "utf8",
   );
 
+  // Publish the same version as a no-cache polling endpoint for the update prompt.
+  const publicDir = path.join(__dirname, "../public");
+  fs.mkdirSync(publicDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(publicDir, "version.json"),
+    JSON.stringify({ ...versionData, buildTime: new Date().toISOString() }, null, 2),
+    "utf8",
+  );
+
   console.log(`[Version Control] Bumped version to ${newVersion}`);
 } catch (error) {
   console.error("[Version Control] Error running prebuild version bump:", error);

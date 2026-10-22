@@ -461,6 +461,7 @@ export default function TopBar({
           {/* 6. Custom Multi-Select Filter By */}
           <CustomMultiSelectDropdown
             title="Filter By"
+            singleSelect
             options={[
               { id: 'date', label: 'Date' },
               { id: 'callStart', label: 'Call Start' },

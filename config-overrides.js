@@ -1,4 +1,5 @@
-const path = require('path');
+const path = require('node:path');
+const webpack = require('webpack');
 
 module.exports = function override(config) {
   // 1. Fix 'util' polyfill required by ag-psd (used by @eternalheart/react-file-preview)
@@ -57,6 +58,15 @@ module.exports = function override(config) {
   }
 
   const targetEntry = path.resolve(__dirname, `src/${activeVersion}/index.js`);
+
+  // Keep the running bundle's version comparable with public/version.json.
+  // The prebuild script updates package.json before production compilation.
+  const packageVersion = require('./package.json').version;
+  config.plugins.push(
+    new webpack.DefinePlugin({
+      'window.__APP_VERSION__': JSON.stringify(`v${packageVersion}`),
+    })
+  );
 
   if (Array.isArray(config.entry)) {
     config.entry = config.entry.map((entryPath) =>

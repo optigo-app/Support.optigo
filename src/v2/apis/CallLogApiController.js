@@ -24,6 +24,8 @@ class CallLogApi extends BaseAPI {
   static async getCallLogs({
     statusId,
     projectId,
+    statusIds,
+    projectIds,
     filter,
     startDate,
     endDate,
@@ -31,8 +33,8 @@ class CallLogApi extends BaseAPI {
   }) {
     try {
       const params = {
-        StatusId: statusId,
-        ProjectID: projectId,
+        ...(statusIds !== undefined ? { StatusIds: statusIds } : { StatusId: statusId }),
+        ...(projectIds !== undefined ? { ProjectIds: projectIds } : { ProjectID: projectId }),
         Filter: filter,
         StartDate: startDate,
         EndDate: endDate,

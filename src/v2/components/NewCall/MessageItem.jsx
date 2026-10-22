@@ -640,6 +640,7 @@ export default function MessageItem({ message }) {
 
   // 6. Comments & Remarks Entry (With distinct Comment Chip & Attachment Pill)
   if (message.isComment) {
+    const isClientComment = Number(message.IsClient ?? message.isClient) === 1;
     const initials = message.sender
       ? message.sender.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
       : 'RP';
@@ -648,6 +649,7 @@ export default function MessageItem({ message }) {
       <Box
         sx={{
           display: 'flex',
+          justifyContent: isClientComment ? 'flex-start' : 'flex-end',
           alignItems: 'flex-start',
           gap: 1.5,
           px: 3,
@@ -678,13 +680,14 @@ export default function MessageItem({ message }) {
             fontWeight: 800,
             flexShrink: 0,
             mt: 0.2,
+            order: isClientComment ? 0 : 1,
           }}
         >
           {initials}
         </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
+        <Box sx={{ flex: '0 1 75%', minWidth: 0, order: isClientComment ? 1 : 0, display: 'flex', flexDirection: 'column', alignItems: isClientComment ? 'flex-start' : 'flex-end' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4, flexDirection: isClientComment ? 'row' : 'row-reverse' }}>
             <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>
               {message.sender}
             </Typography>
@@ -724,6 +727,7 @@ export default function MessageItem({ message }) {
                 color: '#1E293B',
                 border: '1px solid #E2E8F0',
                 borderRadius: '4px 14px 14px 14px',
+                ...(isClientComment ? {} : { borderRadius: '14px 4px 14px 14px' }),
                 fontSize: 13,
                 lineHeight: 1.5,
                 wordBreak: 'break-word',

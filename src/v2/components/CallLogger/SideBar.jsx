@@ -19,6 +19,8 @@ import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "../../context/UseAuth";
 import { addCustomerName, searchCustomerNames } from "../../libs/db";
 
+const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
+
 const INITIAL_FORM_STATE = {
   id: uuidv4(),
   date: "",
@@ -68,9 +70,9 @@ export default function CallLogDrawer({
         if (defaultCompany) {
           const matched = companyOptions?.find(
             (opt) =>
-              opt?.label?.toLowerCase() === String(defaultCompany).toLowerCase() ||
+              normalizeText(opt?.label) === normalizeText(defaultCompany) ||
               opt?.value === String(defaultCompany) ||
-              opt?.label?.split("/")?.[0]?.toLowerCase() === String(defaultCompany).toLowerCase()
+              normalizeText(opt?.label).split("/")[0] === normalizeText(defaultCompany)
           );
           initialCompany = matched ? matched.value : defaultCompany;
         }
@@ -93,9 +95,9 @@ export default function CallLogDrawer({
       } else {
         const companyMatch = companyOptions?.find(
           (option) =>
-            option?.label?.toLowerCase() === String(data?.company || "").toLowerCase() ||
+            normalizeText(option?.label) === normalizeText(data?.company) ||
             option?.value === String(data?.company || data?.ProjectID || "") ||
-            option?.label?.split("/")?.[0]?.toLowerCase() === String(data?.company || "").toLowerCase()
+            normalizeText(option?.label).split("/")[0] === normalizeText(data?.company)
         );
         const companyValue = companyMatch?.value || data?.ProjectID || data?.company || "";
         const appnameValue =
@@ -192,9 +194,9 @@ export default function CallLogDrawer({
       const trimmed = newValue.trim();
       const matched = companyOptions?.find(
         (opt) =>
-          opt?.label?.toLowerCase() === trimmed.toLowerCase() ||
+          normalizeText(opt?.label) === normalizeText(trimmed) ||
           opt?.value === trimmed ||
-          opt?.label?.split("/")?.[0]?.toLowerCase() === trimmed.toLowerCase()
+          normalizeText(opt?.label).split("/")[0] === normalizeText(trimmed)
       );
       setFormData((prev) => ({
         ...prev,
@@ -320,8 +322,8 @@ export default function CallLogDrawer({
       ? companyOptions?.find(
           (option) =>
             option?.value === String(formData?.company) ||
-            option?.label?.toLowerCase() === String(formData?.company).toLowerCase() ||
-            option?.label?.split("/")?.[0]?.toLowerCase() === String(formData?.company).toLowerCase()
+            normalizeText(option?.label) === normalizeText(formData?.company) ||
+            normalizeText(option?.label).split("/")[0] === normalizeText(formData?.company)
         ) || {
           label:
             companyOptions?.find((o) => o?.value === String(formData?.company))?.label ||
@@ -394,7 +396,7 @@ export default function CallLogDrawer({
   } = derivedSelections;
 
   const filterForwardOptions = (options, { inputValue }) => {
-    const query = inputValue?.toLowerCase()?.trim() || "";
+    const query = normalizeText(inputValue);
     if (!query) return options;
 
     const keywords = query?.split(" ").filter(Boolean);
@@ -529,7 +531,7 @@ export default function CallLogDrawer({
               isOptionEqualToValue={(option, value) => {
                 if (!option || !value) return false;
                 if (typeof value === "string") {
-                  return option?.value === value || option?.label?.toLowerCase() === value.toLowerCase();
+                  return option?.value === value || normalizeText(option?.label) === normalizeText(value);
                 }
                 return option?.value === value?.value || option?.label === value?.label;
               }}

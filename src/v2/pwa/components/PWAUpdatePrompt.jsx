@@ -1,73 +1,100 @@
-import React from "react";
-import { Box, Typography, Button, Snackbar, Paper } from "@mui/material";
-import SystemUpdateAltRoundedIcon from "@mui/icons-material/SystemUpdateAltRounded";
+import React, { useCallback, useEffect, useState } from "react";
+import { Box, Button, Divider, Fade, IconButton, Typography } from "@mui/material";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import AutoModeRoundedIcon from "@mui/icons-material/AutoModeRounded";
 import { usePWA } from "../hooks/usePWA";
+import useSWVersionChecker from "../hooks/useSWVersionChecker";
+
+const DISMISSED_VERSION_KEY = "app_update_dismissed_version";
 
 export default function PWAUpdatePrompt() {
-	const { updateAvailable, applyUpdate } = usePWA();
+	const { updateAvailable } = usePWA();
+	const [availableVersion, setAvailableVersion] = useState("");
+	const [open, setOpen] = useState(false);
+	const [updating, setUpdating] = useState(false);
+	useSWVersionChecker();
 
-	if (!updateAvailable) return null;
+	const showUpdate = useCallback((version) => {
+		const normalizedVersion = typeof version === "string" ? version : "";
+		let dismissedVersion = "";
+		try { dismissedVersion = localStorage.getItem(DISMISSED_VERSION_KEY) || ""; } catch {}
+		if (normalizedVersion && dismissedVersion === normalizedVersion) return;
+		setAvailableVersion(normalizedVersion);
+		setOpen(true);
+	}, []);
+
+	useEffect(() => {
+		const handleNewVersion = (event) => showUpdate(event.detail?.version);
+		window.addEventListener("NEW_VERSION_AVAILABLE", handleNewVersion);
+		return () => window.removeEventListener("NEW_VERSION_AVAILABLE", handleNewVersion);
+	}, [showUpdate]);
+
+	useEffect(() => {
+		if (updateAvailable) showUpdate("");
+	}, [showUpdate, updateAvailable]);
+
+	const handleClose = () => {
+		if (availableVersion) {
+			try { localStorage.setItem(DISMISSED_VERSION_KEY, availableVersion); } catch {}
+		}
+		setOpen(false);
+	};
+
+	const handleUpdate = async () => {
+		if (updating) return;
+		setUpdating(true);
+		try {
+			if ("caches" in window) {
+				const cacheNames = await caches.keys();
+				await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+			}
+		} catch {
+			// A cache cleanup failure should not block the reload.
+		} finally {
+			const url = new URL(window.location.href);
+			url.searchParams.set("_v", String(Date.now()));
+			window.location.replace(url.toString());
+		}
+	};
+
+	if (!open) return null;
 
 	return (
-		<Snackbar open={updateAvailable} anchorOrigin={{ vertical: "bottom", horizontal: "center" }} sx={{ bottom: { xs: 20, sm: 30 }, zIndex: 10000 }}>
-			<Paper
-				elevation={0}
+		<Fade in={open}>
+			<Box
+				component="output"
+				aria-live="polite"
 				sx={{
-					bgcolor: "rgba(29, 29, 31, 0.94)",
-					backdropFilter: "blur(25px) saturate(180%)",
-					color: "#FFFFFF",
-					borderRadius: "16px",
-					boxShadow: "0 20px 48px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.12)",
-					display: "flex",
-					alignItems: "center",
-					gap: 2,
-					py: 1.2,
-					px: 2.2,
-					fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif',
+					position: "fixed", top: { xs: 12, sm: 20 }, left: "50%", transform: "translateX(-50%)",
+					width: "max-content", minWidth: 280, maxWidth: "calc(100vw - 24px)", zIndex: 1500,
+					bgcolor: "background.paper", color: "text.primary", borderRadius: 2, overflow: "hidden",
+					boxShadow: "0 8px 30px rgba(15, 23, 42, .18), 0 0 0 1px rgba(15, 23, 42, .08)",
 				}}
 			>
-				<Box
-					sx={{
-						width: 32,
-						height: 32,
-						borderRadius: "8px",
-						bgcolor: "rgba(255, 255, 255, 0.12)",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						flexShrink: 0,
-					}}
-				>
-					<SystemUpdateAltRoundedIcon sx={{ fontSize: 18, color: "#0071E3" }} />
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.75, py: 1.2 }}>
+					<AutoModeRoundedIcon color="success" fontSize="small" />
+					<Typography sx={{ flex: 1, fontSize: 14, fontWeight: 600 }}>
+						Update available{availableVersion ? ` — version ${availableVersion}` : ""}
+					</Typography>
+					<IconButton size="small" aria-label="Dismiss update notification" onClick={handleClose}>
+						<CloseRoundedIcon fontSize="small" />
+					</IconButton>
 				</Box>
-
-				<Box sx={{ minWidth: 0 }}>
-					<Typography sx={{ fontWeight: 650, fontSize: "0.86rem", color: "#FFFFFF", lineHeight: 1.25 }}>New version available</Typography>
-					<Typography sx={{ fontSize: "0.74rem", color: "#A1A1A6", mt: 0.2 }}>Update to apply the latest improvements & fixes.</Typography>
+				<Divider />
+				<Box sx={{ display: "flex", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, px: 1.75, py: 1.25, bgcolor: "action.hover" }}>
+					<Typography sx={{ flex: 1, fontSize: 13, color: "text.secondary" }}>
+						Install the latest improvements and fixes.
+					</Typography>
+					<Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+						<Button size="small" variant="outlined" disabled={updating} onClick={handleClose} sx={{ textTransform: "none" }}>
+							Later
+						</Button>
+						<Button size="small" variant="contained" disabled={updating} onClick={handleUpdate} sx={{ textTransform: "none" }}>
+							{updating ? "Updating…" : "Update"}
+						</Button>
+					</Box>
 				</Box>
-
-				<Button
-					size="small"
-					onClick={applyUpdate}
-					variant="contained"
-					sx={{
-						bgcolor: "#0071E3",
-						color: "#FFFFFF",
-						textTransform: "none",
-						fontWeight: 650,
-						fontSize: "0.8rem",
-						borderRadius: "9px",
-						px: 1.8,
-						py: 0.5,
-						boxShadow: "0 2px 8px rgba(0, 113, 227, 0.4)",
-						"&:hover": {
-							bgcolor: "#0077ED",
-						},
-					}}
-				>
-					Update Now
-				</Button>
-			</Paper>
-		</Snackbar>
+			</Box>
+		</Fade>
 	);
 }

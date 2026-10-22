@@ -704,7 +704,7 @@ class CallStreamService {
       time: rawTime,
       Name: commentObj.Name || commentObj.CreatedByName || 'Support Agent',
       CreatedBy: commentObj.CreatedBy,
-      IsClient: commentObj.IsClient ?? 0,
+      IsClient: commentObj.IsClient ?? commentObj.isClient ?? 0,
       img: commentObj.img || commentObj.FilePath || '',
       FilePath: commentObj.img || commentObj.FilePath || '',
     };

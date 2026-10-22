@@ -43,6 +43,12 @@ const STORAGE_KEYS = {
   VOIP_SESSION: 'newcall_active_voip_session',
 };
 
+const parseFilterValues = (value) => {
+  if (value == null || value === '' || value === 'all') return 'all';
+  const values = String(value).split(',').map((item) => item.trim()).filter(Boolean);
+  return values.length > 1 ? values : (values[0] || 'all');
+};
+
 
 export default function ChatWorkspace() {
   const { user, CompanyInfo } = useAuth();
@@ -65,7 +71,7 @@ export default function ChatWorkspace() {
     // A call opened from the legacy Call Log must not inherit list filters.
     if (paramSr) return 'all';
     if (paramStatus !== null) {
-      return paramStatus;
+      return parseFilterValues(paramStatus);
     }
     // Default to 44 (Pending) when coming from sidebar or general navigation
     return 44;
@@ -77,6 +83,7 @@ export default function ChatWorkspace() {
     const end = params.get('end');
     if (params.get('sr') || params.get('callId')) return null;
     if (start && end) return { start: new Date(start), end: new Date(end) };
+    if (params.get('status') === 'all') return null;
     const today = new Date();
     return {
       start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
@@ -110,6 +117,7 @@ export default function ChatWorkspace() {
   const [isAcceptingQueue, setIsAcceptingQueue] = useState(false);
 
   const lastFilterKeyRef = useRef('');
+  const filterRequestIdRef = useRef(0);
   const isInternalUrlUpdateRef = useRef(false);
   const lastHandledExternalSrRef = useRef('');
   const requestedCallSrRef = useRef('');
@@ -351,11 +359,13 @@ export default function ChatWorkspace() {
         const clearFiltersForCallLink = Boolean(targetSr);
         const today = new Date();
         const todayString = formatLocalDateToYYYYMMDD(today);
-        const start = targetSr ? '' : (params.get('start') || todayString);
-        const end = targetSr ? '' : (params.get('end') || todayString);
+        const isClearedFilterState = params.get('status') === 'all';
+        const start = targetSr || isClearedFilterState ? '' : (params.get('start') || todayString);
+        const end = targetSr || isClearedFilterState ? '' : (params.get('end') || todayString);
         const paramStatus = params.get('status');
-        const status = clearFiltersForCallLink ? 'all' : (paramStatus !== null ? paramStatus : 44);
-        const company = clearFiltersForCallLink ? '' : (params.get('company') || params.get('companyStatus') || '');
+        const status = clearFiltersForCallLink ? 'all' : (paramStatus !== null ? parseFilterValues(paramStatus) : 44);
+        const companyParam = params.get('company') || params.get('companyStatus') || '';
+        const company = clearFiltersForCallLink || !companyParam ? '' : parseFilterValues(companyParam);
         const target = clearFiltersForCallLink
           ? ''
           : (params.get('target') || (start && end ? 'date' : ''));
@@ -372,16 +382,17 @@ export default function ChatWorkspace() {
           ? '|||||'
           : `${start}|${end}|${resolvedProjectId}|${resolvedStatusId}|${search}|${target}`;
 
+        const requestId = ++filterRequestIdRef.current;
         const data = await CallLogApi.getCallLogs({
           endDate: end,
           startDate: start,
-          statusId: resolvedStatusId,
-          projectId: resolvedProjectId,
+          statusIds: resolvedStatusId,
+          projectIds: resolvedProjectId,
           filter: target,
           searchTerm: search,
         });
 
-        if (!isCancelled && data?.rd && Array.isArray(data.rd)) {
+        if (!isCancelled && requestId === filterRequestIdRef.current && data?.rd && Array.isArray(data.rd)) {
           // If a specific call was requested via ?sr=... and is NOT in data.rd,
           // fetch it specifically to ensure it's loaded and selectable
           if (targetSr) {
@@ -390,7 +401,7 @@ export default function ChatWorkspace() {
             if (!exists) {
               try {
                 requestedCallSrRef.current = cleanSr;
-                const specificRes = await CallLogApi.getCallLogs({ searchTerm: cleanSr });
+                const specificRes = await CallLogApi.getCallLogs({ searchTerm: cleanSr, projectIds: '', statusIds: '' });
                 if (specificRes?.rd && Array.isArray(specificRes.rd) && specificRes.rd.length > 0) {
                   data.rd = [...specificRes.rd, ...data.rd];
                 }
@@ -571,9 +582,11 @@ export default function ChatWorkspace() {
     const params = new URLSearchParams(location.search);
     const savedSearch = params.get('search') || params.get('searchQuery') || '';
     const savedView = params.get('view') || 'team';
-    const savedCompany = params.get('company') || params.get('companyStatus') || '';
+    const savedCompanyParam = params.get('company') || params.get('companyStatus') || '';
+    const savedCompany = savedCompanyParam ? parseFilterValues(savedCompanyParam) : '';
     const savedRailCompany = params.get('railCompany') || '';
-    const savedStatus = params.get('status') || '';
+    const savedStatusParam = params.get('status');
+    const savedStatus = savedStatusParam === null ? '' : parseFilterValues(savedStatusParam);
     const savedTarget = params.get('target') || '';
     const start = params.get('start');
     const end = params.get('end');
@@ -616,10 +629,9 @@ export default function ChatWorkspace() {
     } else {
       callStreamService.selectCompany('all');
     }
-    if (savedStatus && savedStatus !== 'all') {
-      setStatusFilter(savedStatus);
-      callStreamService.setStatusFilter(savedStatus);
-    }
+    const initialStatus = savedStatus || 44;
+    setStatusFilter(initialStatus);
+    callStreamService.setStatusFilter(initialStatus);
     if (savedTarget) {
       setFilterBy(savedTarget);
     }
@@ -627,7 +639,7 @@ export default function ChatWorkspace() {
       const range = { start: new Date(start), end: new Date(end) };
       setDateRangeObj(range);
       callStreamService.setDateRange({ ...range, field: savedTarget || 'date' });
-    } else {
+    } else if (savedStatus !== 'all') {
       const today = new Date();
       const todayRange = {
         start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
@@ -635,6 +647,9 @@ export default function ChatWorkspace() {
       };
       setDateRangeObj(todayRange);
       callStreamService.setDateRange({ ...todayRange, field: savedTarget || 'date' });
+    } else {
+      setDateRangeObj(null);
+      callStreamService.setDateRange(null);
     }
   }, []);
 
@@ -652,6 +667,8 @@ export default function ChatWorkspace() {
     }
     if (statusFilter && statusFilter !== 'all') {
       newParams.set('status', Array.isArray(statusFilter) ? statusFilter.join(',') : statusFilter);
+    } else {
+      newParams.set('status', 'all');
     }
     if (filterBy) newParams.set('target', filterBy);
     if (dateRangeObj?.start) newParams.set('start', formatLocalDateToYYYYMMDD(dateRangeObj.start));
@@ -681,7 +698,8 @@ export default function ChatWorkspace() {
     const params = new URLSearchParams(location.search);
     const savedSearch = params.get('search') || params.get('searchQuery') || '';
     const savedView = params.get('view') || 'team';
-    const savedCompany = params.get('company') || params.get('companyStatus') || 'all';
+    const savedCompanyParam = params.get('company') || params.get('companyStatus') || 'all';
+    const savedCompany = savedCompanyParam === 'all' ? 'all' : parseFilterValues(savedCompanyParam);
     const savedRailCompany = params.get('railCompany') || 'all';
     const savedTarget = params.get('target') || '';
     const start = params.get('start');
@@ -701,6 +719,12 @@ export default function ChatWorkspace() {
       callStreamService.selectCompany(savedRailCompany);
     }
     if (savedTarget !== filterBy) setFilterBy(savedTarget);
+    const paramStatus = params.get('status');
+    const savedStatus = paramStatus === null ? 44 : parseFilterValues(paramStatus);
+    if (JSON.stringify(savedStatus) !== JSON.stringify(statusFilter)) {
+      setStatusFilter(savedStatus);
+      callStreamService.setStatusFilter(savedStatus);
+    }
     const externalSr = params.get('sr') || params.get('callId');
     const cleanSr = externalSr ? String(externalSr).replace(/^call-/, '') : '';
     const targetId = cleanSr ? `call-${cleanSr}` : '';
@@ -738,7 +762,7 @@ export default function ChatWorkspace() {
       const callExists = currentThreads.some((thread) => String(thread.sr) === cleanSr);
       if (!callExists && requestedCallSrRef.current !== cleanSr) {
         requestedCallSrRef.current = cleanSr;
-        CallLogApi.getCallLogs({ searchTerm: cleanSr })
+        CallLogApi.getCallLogs({ searchTerm: cleanSr, projectIds: '', statusIds: '' })
           .then((result) => {
             const latestParams = new URLSearchParams(window.location.search);
             const latestSr = latestParams.get('sr') || latestParams.get('callId');
@@ -765,7 +789,7 @@ export default function ChatWorkspace() {
         return nextRange;
       });
       callStreamService.setDateRange({ ...nextRange, field: savedTarget || 'date' });
-    } else if (!externalSr) {
+    } else if (!externalSr && savedStatus !== 'all') {
       const today = new Date();
       const todayRange = {
         start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
@@ -773,11 +797,9 @@ export default function ChatWorkspace() {
       };
       setDateRangeObj(todayRange);
       callStreamService.setDateRange({ ...todayRange, field: savedTarget || 'date' });
-    }
-    const paramStatus = params.get('status');
-    const savedStatus = paramStatus !== null ? paramStatus : 44;
-    if (savedStatus !== statusFilter) {
-      setStatusFilter(savedStatus);
+    } else if (!externalSr) {
+      setDateRangeObj(null);
+      callStreamService.setDateRange(null);
     }
   }, [location.search]);
 
@@ -801,7 +823,10 @@ export default function ChatWorkspace() {
   const getProjectId = useCallback(
     (comp) => {
       if (!comp || comp === 'all') return '';
-      const rawVal = Array.isArray(comp) ? comp[0] : comp;
+      if (Array.isArray(comp)) {
+        return comp.map((value) => getProjectId(value)).filter((value) => value !== '').join(',');
+      }
+      const rawVal = comp;
       if (!rawVal) return '';
 
       // If it's already a number or numeric string (e.g. 3 or "3")
@@ -853,7 +878,10 @@ export default function ChatWorkspace() {
   const getStatusId = useCallback(
     (st) => {
       if (!st || st === 'all') return '';
-      const rawVal = Array.isArray(st) ? st[0] : st;
+      if (Array.isArray(st)) {
+        return st.map((value) => getStatusId(value)).filter((value) => value !== '').join(',');
+      }
+      const rawVal = st;
       if (!rawVal) return '';
 
       // If it's already a number or numeric string (e.g. 1 or "1")
@@ -898,15 +926,16 @@ export default function ChatWorkspace() {
       debounce(async (filters) => {
         try {
           setIsLoading(true);
+          const requestId = ++filterRequestIdRef.current;
           const data = await CallLogApi.getCallLogs({
             endDate: filters.endDate || '',
             startDate: filters.startDate || '',
-            statusId: filters.statusId !== undefined && filters.statusId !== 'all' ? filters.statusId : '',
-            projectId: filters.projectId !== undefined && filters.projectId !== 'all' ? filters.projectId : '',
+            statusIds: filters.statusIds !== undefined && filters.statusIds !== 'all' ? filters.statusIds : '',
+            projectIds: filters.projectIds !== undefined && filters.projectIds !== 'all' ? filters.projectIds : '',
             filter: filters.filter || '',
             searchTerm: filters.searchTerm || '',
           });
-          if (data?.rd && Array.isArray(data.rd)) {
+          if (requestId === filterRequestIdRef.current && data?.rd && Array.isArray(data.rd)) {
             // Workspace now owns the data stream — block UseCallLog full-replace
             workspaceOwnsDataRef.current = true;
             callStreamService.initData(data.rd);
@@ -922,8 +951,7 @@ export default function ChatWorkspace() {
 
   // 6b. Server API Refetch when TopBar filters change (exact old CallLog behavior)
   // viewMode is NOT sent to API — it is a local-only RxJS filter.
-  // statusFilter IS sent to API as statusId (like old CallLog `status` state)
-  // topBarCompany IS sent to API as projectId (like old CallLog `companyStatus` state)
+  // NewCall sends multi-select status and company IDs using the plural API fields.
   useEffect(() => {
     const startStr = formatLocalDateToYYYYMMDD(dateRangeObj?.start);
     const endStr = formatLocalDateToYYYYMMDD(dateRangeObj?.end);
@@ -946,8 +974,8 @@ export default function ChatWorkspace() {
       debouncedFilterCallLog({
         startDate: startStr,
         endDate: endStr,
-        projectId: resolvedProjectId,
-        statusId: resolvedStatusId,
+        projectIds: resolvedProjectId,
+        statusIds: resolvedStatusId,
         filter: targetFilter,
         searchTerm: searchStr,
       });
@@ -1052,6 +1080,7 @@ export default function ChatWorkspace() {
       time: data.CreatedDate || data.time || getLocalISOString(),
       Name: data.Name || data.CreatedByName || 'Support',
       CreatedBy: data.CreatedBy,
+      IsClient: data.IsClient ?? data.isClient ?? 0,
       img: data.FilePath || data.img || '',
       FilePath: data.FilePath || data.img || '',
     });
@@ -1300,6 +1329,7 @@ export default function ChatWorkspace() {
               (cItem.Name || '').toLowerCase().trim() ===
               `${user.firstname} ${user.lastname || ''}`.toLowerCase().trim()
             );
+            const isClient = Number(cItem.IsClient) === 1;
 
             items.push({
               id: `comment-${rec.sr}-${cItem.id || cIdx}-${cIdx}`,
@@ -1309,8 +1339,11 @@ export default function ChatWorkspace() {
               avatar: isCurrentUser ? user?.avatar || '' : '',
               time: cTimeFormatted,
               content: commentText.trim(),
-              isComment: !isCurrentUser,
-              isOutgoing: isCurrentUser,
+              // IsClient is the source of truth: client left, support right.
+              isComment: true,
+              isOutgoing: false,
+              isClient,
+              IsClient: cItem.IsClient,
               hasAttachment: hasAttachment,
               attachment: attachmentData,
               isClientReply: false,
@@ -1517,6 +1550,7 @@ export default function ChatWorkspace() {
 
     // 3. Cancel any pending debounced filter
     debouncedFilterCallLog.cancel();
+    const requestId = ++filterRequestIdRef.current;
 
     // 4. Force immediate server refetch with clean empty criteria
     lastFilterKeyRef.current = '|||||';
@@ -1524,13 +1558,13 @@ export default function ChatWorkspace() {
     CallLogApi.getCallLogs({
       endDate: '',
       startDate: '',
-      statusId: '',
-      projectId: '',
+      statusIds: '',
+      projectIds: '',
       filter: '',
       searchTerm: '',
     })
       .then((data) => {
-        if (data?.rd && Array.isArray(data.rd)) {
+        if (requestId === filterRequestIdRef.current && data?.rd && Array.isArray(data.rd)) {
           workspaceOwnsDataRef.current = true;
           callStreamService.initData(data.rd);
         }
@@ -1746,6 +1780,7 @@ export default function ChatWorkspace() {
           img: uploadedUrl || '',
           time: getLocalISOString(),
           Name: senderName,
+          IsClient: 0,
         });
       }
 
