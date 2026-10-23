@@ -45,7 +45,7 @@ function smoothScrollTo(element, target, duration = 400) {
   };
 }
 
-export default function MessageList({ messages = [], isLoading = false }) {
+export default function MessageList({ messages = [], isLoading = false, onEditComment, onDeleteComment }) {
   const simpleBarRef = useRef(null);
   const scrollAnimCancelRef = useRef(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -359,7 +359,12 @@ export default function MessageList({ messages = [], isLoading = false }) {
                   <Collapse in={!isCollapsed} timeout={250} unmountOnExit={false}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       {msgs.map((msg) => (
-                        <MessageItem key={msg.id} message={msg} />
+                        <MessageItem
+                          key={msg.id}
+                          message={msg}
+                          onEditComment={onEditComment}
+                          onDeleteComment={onDeleteComment}
+                        />
                       ))}
                     </Box>
                   </Collapse>

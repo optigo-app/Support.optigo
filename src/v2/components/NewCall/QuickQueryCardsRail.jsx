@@ -115,14 +115,13 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 		<Box
 			sx={{
 				width: "100%",
-				background: "linear-gradient(135deg, #F3EEFF 0%, #E5D5FF 100%)",
-				borderBottom: "1px solid #E5E7EB",
-				px: 1.2,
-				py: 0.6,
+				background: "#F4F5F6",
+				px: 0.6,
+				pt: 0.6,
+				pb: 0.3,
 				display: "flex",
 				alignItems: "center",
 				gap: 1,
-				boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
 				zIndex: 5,
 				flexShrink: 0,
 				overflow: "hidden",
@@ -159,23 +158,23 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 									sx={{
 										width: 275,
 										height: 54,
-										bgcolor: isSelected ? "#FEF2F2" : "#FFFFFF",
-										border: isSelected ? "1.5px solid #EF4444" : "1px solid #FECACA",
-										borderRadius: "4px",
+										bgcolor: isSelected ? "#EEF0F2" : "#FFFFFF",
+										border: isSelected ? "1.5px solid #64748B" : "1px solid #D8DDE3",
+										borderRadius: "8px",
 										px: 1,
 										py: 0.5,
 										display: "flex",
 										alignItems: "center",
 										gap: 1,
 										cursor: "pointer",
-										boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+										boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
 										transition: "all 0.15s ease-in-out",
 										userSelect: "none",
 										flexShrink: 0,
 										"&:hover": {
-											borderColor: "#F87171",
-											bgcolor: "#FEF2F2",
-											boxShadow: "0 2px 6px rgba(220,38,38,0.12)",
+											borderColor: "#AEB6BF",
+											bgcolor: "#F8F9FA",
+											boxShadow: "0 3px 8px rgba(15,23,42,0.08)",
 										},
 									}}
 								>
@@ -206,8 +205,8 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 												sx={{
 													width: 34,
 													height: 34,
-													bgcolor: card.color,
-													color: "#FFFFFF",
+													bgcolor: card.bg,
+													color: card.color,
 													borderRadius: "55px",
 													display: "flex",
 													alignItems: "center",
@@ -215,7 +214,7 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 													fontWeight: 850,
 													fontSize: "0.78rem",
 													flexShrink: 0,
-													boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+													boxShadow: "inset 0 0 0 1px rgba(15,23,42,0.04)",
 												}}
 											>
 												{card.badge}
@@ -244,9 +243,9 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 															height: 16,
 															fontSize: "0.62rem",
 															fontWeight: 750,
-															bgcolor: "#EFF6FF",
-															color: "#1D4ED8",
-															border: "1px solid #BFDBFE",
+															bgcolor: "#F1F3F5",
+															color: "#475569",
+															border: "1px solid #D8DDE3",
 															borderRadius: "4px",
 															px: 0.2,
 															maxWidth: 75,
@@ -272,7 +271,7 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 												{/* Row 3: Time Ago in Dynamic Wait Color */}
 												<Typography
 													sx={{
-														color: card.color,
+														color: "#64748B",
 														fontSize: "0.66rem",
 														fontWeight: 750,
 														lineHeight: 1.1,

@@ -389,6 +389,48 @@ class CallLogApi extends BaseAPI {
     }
   }
 
+  // Edit an existing call comment
+  static async editCallComments({ callLogId, commentId, comments, filePath, createdBy }) {
+    try {
+      const params = {
+        CallLogid: callLogId,
+        CommentId: commentId,
+        Comments: comments,
+        FilePath: filePath,
+        CreatedBy: createdBy,
+      };
+      return await this.requestToApi({
+        mode: "EDIT_COMMENTS",
+        params,
+        functionName: "EDIT_COMMENTS",
+        socketEvent: "EDITCOMMENTS",
+      });
+    } catch (error) {
+      console.error("Error editing call comment:", error);
+      throw error;
+    }
+  }
+
+  // Delete an existing call comment
+  static async deleteCallComments({ callLogId, commentId, createdBy }) {
+    try {
+      const params = {
+        CallLogid: callLogId,
+        CommentId: commentId,
+        CreatedBy: createdBy,
+      };
+      return await this.requestToApi({
+        mode: "DELETE_COMMENTS",
+        params,
+        functionName: "DELETE_COMMENTS",
+        socketEvent: "DELETECOMMENTS",
+      });
+    } catch (error) {
+      console.error("Error deleting call comment:", error);
+      throw error;
+    }
+  }
+
   // Add Feedback
   static async addFeedback({ callLogId, feedback, ratingByCustomer }) {
     try {

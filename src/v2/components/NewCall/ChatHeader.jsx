@@ -527,18 +527,18 @@ export default function ChatHeader({
   return (
     <Box
       sx={{
-        bgcolor: '#FFFFFF',
-        borderBottom: '1px solid #E5E7EB',
+        bgcolor: '#fff',
         display: 'flex',
         flexDirection: 'column',
         userSelect: 'none',
+        borderBottom: "1px solid #e0e0e0",
       }}
     >
       {/* Top Header Row */}
       <Box
         sx={{
           minHeight: 52,
-          px: 2,
+          px: 0.5,
           py: 0.5,
           display: 'flex',
           alignItems: 'center',
@@ -647,7 +647,7 @@ export default function ChatHeader({
                   </Box>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center', gap: 0.2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, justifyContent: 'space-between', width: '100%' }}>
                       <Tooltip title={primaryTitle} placement="bottom-start" arrow enterDelay={400}>
                         <Typography
                           sx={{
@@ -659,27 +659,31 @@ export default function ChatHeader({
                             textOverflow: 'ellipsis',
                             maxWidth: { xs: 150, sm: 220, md: 380 },
                             letterSpacing: '-0.01em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.8
                           }}
                         >
                           {primaryTitle}
+                          {callSr && (
+                            <Chip
+                              label={`#${callSr}`}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                bgcolor: '#F3E8FF',
+                                color: '#6900C6',
+                                borderRadius: '6px',
+                                '& .MuiChip-label': { px: 1 },
+                              }}
+                            />
+                          )}
                         </Typography>
                       </Tooltip>
 
-                      {callSr && (
-                        <Chip
-                          label={`#${callSr}`}
-                          size="small"
-                          sx={{
-                            height: 22,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            bgcolor: '#F3E8FF',
-                            color: '#6900C6',
-                            borderRadius: '6px',
-                            '& .MuiChip-label': { px: 1 },
-                          }}
-                        />
-                      )}
+
 
                       <CaretDown size={14} weight="bold" color="#64748B" />
                     </Box>
@@ -720,67 +724,7 @@ export default function ChatHeader({
               );
             })()}
 
-            {/* View Mode Toggle: Timeline vs Single Ticket (Commented out per user request - do not remove) */}
-            {/*
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                bgcolor: '#F1F5F9',
-                p: 0.3,
-                borderRadius: '6px',
-                gap: 0.3,
-              }}
-            >
-              <Tooltip title={`View continuous conversation timeline for ${companyTitle}`}>
-                <Box
-                  onClick={() => onToggleViewMode && onToggleViewMode('timeline')}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    px: 1,
-                    py: 0.3,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    fontWeight: viewMode === 'timeline' ? 800 : 600,
-                    bgcolor: viewMode === 'timeline' ? '#FFFFFF' : 'transparent',
-                    color: viewMode === 'timeline' ? '#6900C6' : '#64748B',
-                    boxShadow: viewMode === 'timeline' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <Buildings size={13} weight="bold" />
-                  <span>Timeline</span>
-                </Box>
-              </Tooltip>
 
-              <Tooltip title="View this single call ticket exclusively">
-                <Box
-                  onClick={() => onToggleViewMode && onToggleViewMode('single')}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    px: 1,
-                    py: 0.3,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    fontWeight: viewMode === 'single' ? 800 : 600,
-                    bgcolor: viewMode === 'single' ? '#FFFFFF' : 'transparent',
-                    color: viewMode === 'single' ? '#0284C7' : '#64748B',
-                    boxShadow: viewMode === 'single' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <PhoneCall size={13} weight="bold" />
-                  <span>Single Call</span>
-                </Box>
-              </Tooltip>
-            </Box>
-            */}
 
             {/* Modern Segmented Status Tray (TopBar Renovation Style) */}
             <Box
@@ -791,6 +735,7 @@ export default function ChatHeader({
                 borderRadius: '12px',
                 p: '2px',
                 ml: 1.5,
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
               }}
             >
               {/* External Status Pill */}
@@ -968,6 +913,7 @@ export default function ChatHeader({
                     borderRadius: '8px',
                     px: 0.3,
                     ml: 0.5,
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                   }}
                 />
               )}
@@ -1255,6 +1201,7 @@ export default function ChatHeader({
                     fontSize: 13,
                     fontWeight: 550,
                     textTransform: 'none',
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                     letterSpacing: 0,
                     boxShadow: 'none',
                     height: 32,
@@ -1304,6 +1251,7 @@ export default function ChatHeader({
                 boxShadow: 'none',
                 height: 32,
                 py: 0.5,
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
                 '&:hover': {
@@ -1339,6 +1287,7 @@ export default function ChatHeader({
                 fontWeight: 550,
                 textTransform: 'none',
                 letterSpacing: 0,
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                 boxShadow: 'none',
                 height: 32,
                 py: 0.5,
@@ -1390,6 +1339,7 @@ export default function ChatHeader({
                   fontSize: 13,
                   fontWeight: 650,
                   textTransform: 'none',
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                   letterSpacing: 0,
                   boxShadow: 'none',
                   height: 32,
@@ -1578,6 +1528,7 @@ export default function ChatHeader({
                 width: 32,
                 height: 32,
                 bgcolor: '#D6D6D8',
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                 color: '#000',
                 borderRadius: '50%',
                 transition: 'all 0.15s ease',

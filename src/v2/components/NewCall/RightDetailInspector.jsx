@@ -329,14 +329,15 @@ export default function RightDetailInspector({
         maxWidth: open ? 380 : 0,
         height: '100%',
         bgcolor: '#FFFFFF',
-        borderLeft: open ? '1px solid #E5E7EB' : 'none',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
         overflow: 'hidden',
         transition: 'width 0.28s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: 10,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif',
+        boxShadow: "3px 1px 3px rgba(0, 0, 0, 0.18), 3px -3px 0 0.5px rgba(0, 0, 0, 0.04)",
+        px: open ? 0.8 : 0,
+        borderRadius: 2,
       }}
     >
       {/* 1. Apple-Style Clean Top Header Bar */}

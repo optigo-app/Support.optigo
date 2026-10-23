@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import {
   Drawer,
@@ -26,10 +26,12 @@ import { callStreamService } from './services/callStreamService';
 
 export default function NewCallEditModal() {
   const modalState = useNewCallSubject(editCallModal$);
-  const { open, call } = modalState || {};
+  const { open, call, sessionId } = modalState || {};
 
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
+  const formDirtyRef = useRef(false);
+  const draftCallIdRef = useRef(null);
 
   const {
     editCall,
@@ -46,9 +48,41 @@ export default function NewCallEditModal() {
   const { user } = useAuth();
 
   const callData = call ? { ...(call.rawRecord || {}), ...call } : null;
+  const callId = callData?.sr || callData?.id;
+  const draftStorageKey = callId
+    ? `newcall-edit-draft:${user?.id || 'user'}:${callId}`
+    : null;
+
+  const handleClose = () => {
+    if (draftStorageKey) {
+      try {
+        window.sessionStorage.removeItem(draftStorageKey);
+      } catch (_) {}
+    }
+    formDirtyRef.current = false;
+    draftCallIdRef.current = null;
+    closeEditCallModal();
+  };
 
   useEffect(() => {
     if (open && callData) {
+      if (formDirtyRef.current && draftCallIdRef.current === String(callId)) return;
+
+      if (draftStorageKey) {
+        try {
+          const savedDraft = window.sessionStorage.getItem(draftStorageKey);
+          if (savedDraft) {
+            const parsedDraft = JSON.parse(savedDraft);
+            if (parsedDraft?.callId === String(callId) && parsedDraft?.formData) {
+              setFormData(parsedDraft.formData);
+              formDirtyRef.current = true;
+              draftCallIdRef.current = String(callId);
+              return;
+            }
+          }
+        } catch (_) {}
+      }
+
       const companyObj =
         companyOptions?.find(
           (option) =>
@@ -170,31 +204,34 @@ export default function NewCallEditModal() {
         CallDuration: callData?.CallDuration || callData?.duration || '',
         ticket: callData?.ticket || '',
       });
+      formDirtyRef.current = false;
+      draftCallIdRef.current = String(callId);
     }
-  }, [open, call, companyOptions, APPNAME_LIST, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, CALL_TYPE_MASTER]);
+    // Initialize from the selected call once per opening. Live call and option
+    // updates must not replace form state while the user has unsaved edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sessionId]);
 
   const handleChange = (field) => {
     return (event, newValue) => {
-      if (
-        field === 'appname' ||
-        field === 'company' ||
-        field === 'callType' ||
-        field === 'status' ||
-        field === 'Estatus' ||
-        field === 'priority' ||
-        field === 'receivedBy' ||
-        field === 'forwardTo'
-      ) {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: newValue || null,
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: event?.target?.value || '',
-        }));
-      }
+      const isOptionField =
+        field === 'appname' || field === 'company' || field === 'callType' ||
+        field === 'status' || field === 'Estatus' || field === 'priority' ||
+        field === 'receivedBy' || field === 'forwardTo';
+      const fieldValue = isOptionField ? newValue || null : event?.target?.value || '';
+      formDirtyRef.current = true;
+      setFormData((prev) => {
+        const next = { ...prev, [field]: fieldValue };
+        if (draftStorageKey) {
+          try {
+            window.sessionStorage.setItem(
+              draftStorageKey,
+              JSON.stringify({ callId: String(callId), formData: next })
+            );
+          } catch (_) {}
+        }
+        return next;
+      });
     };
   };
 
@@ -284,7 +321,7 @@ export default function NewCallEditModal() {
 
       toast.success('Call log updated successfully');
       if (triggerRefresh) triggerRefresh();
-      closeEditCallModal();
+      handleClose();
     } catch (error) {
       console.error('Error editing call:', error);
       toast.error('An error occurred while saving.');
@@ -295,7 +332,7 @@ export default function NewCallEditModal() {
 
   return (
     <ThemeProvider theme={SideBarTheme}>
-      <Drawer anchor="left" open={Boolean(open)} onClose={closeEditCallModal}>
+      <Drawer anchor="left" open={Boolean(open)} onClose={handleClose}>
         <Box
           sx={{
             width: 500,
@@ -607,7 +644,7 @@ export default function NewCallEditModal() {
             <Button
               variant="contained"
               sx={{ flex: 1 }}
-              onClick={closeEditCallModal}
+              onClick={handleClose}
               size="large"
               color="error"
             >

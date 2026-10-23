@@ -370,7 +370,6 @@ export default function DirectMessagesSidebar({
         width: open ? sidebarWidth : 0,
         minWidth: open ? sidebarWidth : 0,
         maxWidth: open ? sidebarWidth : 0,
-        bgcolor: '#FFFFFF',
         borderRight: open ? '1px solid #E5E7EB' : 'none',
         display: 'flex',
         flexDirection: 'column',
@@ -603,12 +602,31 @@ export default function DirectMessagesSidebar({
                     thread.rawRecord?.CompanyID ||
                     ''
                   );
-
+                  const companyName = String(
+                    (thread.company && thread.company !== 'Unknown Company' ? thread.company : '') ||
+                    thread.rawRecord?.CompanyName ||
+                    thread.rawRecord?.companyName ||
+                    thread.rawRecord?.ProjectName ||
+                    ''
+                  ).trim();
                   const compMeta =
                     (tProjId && companyMetaMap.get(`proj:${tProjId}`)) ||
                     (tCompNorm && companyMetaMap.get(`name:${tCompNorm}`)) ||
                     (tNameNorm && companyMetaMap.get(`name:${tNameNorm}`)) ||
                     null;
+                  const companyCode = String(
+                    thread.companyCode ||
+                    thread.rawRecord?.CompanyCode ||
+                    thread.rawRecord?.companyCode ||
+                    thread.rawRecord?.ProjectCode ||
+                    thread.rawRecord?.projectCode ||
+                    compMeta?.ProjectCode ||
+                    compMeta?.companyCode ||
+                    compMeta?.code ||
+                    ''
+                  ).trim();
+                  const companyDisplay = companyCode || companyName || 'Company unavailable';
+                  const callerDisplay = thread.callBy || thread.rawRecord?.callBy || thread.rawRecord?.CustomerName || thread.name || 'Unknown caller';
 
                   let avatarColor = thread.avatarColor || compMeta?.avatarColor;
                   if (!avatarColor) {
@@ -624,8 +642,6 @@ export default function DirectMessagesSidebar({
 
                   const outlineColor = '#0F172A';
                   const shadowColor = '#0F172A';
-                  const shadowOffset = thread.unread ? '-3px 3px' : '-2.5px 2.5px';
-
                   return (
                     <Box
                       key={uniqueKey}
@@ -641,11 +657,11 @@ export default function DirectMessagesSidebar({
                         mx: 0.5,
                         p: 1.2,
                         px: 1.5,
-                        borderRadius: '12px',
+                        borderRadius: '0px 4px 4px 4px',
                         bgcolor: thread.unread
-                          ? (isActive ? '#F3E8FF' : '#FAF5FF')
+                          ? (isActive ? '#EDF5EF' : '#F4F8F5')
                           : (isActive ? '#F1F5F9' : 'transparent'),
-                        boxShadow: thread.unread ? 'inset 3px 0 0 #7C3AED' : 'none',
+                        boxShadow: thread.unread ? 'inset 3px 0 0 #2E8B57' : 'none',
                         display: 'flex',
                         alignItems: 'flex-start',
                         gap: 1.2,
@@ -654,7 +670,7 @@ export default function DirectMessagesSidebar({
                         transition: 'all 0.15s ease',
                         '&:hover': {
                           bgcolor: thread.unread
-                            ? (isActive ? '#E9D5FF' : '#F3E8FF')
+                            ? (isActive ? '#E4F0E7' : '#ECF4EE')
                             : (isActive ? '#E2E8F0' : '#F1F5F9'),
                         },
                       }}
@@ -672,7 +688,7 @@ export default function DirectMessagesSidebar({
                             fontSize: 17,
                             fontWeight: 900,
                             transition: 'all 0.2s ease',
-                            boxShadow: thread.unread ? '0 0 0 3px #E9D5FF' : 'none',
+                            boxShadow: thread.unread ? '0 0 0 3px #DCEBDF' : 'none',
                             transform: 'rotate(0deg)',
                             '&:hover': {
                               transform: 'scale(1.05) rotate(-5deg)',
@@ -710,7 +726,7 @@ export default function DirectMessagesSidebar({
                             sx={{
                               fontSize: '0.86rem',
                               fontWeight: thread.unread ? 800 : 700,
-                              color: thread.unread ? '#581C87' : '#0F172A',
+                              color: '#1F2937',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -723,8 +739,8 @@ export default function DirectMessagesSidebar({
                             variant="caption"
                             sx={{
                               fontSize: '0.68rem',
-                              color: thread.unread ? '#6B21A8' : '#64748B',
-                              fontWeight: thread.unread ? 800 : 500,
+                              color: thread.unread ? '#287A4B' : '#64748B',
+                              fontWeight: thread.unread ? 700 : 500,
                               flexShrink: 0,
                             }}
                           >
@@ -732,8 +748,8 @@ export default function DirectMessagesSidebar({
                           </Typography>
                         </Box>
 
-                        {/* Line 2: Company / Caller Name & Source Indicator */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.2 }}>
+                        {/* Line 2: Caller and company identifier from the call record */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, mb: 0.2, minWidth: 0 }}>
                           <Typography
                             variant="caption"
                             sx={{
@@ -743,11 +759,34 @@ export default function DirectMessagesSidebar({
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
-                              flexShrink: 1,
+                              minWidth: 0,
                             }}
                           >
-                            {thread.name || thread.company || 'Unknown'}
+                            {callerDisplay}
                           </Typography>
+
+                          <Box
+                            title={companyName && companyCode ? `${companyName} · ${companyCode}` : companyDisplay}
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              maxWidth: 126,
+                              minWidth: 0,
+                              px: 0.65,
+                              height: 17,
+                              borderRadius: '5px',
+                              bgcolor: '#F1F3F5',
+                              color: '#525B65',
+                              fontSize: 9.5,
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {companyDisplay}
+                          </Box>
 
                           {(() => {
                             const sourceVal = getCallSource(thread, thread.rawRecord);
@@ -767,7 +806,7 @@ export default function DirectMessagesSidebar({
                             variant="caption"
                             sx={{
                               fontSize: 11,
-                              color: thread.unread ? '#4C1D95' : (isActive ? '#374151' : '#64748B'),
+                              color: thread.unread ? '#263A2D' : (isActive ? '#374151' : '#64748B'),
                               fontWeight: thread.unread ? 700 : 500,
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
@@ -779,29 +818,57 @@ export default function DirectMessagesSidebar({
                             {lastMessageText}
                           </Typography>
 
+                          <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5, flexShrink: 0 }}>
+                          {thread.isNewCall && (
+                            <Box
+                              aria-label="New call"
+                              sx={{
+                                height: 19,
+                                px: 0.75,
+                                borderRadius: '9px',
+                                bgcolor: '#E8F0FE',
+                                color: '#315A9B',
+                                fontSize: '0.6rem',
+                                fontWeight: 800,
+                                letterSpacing: '0.02em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                flexShrink: 0,
+                                border: '1px solid #C9D8F2',
+                              }}
+                            >
+                              NEW CALL
+                            </Box>
+                          )}
+
                           {/* Unread / New Message Chip */}
                           {thread.unread ? (
                             <Box
+                              aria-label={`${Math.max(1, Number(thread.unreadCount) || 1)} unread messages`}
                               sx={{
-                                height: 18,
-                                px: 0.8,
-                                borderRadius: '9px',
-                                bgcolor: '#7C3AED',
+                                minWidth: 22,
+                                height: 19,
+                                px: 0.7,
+                                borderRadius: '10px',
+                                bgcolor: '#278653',
                                 color: '#FFFFFF',
-                                fontSize: '0.62rem',
+                                fontSize: '0.65rem',
                                 fontWeight: 800,
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
+                                gap: 0.5,
                                 flexShrink: 0,
-                                boxShadow: '0 1px 3px rgba(124, 58, 237, 0.28)'
+                                border: '1px solid #278653',
+                                boxShadow: '0 1px 2px rgba(39,134,83,0.2)',
                               }}
                             >
-                              New
+                              <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#FFFFFF', flexShrink: 0 }} />
+                              {Number(thread.unreadCount) > 1 ? `×${thread.unreadCount}` : '1'}
                             </Box>
                           ) : (
                             /* Status Chip if no new message */
-                            thread.status && (() => {
+                            !thread.isNewCall && thread.status && (() => {
                               const { color } = getStatusColor(thread.status);
                               const isGreen = color === 'success' || thread.status === 'Solved' || thread.estatus === 'Completed';
                               const isRed = color === 'error' || thread.estatus === 'Running';
@@ -832,6 +899,7 @@ export default function DirectMessagesSidebar({
                               );
                             })()
                           )}
+                          </Box>
                         </Box>
                       </Box>
                     </Box>

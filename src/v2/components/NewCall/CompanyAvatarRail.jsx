@@ -46,7 +46,6 @@ export default function CompanyAvatarRail({
         width: open ? targetWidth : 0,
         minWidth: open ? targetWidth : 0,
         maxWidth: open ? targetWidth : 0,
-        bgcolor: '#FFFFFF',
         borderRight: open ? '1px solid #E5E7EB' : 'none',
         borderTopLeftRadius: '12px',
         overflow: 'hidden',
@@ -79,7 +78,6 @@ export default function CompanyAvatarRail({
             justifyContent: isListMode ? 'space-between' : 'center',
             px: isListMode ? 1.5 : 0.8,
             borderBottom: '1px solid #F1F5F9',
-            bgcolor: '#FFFFFF',
           }}
         >
           {isListMode ? (

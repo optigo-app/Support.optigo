@@ -185,8 +185,6 @@ export default function TopBar({
         gap: 1.5,
         overflowX: 'auto',
         '&::-webkit-scrollbar': { display: 'none' },
-        borderBottom: '1px solid',
-        borderColor: 'divider'
       }}
     >
 
@@ -501,8 +499,8 @@ export default function TopBar({
               Array.isArray(statusFilter)
                 ? statusFilter.map(String)
                 : statusFilter === 'all' || !statusFilter
-                ? []
-                : [String(statusFilter)]
+                  ? []
+                  : [String(statusFilter)]
             }
             onChange={(newVal) => {
               if (setStatusFilter) {

@@ -3,6 +3,12 @@ import { map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { hasRealTicket } from '../utils/ticketStatusUtils';
 import { isValidDate, formatFriendlyTime, getLocalISOString } from '../utils/dateUtils';
 import { getCallSource } from '../utils/callSource';
+import {
+  getCommentRecordId,
+  normalizeCommentRecord,
+  parseCommentRecords,
+  upsertCommentRecord,
+} from '../utils/commentStreamUtils';
 export const COMPANY_PALETTE = [
   '#6900C6',
   '#0284C7',
@@ -151,7 +157,11 @@ export function normalizeCallRecord(rec, idx = 0) {
     DeptName: rec.DeptName || '',
     appname: rec.appname || '',
     topicRaisedBy: getCallSource(rec),
-    unread: false,
+    unread: Boolean(rec.hasNewComment || rec.HasNewComment || rec.unread),
+    unreadCount: Math.max(
+      0,
+      Number(rec.unreadCount ?? rec.UnreadCount ?? rec.NewCommentCount ?? rec.newCommentCount ?? (rec.hasNewComment ? 1 : 0)) || 0
+    ),
     followUps: parsedFollowUps,
     comments: parsedComments,
     rawRecord: {
@@ -184,6 +194,8 @@ class CallStreamService {
     this.isLoading$ = new BehaviorSubject(true);
     this.customMessages$ = new BehaviorSubject({});
     this.unreadThreadIds = new Set();
+    this.unreadCommentCounts = new Map();
+    this.newCallThreadIds = new Set();
     let savedCall = null;
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -382,8 +394,14 @@ class CallStreamService {
       const isUnread =
         this.unreadThreadIds.has(thread.id) ||
         this.unreadThreadIds.has(String(thread.sr)) ||
-        this.unreadThreadIds.has(`call-${thread.sr}`);
+        this.unreadThreadIds.has(`call-${thread.sr}`) ||
+        Boolean(thread.unread);
       thread.unread = isUnread;
+      thread.isNewCall = this.newCallThreadIds.has(thread.id) || this.newCallThreadIds.has(String(thread.sr));
+      const savedUnreadCount = this.unreadCommentCounts.get(String(thread.sr));
+      thread.unreadCount = isUnread
+        ? Math.max(1, Number(savedUnreadCount ?? thread.unreadCount) || 0)
+        : (isUnread ? Math.max(1, Number(thread.unreadCount) || 0) : 0);
       return thread;
     }).filter(Boolean);
 
@@ -460,15 +478,19 @@ class CallStreamService {
     this.unreadThreadIds.delete(threadId);
     this.unreadThreadIds.delete(String(threadId));
     this.unreadThreadIds.delete(`call-${threadId}`);
+    this.newCallThreadIds.delete(threadId);
+    this.newCallThreadIds.delete(String(threadId));
+    this.newCallThreadIds.delete(`call-${threadId}`);
 
     const currentThreads = this.threads$.getValue();
-    const hasUnread = currentThreads.some(
-      (t) => (t.id === threadId || String(t.sr) === String(threadId) || `call-${t.sr}` === threadId) && t.unread
+    const hasUpdatesToClear = currentThreads.some(
+      (t) => (t.id === threadId || String(t.sr) === String(threadId) || `call-${t.sr}` === threadId) && (t.unread || t.isNewCall)
     );
-    if (hasUnread) {
+    if (hasUpdatesToClear) {
       const updated = currentThreads.map((t) => {
         if (t.id === threadId || String(t.sr) === String(threadId) || `call-${t.sr}` === threadId) {
-          return { ...t, unread: false };
+          this.unreadCommentCounts.delete(String(t.sr));
+          return { ...t, unread: false, unreadCount: 0, isNewCall: false };
         }
         return t;
       });
@@ -504,6 +526,7 @@ class CallStreamService {
     this.unreadThreadIds.delete(id);
     this.unreadThreadIds.delete(String(id));
     this.unreadThreadIds.delete(`call-${id}`);
+    this.unreadCommentCounts.delete(String(id).replace(/^call-/, ''));
   }
 
   // Update Call Status, Priority, Rating in stream
@@ -624,22 +647,79 @@ class CallStreamService {
     this.threads$.next(updatedThreads);
   }
 
+  // Replace a call's complete comment snapshot without marking the thread read
+  // or reordering it. Used for idempotent edit/delete socket reconciliation.
+  replaceComments(callLogId, commentRecords = []) {
+    if (callLogId == null) return false;
+
+    const comments = Array.isArray(commentRecords) ? commentRecords : [];
+    let changed = false;
+    const updatedThreads = (this.threads$.getValue() || []).map((thread) => {
+      if (
+        String(thread.sr) !== String(callLogId) &&
+        String(thread.id) !== String(callLogId) &&
+        `call-${thread.sr}` !== String(callLogId)
+      ) return thread;
+
+      changed = true;
+      const rawRecord = {
+        ...(thread.rawRecord || {}),
+        comment: JSON.stringify(comments),
+        comments,
+      };
+      const latest = comments[comments.length - 1];
+      const latestText = String(
+        latest?.text ?? latest?.comment ?? latest?.Comments ?? latest?.comments ?? ''
+      ).trim();
+      const latestPath = latest?.FilePath ?? latest?.filePath ?? latest?.img ?? '';
+      const lastMessage = latestText || (latestPath ? '📷 Photo' : '') ||
+        rawRecord.description || rawRecord.Descr || 'Voice support call logged';
+      const latestTime = latest?.CreatedDate ?? latest?.time ?? '';
+      let timestamp = thread.timestamp;
+      if (latestTime) {
+        const parsed = new Date(String(latestTime).replace(/Z$/i, '').replace(' ', 'T'));
+        if (!Number.isNaN(parsed.getTime())) {
+          timestamp = parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      }
+
+      return {
+        ...thread,
+        comments,
+        rawRecord,
+        lastMessage,
+        timestamp: comments.length ? timestamp : (rawRecord.time || thread.timestamp),
+      };
+    });
+
+    if (changed) {
+      this.threads$.next(updatedThreads);
+      this.removeLegacyCommentBubbles(callLogId);
+    }
+    return changed;
+  }
+
   // Optimistically prepend newly created call log into reactive stream
   addNewCall(rawRecord, autoSelect = false) {
     if (!rawRecord) return;
     const currentThreads = this.threads$.getValue() || [];
     const normalized = normalizeCallRecord(rawRecord, currentThreads.length);
     if (!normalized) return;
-    if (!autoSelect) {
-      this.unreadThreadIds.add(normalized.id);
-      this.unreadThreadIds.add(String(normalized.sr));
-      this.unreadThreadIds.add(`call-${normalized.sr}`);
-      normalized.unread = true;
+    const exists = currentThreads.some((t) => String(t.sr) === String(normalized.sr));
+    if (autoSelect) {
+      this.newCallThreadIds.delete(normalized.id);
+      this.newCallThreadIds.delete(String(normalized.sr));
+      this.newCallThreadIds.delete(`call-${normalized.sr}`);
+      normalized.isNewCall = false;
+    } else if (exists) {
+      normalized.isNewCall = Boolean(currentThreads.find((t) => String(t.sr) === String(normalized.sr))?.isNewCall);
     } else {
-      this.unreadThreadIds.delete(normalized.id);
-      this.unreadThreadIds.delete(String(normalized.sr));
-      this.unreadThreadIds.delete(`call-${normalized.sr}`);
+      this.newCallThreadIds.add(normalized.id);
+      this.newCallThreadIds.add(String(normalized.sr));
+      this.newCallThreadIds.add(`call-${normalized.sr}`);
+      normalized.isNewCall = true;
       normalized.unread = false;
+      normalized.unreadCount = 0;
     }
 
     // Update companies list with new count
@@ -663,9 +743,16 @@ class CallStreamService {
       }
     }
 
-    const exists = currentThreads.some((t) => String(t.sr) === String(normalized.sr));
     const updatedThreads = exists
-      ? currentThreads.map((t) => (String(t.sr) === String(normalized.sr) ? { ...t, ...normalized } : t))
+      ? currentThreads.map((t) => (String(t.sr) === String(normalized.sr)
+        ? {
+            ...t,
+            ...normalized,
+            unread: autoSelect ? false : t.unread,
+            unreadCount: autoSelect ? 0 : t.unreadCount,
+            isNewCall: autoSelect ? false : t.isNewCall,
+          }
+        : t))
       : [normalized, ...currentThreads];
     this.threads$.next(updatedThreads);
 
@@ -686,28 +773,20 @@ class CallStreamService {
   // Optimistically patch comment into thread's rawRecord and comments list
   patchComment(callLogId, commentObj) {
     if (!callLogId || !commentObj) return;
+    const hasAttachmentField = ['FilePath', 'filePath', 'img', 'attachment'].some((key) =>
+      Object.prototype.hasOwnProperty.call(commentObj, key)
+    );
     const currentThreads = this.threads$.getValue();
     let hasUpdated = false;
     const activeId = this.activeThreadId$.getValue();
     const currentUserId = this.currentUser$.getValue()?.id;
 
-    // Strip trailing 'Z' so it is treated as local Indian time (IST), matching database on refresh.
-    const rawTime = (commentObj.time || commentObj.CreatedDate || getLocalISOString())
-      .toString()
-      .replace(/Z$/i, '')
-      .replace(' ', 'T');
-
-    const normalizedComment = {
-      id: commentObj.id || Date.now(),
-      text: commentObj.text ?? commentObj.comment ?? commentObj.Comments ?? '',
-      comment: commentObj.text ?? commentObj.comment ?? commentObj.Comments ?? '',
-      time: rawTime,
+    const normalizedComment = normalizeCommentRecord({
+      ...commentObj,
+      time: commentObj.time || commentObj.CreatedDate || getLocalISOString(),
       Name: commentObj.Name || commentObj.CreatedByName || 'Support Agent',
-      CreatedBy: commentObj.CreatedBy,
       IsClient: commentObj.IsClient ?? commentObj.isClient ?? 0,
-      img: commentObj.img || commentObj.FilePath || '',
-      FilePath: commentObj.img || commentObj.FilePath || '',
-    };
+    }, { optimistic: Boolean(commentObj._optimisticComment) });
 
     const isFromOtherUser =
       normalizedComment.CreatedBy && currentUserId
@@ -724,35 +803,30 @@ class CallStreamService {
       }
       hasUpdated = true;
       const raw = { ...(t.rawRecord || {}) };
-      let comments = [];
-      if (typeof raw.comment === 'string') {
-        try {
-          comments = JSON.parse(raw.comment);
-        } catch (_) {
-          comments = [];
-        }
-      } else if (Array.isArray(raw.comment)) {
-        comments = [...raw.comment];
+      const existingComments = parseCommentRecords(raw.comment);
+      const incomingId = getCommentRecordId(commentObj);
+      const matchingExisting = incomingId == null
+        ? null
+        : existingComments.find((item) => String(getCommentRecordId(item)) === String(incomingId));
+      if (!hasAttachmentField && matchingExisting) {
+        const retainedPath = matchingExisting.FilePath ?? matchingExisting.filePath ?? matchingExisting.img ?? matchingExisting.attachment?.imgUrl ?? '';
+        normalizedComment.FilePath = Array.isArray(retainedPath) ? retainedPath.join(',') : retainedPath;
+        normalizedComment.img = normalizedComment.FilePath;
       }
-
-      // Check if comment already exists (by ID or matching text + approximate timestamp)
-      const alreadyExists = comments.some((c) => {
-        if (normalizedComment.id && c.id && String(c.id) === String(normalizedComment.id)) {
-          return true;
-        }
-        const sameText = (c.text || c.comment || '').trim() === normalizedComment.text.trim();
-        const cCleanTime = (c.time || '').toString().replace(/Z$/i, '').replace(' ', 'T');
-        const normCleanTime = (normalizedComment.time || '').toString().replace(/Z$/i, '').replace(' ', 'T');
-        const timeDiff = Math.abs(new Date(cCleanTime || 0) - new Date(normCleanTime || 0));
-        if (sameText && (timeDiff < 10000 || !c.time)) {
-          return true;
-        }
-        return false;
+      const hasSameSocketRecord = existingComments.some((item) => {
+        const sameText = String(item.text ?? item.comment ?? item.Comments ?? '').trim() === normalizedComment.text.trim();
+        const sameFile = String(item.FilePath ?? item.filePath ?? item.img ?? '') === String(normalizedComment.FilePath ?? '');
+        const sameAuthor = item.CreatedBy == null || normalizedComment.CreatedBy == null || String(item.CreatedBy) === String(normalizedComment.CreatedBy);
+        const itemTime = String(item.CreatedDate ?? item.time ?? '');
+        const incomingTime = String(normalizedComment.CreatedDate ?? normalizedComment.time ?? '');
+        return sameText && sameFile && sameAuthor && itemTime !== '' && itemTime === incomingTime;
       });
-
-      if (!alreadyExists) {
-        comments.push(normalizedComment);
-      }
+      const isDuplicateComment = Boolean(matchingExisting || hasSameSocketRecord);
+      const comments = upsertCommentRecord(
+        existingComments,
+        normalizedComment,
+        { optimistic: Boolean(commentObj._optimisticComment) }
+      );
 
       raw.comment = JSON.stringify(comments);
 
@@ -764,10 +838,12 @@ class CallStreamService {
 
       // Mark unread dot if user is doing something else (viewing another thread)
       const shouldMarkUnread = !isActive && isFromOtherUser;
-      if (shouldMarkUnread) {
+      const shouldIncrementUnread = shouldMarkUnread && !isDuplicateComment;
+      if (shouldIncrementUnread) {
         this.unreadThreadIds.add(t.id);
         this.unreadThreadIds.add(String(t.sr));
         this.unreadThreadIds.add(`call-${t.sr}`);
+        this.unreadCommentCounts.set(String(t.sr), (this.unreadCommentCounts.get(String(t.sr)) || 0) + 1);
       }
 
       // Format time for timestamp display
@@ -786,7 +862,10 @@ class CallStreamService {
 
       return {
         ...t,
-        unread: shouldMarkUnread ? true : t.unread,
+        unread: shouldIncrementUnread ? true : t.unread,
+        unreadCount: shouldIncrementUnread
+          ? (this.unreadCommentCounts.get(String(t.sr)) || 1)
+          : (t.unreadCount || 0),
         lastMessage: previewText,
         timestamp: displayTime || t.timestamp,
         date: normalizedComment.time || t.date,
@@ -809,7 +888,33 @@ class CallStreamService {
       } else {
         this.threads$.next(updatedThreads);
       }
+      this.removeLegacyCommentBubbles(callLogId);
     }
+  }
+
+  // Remove the duplicate purple bubbles created by the former optimistic
+  // comment path. Comments now render from the normalized comment stream only.
+  removeLegacyCommentBubbles(callLogId) {
+    const thread = (this.threads$.getValue() || []).find((item) =>
+      String(item.sr) === String(callLogId) ||
+      String(item.id) === String(callLogId) ||
+      `call-${item.sr}` === String(callLogId)
+    );
+    if (!thread) return;
+
+    const keys = new Set([String(thread.id), String(thread.sr), `call-${thread.sr}`]);
+    const current = this.customMessages$.getValue() || {};
+    let changed = false;
+    const updated = { ...current };
+    keys.forEach((key) => {
+      if (!Array.isArray(current[key])) return;
+      const filtered = current[key].filter((message) => !String(message?.id || '').startsWith('msg-'));
+      if (filtered.length !== current[key].length) {
+        updated[key] = filtered;
+        changed = true;
+      }
+    });
+    if (changed) this.customMessages$.next(updated);
   }
 
   // Add custom messages / follow-ups

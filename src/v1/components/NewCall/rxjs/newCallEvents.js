@@ -9,6 +9,7 @@ import { useSyncExternalStore } from 'react';
 export const addCallModal$ = new BehaviorSubject({ open: false, defaultCompany: '' });
 export const addFollowUpModal$ = new BehaviorSubject({ open: false, call: null });
 export const editCallModal$ = new BehaviorSubject({ open: false, call: null });
+let editCallModalSession = 0;
 export const forwardCallModal$ = new BehaviorSubject({ open: false, call: null });
 export const durationModal$ = new BehaviorSubject({ open: false, call: null });
 export const ratingModal$ = new BehaviorSubject({ open: false, call: null });
@@ -35,11 +36,12 @@ export const closeAddFollowUpModal = () => {
 };
 
 export const openEditCallModal = (call) => {
-  editCallModal$.next({ open: true, call });
+  editCallModalSession += 1;
+  editCallModal$.next({ open: true, call, sessionId: editCallModalSession });
 };
 
 export const closeEditCallModal = () => {
-  editCallModal$.next({ open: false, call: null });
+  editCallModal$.next({ open: false, call: null, sessionId: editCallModalSession });
 };
 
 export const openForwardCallModal = (call) => {

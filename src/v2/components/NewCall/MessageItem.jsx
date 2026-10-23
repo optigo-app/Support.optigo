@@ -1,6 +1,20 @@
 'use client';
-import React, { useState } from 'react';
-import { Box, Typography, Avatar, Paper, Chip, Button } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Box,
+  Typography,
+  Avatar,
+  Paper,
+  Chip,
+  Button,
+  IconButton,
+  Tooltip,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
 import {
   Ticket,
   CheckSquare,
@@ -8,24 +22,97 @@ import {
   Building,
   Calendar,
   User,
+  PencilSimple,
+  Trash,
+  Paperclip,
+  X,
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import CallLogCard from './CallLogCard';
 import FollowUpCallCard from './FollowUpCallCard';
 import AttachmentPill from './AttachmentPill';
+import CommentAttachmentGrid from './CommentAttachmentGrid';
 import TaskDetailSidebar from '../CallLogger/Itask/TaskDetailSidebar';
 import { useCallLog } from '../../context/UseCallLog';
 import MentionChip from './MentionChip';
 import { buildMentionRegex, findEmployeeByName, getEmployeesList } from './utils/mentionUtils';
 import { getCallSource, getCallSourceDisplay } from './utils/callSource';
+import {
+  getCommentAttachmentDisplayName,
+  parseCommentAttachmentPaths,
+} from './utils/commentAttachmentUtils';
 
-export default function MessageItem({ message }) {
+export default function MessageItem({ message, onEditComment, onDeleteComment }) {
   const navigate = useNavigate();
   const { getTaskList } = useCallLog();
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskData, setTaskData] = useState([]);
+  const [isEditingComment, setIsEditingComment] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [commentDraft, setCommentDraft] = useState(message?.content || '');
+  const [commentFiles, setCommentFiles] = useState([]);
+  const [removedAttachmentPaths, setRemovedAttachmentPaths] = useState([]);
+  const [isCommentSaving, setIsCommentSaving] = useState(false);
+  const commentFileInputRef = useRef(null);
+
+  useEffect(() => {
+    setCommentDraft(message?.content || '');
+    setCommentFiles([]);
+    setRemovedAttachmentPaths([]);
+    setIsEditingComment(false);
+  }, [message?.id, message?.content, message?.filePath]);
+
+  const handleSaveComment = async () => {
+    if (!onEditComment || isCommentSaving) return;
+    setIsCommentSaving(true);
+    try {
+      const saved = await onEditComment(message, {
+        text: commentDraft,
+        files: commentFiles,
+        removeAttachmentPaths: removedAttachmentPaths,
+      });
+      if (saved) setIsEditingComment(false);
+    } finally {
+      setIsCommentSaving(false);
+    }
+  };
+
+  const handleDeleteComment = async () => {
+    if (!onDeleteComment || isCommentSaving) return;
+    setIsCommentSaving(true);
+    try {
+      const deleted = await onDeleteComment(message);
+      if (deleted) setIsDeleteConfirmOpen(false);
+    } finally {
+      setIsCommentSaving(false);
+    }
+  };
 
   if (!message) return null;
+
+  const existingCommentAttachments = parseCommentAttachmentPaths(
+    message.filePath || message.attachment?.imgUrl
+  );
+  const removedAttachmentSet = new Set(removedAttachmentPaths);
+  const retainedCommentAttachments = existingCommentAttachments.filter(
+    (path) => !removedAttachmentSet.has(path)
+  );
+  const commentAttachmentCards = [
+    ...existingCommentAttachments.map((path) => ({
+      key: `existing:${path}`,
+      path,
+      url: path,
+      name: getCommentAttachmentDisplayName(path),
+      removed: removedAttachmentSet.has(path),
+      isNew: false,
+    })),
+    ...commentFiles.map((file) => ({
+      key: `new:${file.name}:${file.size}:${file.lastModified}`,
+      file,
+      name: file.name,
+      isNew: true,
+    })),
+  ];
 
   // 1. Right-side speech bubble for user-composed outgoing messages
   if (message.isOutgoing) {
@@ -647,7 +734,10 @@ export default function MessageItem({ message }) {
 
     return (
       <Box
+        component="article"
+        tabIndex={message.canManageComment ? 0 : undefined}
         sx={{
+          position: 'relative',
           display: 'flex',
           justifyContent: isClientComment ? 'flex-start' : 'flex-end',
           alignItems: 'flex-start',
@@ -656,6 +746,7 @@ export default function MessageItem({ message }) {
           py: 1,
           transition: 'background-color 0.15s ease',
           '&:hover': { bgcolor: '#F8FAFC' },
+          '&:hover .comment-hover-actions, &:focus-within .comment-hover-actions': { opacity: 1, pointerEvents: 'auto' },
           animation: 'smoothCommentSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           '@keyframes smoothCommentSlideIn': {
             '0%': {
@@ -716,7 +807,85 @@ export default function MessageItem({ message }) {
             </Box>
           </Box>
 
-          {message.content && (
+          {isEditingComment ? (
+            <Box sx={{ width: 'min(100%, 560px)', mt: 0.4 }}>
+              <TextField
+                value={commentDraft}
+                onChange={(event) => setCommentDraft(event.target.value)}
+                multiline
+                minRows={2}
+                maxRows={6}
+                fullWidth
+                autoFocus
+                placeholder="Write a comment..."
+                inputProps={{ 'aria-label': 'Edit comment' }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: '#FFFFFF', fontSize: 13 } }}
+              />
+              {(existingCommentAttachments.length > 0 || commentFiles.length > 0) && (
+                <Box sx={{ mt: 1 }}>
+                  <CommentAttachmentGrid
+                    attachments={commentAttachmentCards}
+                    onRemove={(attachment) => {
+                      if (attachment.isNew) {
+                        setCommentFiles((current) => current.filter((file) => file !== attachment.file));
+                      } else {
+                        setRemovedAttachmentPaths((current) => current.includes(attachment.path)
+                          ? current
+                          : [...current, attachment.path]);
+                      }
+                    }}
+                    onRestore={(attachment) => {
+                      setRemovedAttachmentPaths((current) => current.filter((path) => path !== attachment.path));
+                    }}
+                  />
+                </Box>
+              )}
+              <input
+                ref={commentFileInputRef}
+                type="file"
+                hidden
+                multiple
+                accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.avif,.heic,.heif,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.json,.ppt,.pptx"
+                onChange={(event) => {
+                  const selected = Array.from(event.target.files || []);
+                  if (selected.length) setCommentFiles((current) => {
+                    const seen = new Set(current.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
+                    return [...current, ...selected.filter((file) => {
+                      const key = `${file.name}:${file.size}:${file.lastModified}`;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    })];
+                  });
+                  event.target.value = '';
+                }}
+              />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.8 }}>
+                <Button
+                  size="small"
+                  startIcon={<Paperclip size={15} />}
+                  onClick={() => commentFileInputRef.current?.click()}
+                  sx={{ textTransform: 'none', color: '#475569', fontSize: 12 }}
+                >
+                  Add attachments
+                </Button>
+                <Box sx={{ display: 'flex', gap: 0.7 }}>
+                  <Button size="small" disabled={isCommentSaving} onClick={() => setIsEditingComment(false)} sx={{ textTransform: 'none', color: '#64748B' }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={isCommentSaving || (!commentDraft.trim() && commentFiles.length === 0 && retainedCommentAttachments.length === 0)}
+                    onClick={handleSaveComment}
+                    sx={{ textTransform: 'none', borderRadius: '8px', boxShadow: 'none' }}
+                  >
+                    {isCommentSaving ? 'Saving...' : 'Save'}
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          ) : message.content && (
             <Paper
               elevation={0}
               sx={{
@@ -739,12 +908,76 @@ export default function MessageItem({ message }) {
             </Paper>
           )}
 
-          {message.attachment && (
+          {!isEditingComment && message.attachment && (
             <Box sx={{ mt: 0.6 }}>
               <AttachmentPill attachment={message.attachment} />
             </Box>
           )}
         </Box>
+
+        {message.canManageComment && !isEditingComment && (
+          <Box
+            className="comment-hover-actions"
+            sx={{
+              position: 'absolute',
+              top: 4,
+              ...(isClientComment ? { left: 64 } : { right: 64 }),
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.25,
+              p: 0.25,
+              borderRadius: '8px',
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 2px 8px rgba(15,23,42,0.1)',
+              opacity: 0,
+              pointerEvents: 'none',
+              transition: 'opacity 0.15s ease',
+              zIndex: 2,
+            }}
+          >
+            <Tooltip title="Edit comment">
+              <IconButton
+                size="small"
+                aria-label="Edit comment"
+                onClick={() => {
+                  setCommentDraft(message.content || '');
+                  setCommentFiles([]);
+                  setRemovedAttachmentPaths([]);
+                  setIsEditingComment(true);
+                }}
+                sx={{ width: 27, height: 27, color: '#475569' }}
+              >
+                <PencilSimple size={14} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete comment">
+              <IconButton
+                size="small"
+                aria-label="Delete comment"
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                sx={{ width: 27, height: 27, color: '#DC2626' }}
+              >
+                <Trash size={14} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+
+        <Dialog open={isDeleteConfirmOpen} onClose={() => !isCommentSaving && setIsDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle sx={{ fontSize: 16, fontWeight: 700 }}>Delete comment?</DialogTitle>
+          <DialogContent sx={{ color: '#64748B', fontSize: 13 }}>
+            This will delete the comment and its attached file, if any.
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, pb: 2 }}>
+            <Button disabled={isCommentSaving} onClick={() => setIsDeleteConfirmOpen(false)} sx={{ textTransform: 'none' }}>
+              Cancel
+            </Button>
+            <Button disabled={isCommentSaving} color="error" variant="contained" onClick={handleDeleteComment} sx={{ textTransform: 'none', boxShadow: 'none' }}>
+              {isCommentSaving ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }

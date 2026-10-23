@@ -35,8 +35,11 @@ export const filesUploadApi = async ({ attachments, folderName, uniqueNo, ukey }
 export const fileRemoveApi = async ({ attachments }) => {
   const formattedAttachments = Array.isArray(attachments) ? attachments.map((item) => ({ imageUrl: item })) : [{ imageUrl: attachments }];
 
+
+  const REMOVAL_UPLOAD_URL = BaseAPI.BASE_URL.replace("/report", "/removefile");
+
   try {
-    const response = await axios.post(APIURL, formattedAttachments);
+    const response = await axios.post(REMOVAL_UPLOAD_URL, formattedAttachments);
     return response.data;
   } catch (error) {
     console.error("File remove failed:", error);

@@ -11,20 +11,25 @@ export default function AttachmentPill({ attachment }) {
 
   if (!attachment) return null;
 
-  const rawUrl = attachment.imgUrl || attachment.url || '';
+  const rawValue = attachment.imgUrl || attachment.url || attachment.FilePath || attachment.filePath || '';
+  const rawUrl = Array.isArray(rawValue)
+    ? rawValue.filter(Boolean).join(',')
+    : typeof rawValue === 'string'
+      ? rawValue
+      : (rawValue?.url || rawValue?.fileUrl || rawValue?.path || '');
   const extractFilename = (url) => {
     if (!url) return `Attachment_${attachment.id || 'file'}.fig`;
-    const parts = url.split('/');
+    const parts = String(url).split(/[?#]/, 1)[0].split('/');
     const last = parts[parts.length - 1];
     return last || `Attachment_${attachment.id || 'file'}.fig`;
   };
 
-  const urls = rawUrl.split(',').map(u => u.trim()).filter(Boolean);
+  const urls = String(rawUrl).split(',').map(u => u.trim()).filter(Boolean);
 
   const isImage = (u) => Boolean(
-    u.match(/\.(png|jpg|jpeg|gif|webp)$/i) ||
-    u.includes('image') ||
-    u.includes('unsplash')
+    String(u).split(/[?#]/, 1)[0].match(/\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)$/i) ||
+    /[?&](?:type|format)=image\//i.test(String(u)) ||
+    String(u).toLowerCase().includes('image')
   );
 
   const images = urls.filter(isImage);

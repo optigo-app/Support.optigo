@@ -641,7 +641,7 @@ const MessageComposer = React.memo(function MessageComposer({
 
   return (
     <Box
-      sx={{ p: 2, pt: 1, bgcolor: 'transparent' }}
+      sx={{ p: 2, pt: 1, bgcolor: '#fff' }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -660,15 +660,15 @@ const MessageComposer = React.memo(function MessageComposer({
       <Box
         sx={{
           position: 'relative',
-          background: 'linear-gradient(135deg, #EDE3FF 0%, #D8C2FF 100%)',
-          border: isDragging ? '1.5px dashed #6900C6' : '1px solid #D8C2FF',
-          borderRadius: '16px',
-          p: '6px',
+          background: '#F1F3F5',
+          border: isDragging ? '1.5px dashed #475569' : '',
+          borderRadius: '14px',
+          p: '7px',
           display: 'flex',
           flexDirection: 'column',
           gap: '6px',
-          boxShadow: '0 2px 8px rgba(105, 0, 198, 0.06)',
           transition: 'all 0.15s ease',
+          boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
         }}
       >
         {/* Mention Suggestions Autocomplete Popup */}
@@ -712,7 +712,7 @@ const MessageComposer = React.memo(function MessageComposer({
                 sx={{
                   fontSize: '0.72rem',
                   fontWeight: 800,
-                  color: '#6900C6',
+                  color: '#475569',
                   letterSpacing: '0.3px',
                   textTransform: 'uppercase',
                 }}
@@ -752,11 +752,11 @@ const MessageComposer = React.memo(function MessageComposer({
                         px: 1.4,
                         py: 0.8,
                         cursor: 'pointer',
-                        bgcolor: isSelected ? '#F3E8FF' : 'transparent',
-                        borderLeft: isSelected ? '3.5px solid #6900C6' : '3.5px solid transparent',
+                        bgcolor: isSelected ? '#F1F3F5' : 'transparent',
+                        borderLeft: isSelected ? '3.5px solid #475569' : '3.5px solid transparent',
                         transition: 'all 0.1s ease',
                         '&:hover': {
-                          bgcolor: '#F3E8FF',
+                          bgcolor: '#F1F3F5',
                         },
                       }}
                     >
@@ -766,8 +766,8 @@ const MessageComposer = React.memo(function MessageComposer({
                           height: 26,
                           fontSize: 11,
                           fontWeight: 800,
-                          bgcolor: isSelected ? '#6900C6' : '#EDE9FE',
-                          color: isSelected ? '#FFFFFF' : '#6900C6',
+                          bgcolor: isSelected ? '#475569' : '#E9ECEF',
+                          color: isSelected ? '#FFFFFF' : '#475569',
                           transition: 'all 0.15s ease',
                         }}
                       >
@@ -790,7 +790,7 @@ const MessageComposer = React.memo(function MessageComposer({
                             noWrap
                             sx={{
                               fontSize: '0.7rem',
-                              color: isSelected ? '#7C3AED' : '#64748B',
+                              color: isSelected ? '#334155' : '#64748B',
                               fontWeight: 500,
                               mt: 0.2,
                             }}
@@ -839,10 +839,11 @@ const MessageComposer = React.memo(function MessageComposer({
                   fontSize: '0.68rem',
                   fontWeight: 700,
                   bgcolor: '#FFFFFF',
-                  color: sourceInfo.color,
-                  border: `1px solid ${sourceInfo.border}`,
+                  color: '#475569',
+                  border: '1px solid #D8DDE3',
                   borderRadius: '999px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+
                   '& .MuiChip-icon': { color: 'inherit' },
                 }}
               />
@@ -862,10 +863,11 @@ const MessageComposer = React.memo(function MessageComposer({
                   fontSize: '0.68rem',
                   fontWeight: 700,
                   bgcolor: '#FFFFFF',
-                  color: currentCallTypeVal ? '#6900C6' : '#475569',
-                  border: `1px solid ${currentCallTypeVal ? '#DDD6FE' : '#E2E8F0'}`,
+                  color: '#334155',
+                  border: '1px solid #D8DDE3',
                   borderRadius: '999px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+
                   cursor: 'pointer',
                   '& .MuiChip-icon': { color: 'inherit' },
                   '& .MuiChip-deleteIcon': { color: 'inherit', margin: '0 4px 0 -4px' },
@@ -889,16 +891,17 @@ const MessageComposer = React.memo(function MessageComposer({
                   fontSize: '0.68rem',
                   fontWeight: 750,
                   bgcolor: '#FFFFFF',
-                  color: isTicketDone ? '#0284C7' : '#334155',
-                  border: `1px solid ${isTicketDone ? '#BAE6FD' : '#E2E8F0'}`,
+                  color: '#334155',
+                  border: '1px solid #D8DDE3',
                   borderRadius: '999px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   '& .MuiChip-icon': { color: 'inherit' },
                   '&:hover': {
-                    bgcolor: isTicketDone ? '#E0F2FE' : '#F8FAFC',
-                    borderColor: isTicketDone ? '#7DD3FC' : '#CBD5E1',
+                    bgcolor: '#F1F3F5',
+                    borderColor: '#BFC6CE',
                     transform: 'translateY(-0.5px)',
                   },
                 }}
@@ -925,16 +928,17 @@ const MessageComposer = React.memo(function MessageComposer({
                   fontSize: '0.68rem',
                   fontWeight: 750,
                   bgcolor: '#FFFFFF',
-                  color: hasTaskId ? '#15803D' : '#334155',
-                  border: `1px solid ${hasTaskId ? '#BBF7D0' : '#E2E8F0'}`,
+                  color: '#334155',
+                  border: '1px solid #D8DDE3',
                   borderRadius: '999px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   '& .MuiChip-icon': { color: 'inherit' },
                   '&:hover': {
-                    bgcolor: hasTaskId ? '#DCFCE7' : '#F8FAFC',
-                    borderColor: hasTaskId ? '#86EFAC' : '#CBD5E1',
+                    bgcolor: '#F1F3F5',
+                    borderColor: '#BFC6CE',
                     transform: 'translateY(-0.5px)',
                   },
                 }}
@@ -948,13 +952,13 @@ const MessageComposer = React.memo(function MessageComposer({
           sx={{
             bgcolor: '#FFFFFF',
             borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.9)',
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
+            border: '1px solid #E2E5E9',
+            boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
             display: 'flex',
             flexDirection: 'column',
             transition: 'all 0.15s ease',
             '&:focus-within': {
-              boxShadow: '0 2px 8px rgba(105, 0, 198, 0.12), 0 0 0 1px rgba(105, 0, 198, 0.3)',
+              boxShadow: '0 0 0 2px rgba(71, 85, 105, 0.14)',
             },
           }}
         >
@@ -1045,7 +1049,7 @@ const MessageComposer = React.memo(function MessageComposer({
                           width: 32,
                           height: 32,
                           borderRadius: '6px',
-                          bgcolor: '#EDE9FE',
+                          bgcolor: '#E9ECEF',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1102,15 +1106,15 @@ const MessageComposer = React.memo(function MessageComposer({
                 gap: 0.8,
                 px: 1.6,
                 py: 0.6,
-                bgcolor: '#FAF5FF',
-                borderBottom: '1px solid #F3E8FF',
+                bgcolor: '#F8F9FA',
+                borderBottom: '1px solid #E5E7EB',
                 flexWrap: 'wrap',
                 animation: 'fadeIn 0.2s ease',
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                <AlternateEmailRoundedIcon sx={{ fontSize: 13, color: '#7E22CE' }} />
-                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: '#6900C6' }}>
+                <AlternateEmailRoundedIcon sx={{ fontSize: 13, color: '#475569' }} />
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: '#334155' }}>
                   Notifying:
                 </Typography>
               </Box>
@@ -1121,7 +1125,7 @@ const MessageComposer = React.memo(function MessageComposer({
                   avatar={
                     <Avatar
                       sx={{
-                        bgcolor: '#6900C6 !important',
+                        bgcolor: '#475569 !important',
                         color: '#FFFFFF !important',
                         fontSize: '9px !important',
                         width: '16px !important',
@@ -1137,12 +1141,12 @@ const MessageComposer = React.memo(function MessageComposer({
                     height: 22,
                     fontSize: '0.72rem',
                     fontWeight: 700,
-                    bgcolor: '#EDE9FE',
-                    color: '#6900C6',
+                    bgcolor: '#F1F3F5',
+                    color: '#334155',
                     borderRadius: '999px',
-                    border: '1px solid #DDD6FE',
+                    border: '1px solid #D8DDE3',
                     '& .MuiChip-deleteIcon': {
-                      color: '#7C3AED',
+                      color: '#64748B',
                       fontSize: 13,
                       '&:hover': { color: '#EF4444' },
                     },
@@ -1176,7 +1180,7 @@ const MessageComposer = React.memo(function MessageComposer({
                 outline: 'none',
                 fontSize: 13.5,
                 lineHeight: 1.55,
-                color: '#0F172A',
+                color: '#1F2937',
                 fontWeight: isBold ? 700 : 450,
                 fontStyle: isItalic ? 'italic' : 'normal',
                 textDecoration: isStrike ? 'line-through' : 'none',
@@ -1195,9 +1199,9 @@ const MessageComposer = React.memo(function MessageComposer({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  bgcolor: '#EDE9FE',
-                  color: '#6900C6',
-                  border: '1px solid #DDD6FE',
+                  bgcolor: '#F1F3F5',
+                  color: '#334155',
+                  border: '1px solid #D8DDE3',
                   borderRadius: '6px',
                   px: '6px',
                   py: '1px',
@@ -1220,7 +1224,7 @@ const MessageComposer = React.memo(function MessageComposer({
                   width: 16,
                   height: 16,
                   borderRadius: '50%',
-                  bgcolor: '#6900C6',
+                  bgcolor: '#475569',
                   color: '#FFFFFF',
                   fontSize: '10px',
                   fontWeight: 800,
@@ -1241,7 +1245,7 @@ const MessageComposer = React.memo(function MessageComposer({
             }}
           >
             {/* Left Tools: Formatting + Attachments */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {/* Bold */}
               <Tooltip title="Bold (⌘B)">
                 <IconButton
@@ -1250,7 +1254,11 @@ const MessageComposer = React.memo(function MessageComposer({
                     document.execCommand('bold', false, null);
                     setIsBold(!isBold);
                   }}
-                  sx={{ color: isBold ? '#6900C6' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isBold ? '#EDE9FE' : 'transparent', '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' } }}
+                  sx={{
+                    boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+
+                    color: isBold ? '#111827' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isBold ? '#E9ECEF' : 'transparent', '&:hover': { bgcolor: '#F1F3F5', color: '#111827' }
+                  }}
                 >
                   <TextB size={15} weight="bold" />
                 </IconButton>
@@ -1264,7 +1272,10 @@ const MessageComposer = React.memo(function MessageComposer({
                     document.execCommand('italic', false, null);
                     setIsItalic(!isItalic);
                   }}
-                  sx={{ color: isItalic ? '#6900C6' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isItalic ? '#EDE9FE' : 'transparent', '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' } }}
+                  sx={{
+                    boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+                    color: isItalic ? '#111827' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isItalic ? '#E9ECEF' : 'transparent', '&:hover': { bgcolor: '#F1F3F5', color: '#111827' }
+                  }}
                 >
                   <TextItalic size={15} weight="bold" />
                 </IconButton>
@@ -1278,7 +1289,10 @@ const MessageComposer = React.memo(function MessageComposer({
                     document.execCommand('strikeThrough', false, null);
                     setIsStrike(!isStrike);
                   }}
-                  sx={{ color: isStrike ? '#6900C6' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isStrike ? '#EDE9FE' : 'transparent', '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' } }}
+                  sx={{
+                    boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+                    color: isStrike ? '#111827' : '#64748B', p: 0.5, borderRadius: '6px', bgcolor: isStrike ? '#E9ECEF' : 'transparent', '&:hover': { bgcolor: '#F1F3F5', color: '#111827' }
+                  }}
                 >
                   <TextStrikethrough size={15} weight="bold" />
                 </IconButton>
@@ -1290,11 +1304,12 @@ const MessageComposer = React.memo(function MessageComposer({
                   size="small"
                   onClick={handleMentionButtonClick}
                   sx={{
-                    color: isMentionOpen ? '#6900C6' : '#64748B',
+                    boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+                    color: isMentionOpen ? '#111827' : '#64748B',
                     p: 0.5,
                     borderRadius: '6px',
-                    bgcolor: isMentionOpen ? '#EDE9FE' : 'transparent',
-                    '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' },
+                    bgcolor: isMentionOpen ? '#E9ECEF' : 'transparent',
+                    '&:hover': { bgcolor: '#F1F3F5', color: '#111827' },
                   }}
                 >
                   <AlternateEmailRoundedIcon sx={{ fontSize: 16 }} />
@@ -1307,11 +1322,12 @@ const MessageComposer = React.memo(function MessageComposer({
                   size="small"
                   onClick={() => fileInputRef.current?.click()}
                   sx={{
-                    color: selectedFiles.length > 0 ? '#6900C6' : '#64748B',
+                    boxShadow: " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+                    color: selectedFiles.length > 0 ? '#111827' : '#64748B',
                     p: 0.5,
                     borderRadius: '6px',
-                    bgcolor: selectedFiles.length > 0 ? '#EDE9FE' : 'transparent',
-                    '&:hover': { bgcolor: '#F3E8FF', color: '#6900C6' },
+                    bgcolor: selectedFiles.length > 0 ? '#E9ECEF' : 'transparent',
+                    '&:hover': { bgcolor: '#F1F3F5', color: '#111827' },
                   }}
                 >
                   <Paperclip size={16} weight="bold" />
@@ -1325,18 +1341,19 @@ const MessageComposer = React.memo(function MessageComposer({
               onClick={handleSend}
               disabled={isSendDisabled}
               sx={{
+                // boxShadow: !isSendDisabled ? " 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
                 width: 32,
                 height: 32,
-                bgcolor: !isSendDisabled ? '#6900C6' : '#E2E8F0',
-                color: !isSendDisabled ? '#FFFFFF' : '#94A3B8',
+                bgcolor: !isSendDisabled ? '#1F2937' : '#E5E7EB',
+                color: !isSendDisabled ? '#FFFFFF' : '#9CA3AF',
                 borderRadius: '50%',
                 p: 0,
-                boxShadow: !isSendDisabled ? '0 2px 6px rgba(105, 0, 198, 0.25)' : 'none',
+                boxShadow: !isSendDisabled ? '0 2px 5px rgba(15, 23, 42, 0.2)' : 'none',
                 transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
                 '&:hover': {
-                  bgcolor: !isSendDisabled ? '#5800A8' : '#E2E8F0',
+                  bgcolor: !isSendDisabled ? '#111827' : '#E5E7EB',
                   transform: !isSendDisabled ? 'scale(1.06)' : 'none',
-                  boxShadow: !isSendDisabled ? '0 4px 12px rgba(105, 0, 198, 0.35)' : 'none',
+                  boxShadow: !isSendDisabled ? '0 4px 10px rgba(15, 23, 42, 0.24)' : 'none',
                 },
                 '&:active': {
                   transform: !isSendDisabled ? 'scale(0.96)' : 'none',

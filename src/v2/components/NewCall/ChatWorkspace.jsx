@@ -34,10 +34,21 @@ import { globalSearchQuery$, setGlobalSearchQuery } from '../../rxjs/globalSearc
 import { formatLocalDateToYYYYMMDD } from './AirbnbDateRangePicker';
 import { formatFriendlyTime, formatTimeOnly, formatDateGroup, isValidDate, getEpochMs, getLocalISOString } from './utils/dateUtils';
 import { hasRealTicket, getResolvedTicketId } from './utils/ticketStatusUtils';
-import { filesUploadApi } from '../../apis/UploadFille';
 import { useSocketEvent } from '../../hooks/useSocketListener';
 import ChatBgPattern from '../../../assets/images/chat-bg.png';
 import { getCallSource } from './utils/callSource';
+import {
+  getUnreferencedAttachmentPaths,
+  parseCommentAttachmentPaths,
+  removeCommentAttachments,
+  uploadCommentAttachments,
+} from './utils/commentAttachmentUtils';
+import {
+  getCommentRecordId,
+  parseCommentRecords,
+  removeCommentRecord,
+  upsertCommentRecord,
+} from './utils/commentStreamUtils';
 
 const STORAGE_KEYS = {
   VOIP_SESSION: 'newcall_active_voip_session',
@@ -47,6 +58,46 @@ const parseFilterValues = (value) => {
   if (value == null || value === '' || value === 'all') return 'all';
   const values = String(value).split(',').map((item) => item.trim()).filter(Boolean);
   return values.length > 1 ? values : (values[0] || 'all');
+};
+
+const parseCallComments = (record) => {
+  const rawComments = record?.comment || record?.CommentsArray || record?.comments || record?.Comments;
+  return parseCommentRecords(rawComments);
+};
+
+const getCommentId = getCommentRecordId;
+
+const unwrapCommentSocketPayload = (payload) => {
+  const value = Array.isArray(payload) ? payload[0] : payload;
+  return value?.Data?.rd1?.[0] || value?.rd1?.[0] || value?.data?.rd1?.[0] || value?.data || value;
+};
+
+const assertCommentMutationSucceeded = (response, fallbackMessage) => {
+  const result = response?.rd?.[0];
+  // BaseAPI returns Data directly, so the status is expected at rd[0]. Do not
+  // treat a malformed/empty response as success: attachment cleanup depends on
+  // this check and must only happen after the server confirms the mutation.
+  if (!result || Number(result.stat) !== 1) {
+    throw new Error(result?.stat_msg || fallbackMessage);
+  }
+  if (response === false || response?.success === false || response?.Success === false) {
+    throw new Error(response?.message || response?.Message || fallbackMessage);
+  }
+};
+
+const mutateCallCommentsInStream = (callLogId, mutate) => {
+  if (callLogId == null || typeof mutate !== 'function') return false;
+  const threads = callStreamService.threads$.getValue() || [];
+  const thread = threads.find((item) =>
+    String(item.sr ?? item.rawRecord?.sr ?? '') === String(callLogId)
+  );
+  if (!thread) return false;
+
+  const comments = parseCallComments(thread.rawRecord || thread);
+  const nextComments = mutate(comments);
+  if (!Array.isArray(nextComments)) return false;
+
+  return callStreamService.replaceComments?.(callLogId, nextComments) || false;
 };
 
 
@@ -1069,22 +1120,49 @@ export default function ChatWorkspace() {
 
   useSocketEvent('ADDCOMMENTS', (data) => {
     if (!data) return;
-    const callLogSr = data.CallLogId ?? data.sr ?? data.callLogId;
+    const comment = unwrapCommentSocketPayload(data);
+    const callLogSr = comment?.CallLogId ?? comment?.CallLogid ?? comment?.sr ?? comment?.callLogId;
     if (!callLogSr) return;
-    const commentText = (data.Comments ?? data.comment ?? data.text ?? '').toString().trim();
     callStreamService.patchComment(callLogSr, {
-      id: data.id,
-      text: commentText,
-      comment: commentText,
-      Comments: commentText,
-      time: data.CreatedDate || data.time || getLocalISOString(),
-      Name: data.Name || data.CreatedByName || 'Support',
-      CreatedBy: data.CreatedBy,
-      IsClient: data.IsClient ?? data.isClient ?? 0,
-      img: data.FilePath || data.img || '',
-      FilePath: data.FilePath || data.img || '',
+      ...comment,
+      id: getCommentId(comment),
+      time: comment.CreatedDate || comment.time || getLocalISOString(),
+      Name: comment.Name || comment.CreatedByName || 'Support',
+      IsClient: comment.IsClient ?? comment.isClient ?? 0,
     });
   });
+
+  const handleEditCommentSocketEvent = useCallback((data) => {
+    const comment = unwrapCommentSocketPayload(data);
+    const callLogId = comment?.CallLogId ?? comment?.CallLogid ?? comment?.callLogId ?? comment?.sr;
+    const commentId = getCommentId(comment);
+    if (callLogId == null || commentId == null) return;
+
+    mutateCallCommentsInStream(callLogId, (comments) => {
+      return upsertCommentRecord(comments, comment);
+    });
+  }, []);
+
+  const handleDeleteCommentSocketEvent = useCallback((data) => {
+    const event = unwrapCommentSocketPayload(data);
+    const callLogId = event?.CallLogid ?? event?.CallLogId ?? event?.callLogId ?? event?.sr;
+    const commentId = event?.CommentId ?? event?.CommentID ?? event?.commentId ?? event?.id;
+    if (callLogId == null || commentId == null) return;
+
+    mutateCallCommentsInStream(callLogId, (comments) => {
+      const filteredComments = removeCommentRecord(comments, commentId);
+      return filteredComments.length === comments.length ? null : filteredComments;
+    });
+  }, []);
+
+  useSocketEvent('EDITCOMMENTS', handleEditCommentSocketEvent);
+  useSocketEvent('EDIT_COMMENTS', handleEditCommentSocketEvent);
+  useSocketEvent('EditComments', handleEditCommentSocketEvent);
+  useSocketEvent('EditComment', handleEditCommentSocketEvent);
+  useSocketEvent('DELETECOMMENTS', handleDeleteCommentSocketEvent);
+  useSocketEvent('DELETE_COMMENTS', handleDeleteCommentSocketEvent);
+  useSocketEvent('DeleteComments', handleDeleteCommentSocketEvent);
+  useSocketEvent('DeleteComment', handleDeleteCommentSocketEvent);
 
   // Helper to build chronological message sequence for any individual call record
   const buildMessagesForCall = useCallback((rec, callId) => {
@@ -1281,22 +1359,13 @@ export default function ChatWorkspace() {
     }
 
     // Append Real Comments & Attachments
-    if (rec.comment) {
-      let commentsList = [];
-      if (typeof rec.comment === 'string') {
-        try {
-          commentsList = JSON.parse(rec.comment);
-        } catch (_) {
-          commentsList = [];
-        }
-      } else if (Array.isArray(rec.comment)) {
-        commentsList = rec.comment;
-      }
-
+    if (rec.comment || rec.CommentsArray || rec.comments) {
+      const commentsList = parseCallComments(rec);
       if (Array.isArray(commentsList)) {
         try {
           commentsList.forEach((cItem, cIdx) => {
-            const commentText = cItem.text || cItem.comment || '';
+            const commentText = cItem.text || cItem.comment || cItem.Comments || cItem.comments || '';
+            const commentId = getCommentId(cItem);
             const cTimeFormatted = cItem.time
               ? formatFriendlyTime(null, cItem.time)
               : mainCallTime;
@@ -1307,34 +1376,37 @@ export default function ChatWorkspace() {
               baseStartTime + (cIdx + 2) * 60000
             );
 
-            const hasAttachment = Boolean(cItem.img);
+            const rawImg = cItem.img || cItem.FilePath || cItem.filePath || '';
+            const hasAttachment = Boolean(rawImg);
             const isAgent = Boolean(cItem.Name && cItem.Name !== rec.callBy);
-            const rawImg = cItem.img || '';
             const filenameFromUrl = rawImg ? rawImg.split('/').pop() : '';
 
             const attachmentData = hasAttachment
               ? {
                 id: cItem.id || cIdx + 1,
-                filename: filenameFromUrl ? `${filenameFromUrl}` : `Attachment_${cItem.id || '58'}`,
+                filename: filenameFromUrl || 'Attachment',
                 subTitle: 'Image file',
                 fileType: 'Image file',
                 type: 'image',
-                imgUrl: cItem.img,
+                imgUrl: rawImg,
                 text: commentText,
               }
               : null;
 
-            const isCurrentUser = Boolean(
-              user?.firstname &&
-              (cItem.Name || '').toLowerCase().trim() ===
-              `${user.firstname} ${user.lastname || ''}`.toLowerCase().trim()
-            );
-            const isClient = Number(cItem.IsClient) === 1;
+            const commentCreatedBy = cItem.CreatedBy ?? cItem.createdBy;
+            const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim().toLowerCase() || String(user?.name || '').trim().toLowerCase();
+            const isCurrentUser = commentCreatedBy != null && user?.id != null
+              ? String(commentCreatedBy) === String(user.id)
+              : Boolean(currentUserName && String(cItem.Name || cItem.CreatedByName || '').toLowerCase().trim() === currentUserName);
+            const isClient = Number(cItem.IsClient ?? cItem.isClient) === 1;
 
             items.push({
-              id: `comment-${rec.sr}-${cItem.id || cIdx}-${cIdx}`,
+              id: `comment-${rec.sr}-${cItem._clientKey || commentId || cIdx}`,
+              commentId,
+              filePath: rawImg,
+              createdBy: commentCreatedBy,
               dateGroup: cDateFormatted,
-              sender: cItem.Name || (isAgent ? rec.receivedBy || 'Support Executive' : rec.callBy || 'Client'),
+              sender: cItem.Name || cItem.CreatedByName || (isAgent ? rec.receivedBy || 'Support Executive' : rec.callBy || 'Client'),
               company: rec.company,
               avatar: isCurrentUser ? user?.avatar || '' : '',
               time: cTimeFormatted,
@@ -1344,6 +1416,7 @@ export default function ChatWorkspace() {
               isOutgoing: false,
               isClient,
               IsClient: cItem.IsClient,
+              canManageComment: user?.id != null && isCurrentUser && Boolean(commentId) && !isClient && !cItem._optimisticComment,
               hasAttachment: hasAttachment,
               attachment: attachmentData,
               isClientReply: false,
@@ -1687,6 +1760,147 @@ export default function ChatWorkspace() {
     [handleSelectThread]
   );
 
+  const handleEditComment = useCallback(async (message, { text, files = [], removeAttachmentPaths = [], removeAttachment = false }) => {
+    const callLogId = activeThread?.sr || activeThread?.rawRecord?.sr;
+    const commentId = message?.commentId;
+    if (!callLogId || commentId == null) {
+      toast.error('This comment is missing its call or comment ID.');
+      return false;
+    }
+
+    const oldPaths = parseCommentAttachmentPaths(message.filePath || message.attachment?.imgUrl);
+    const removedPaths = new Set(removeAttachment ? oldPaths : parseCommentAttachmentPaths(removeAttachmentPaths));
+    const retainedOldPaths = oldPaths.filter((path) => !removedPaths.has(path));
+    const filesToUpload = Array.isArray(files) ? files : (files ? [files] : []);
+    let uploadedPaths = [];
+    let nextFilePath = retainedOldPaths.join(',');
+    let commentText = String(text || '').trim();
+    let attachmentCleanupFailed = false;
+
+    try {
+      if (filesToUpload.length) {
+        uploadedPaths = await uploadCommentAttachments({
+          files: filesToUpload,
+          callLogId,
+          ukey: CompanyInfo?.ukey || user?.ukey,
+        });
+        nextFilePath = [...retainedOldPaths, ...uploadedPaths].join(',');
+      }
+
+      if (!commentText && nextFilePath) commentText = 'Shared an attachment';
+      if (!commentText && !nextFilePath) {
+        toast.error('A comment must include text or an attachment.');
+        if (uploadedPaths.length) await removeCommentAttachments(uploadedPaths);
+        return false;
+      }
+
+      const response = await CallLogApi.editCallComments({
+        callLogId,
+        commentId,
+        comments: commentText,
+        filePath: nextFilePath,
+        createdBy: user?.id,
+      });
+      assertCommentMutationSucceeded(response, 'The comment could not be updated.');
+
+      const savedComment = response?.rd1?.[0] || {};
+      const savedCommentId = getCommentId(savedComment) ?? commentId;
+      const savedText = savedComment.Comments ?? commentText;
+      // The edit endpoint can echo the old FilePath when it receives an empty
+      // value. A user's explicit remove selection is authoritative: persist the
+      // intended path locally and remove the old files from storage below.
+      const hasExplicitAttachmentRemoval = removeAttachment || removedPaths.size > 0;
+      const savedFilePath = hasExplicitAttachmentRemoval
+        ? nextFilePath
+        : (savedComment.FilePath ?? nextFilePath);
+
+      mutateCallCommentsInStream(callLogId, (comments) => {
+        const updated = upsertCommentRecord(comments, {
+          ...savedComment,
+          id: savedCommentId,
+          Comments: savedText,
+          FilePath: savedFilePath,
+        });
+        return updated;
+      });
+
+      const pathsToRemove = getUnreferencedAttachmentPaths(
+        [...oldPaths, ...uploadedPaths],
+        hasExplicitAttachmentRemoval ? nextFilePath : savedFilePath
+      );
+      if (pathsToRemove.length) {
+        try {
+          await removeCommentAttachments(pathsToRemove);
+        } catch (fileError) {
+          attachmentCleanupFailed = true;
+          console.error('Comment saved, but old attachment cleanup failed:', fileError);
+          toast.warning('Comment updated, but its old attachment could not be removed.');
+        }
+      }
+
+      if (!attachmentCleanupFailed) toast.success('Comment updated.');
+      return true;
+    } catch (error) {
+      if (uploadedPaths.length) {
+        try {
+          await removeCommentAttachments(uploadedPaths);
+        } catch (cleanupError) {
+          console.error('Failed to clean up an unused uploaded comment attachment:', cleanupError);
+        }
+      }
+      console.error('Failed to edit call comment:', error);
+      toast.error(error?.message || 'Could not update the comment.');
+      return false;
+    }
+  }, [activeThread, CompanyInfo, user]);
+
+  const handleDeleteComment = useCallback(async (message) => {
+    const callLogId = activeThread?.sr || activeThread?.rawRecord?.sr;
+    const commentId = message?.commentId;
+    if (!callLogId || commentId == null) {
+      toast.error('This comment is missing its call or comment ID.');
+      return false;
+    }
+
+    let attachmentCleanupFailed = false;
+    try {
+      const response = await CallLogApi.deleteCallComments({
+        callLogId,
+        commentId,
+        createdBy: user?.id,
+      });
+      assertCommentMutationSucceeded(response, 'The comment could not be deleted.');
+
+      const deletedComment = response?.rd1?.[0] || {};
+      const deletedCallLogId = deletedComment.CallLogid ?? deletedComment.CallLogId ?? callLogId;
+      const deletedCommentId = deletedComment.CommentId ?? getCommentId(deletedComment) ?? commentId;
+
+      mutateCallCommentsInStream(deletedCallLogId, (comments) =>
+        comments.length === comments.filter((comment) => String(getCommentId(comment)) !== String(deletedCommentId)).length
+          ? null
+          : comments.filter((comment) => String(getCommentId(comment)) !== String(deletedCommentId))
+      );
+
+      const pathsToRemove = parseCommentAttachmentPaths(message.filePath || message.attachment?.imgUrl);
+      if (pathsToRemove.length) {
+        try {
+          await removeCommentAttachments(pathsToRemove);
+        } catch (fileError) {
+          attachmentCleanupFailed = true;
+          console.error('Comment deleted, but attachment cleanup failed:', fileError);
+          toast.warning('Comment deleted, but its attachment could not be removed.');
+        }
+      }
+
+      if (!attachmentCleanupFailed) toast.success('Comment deleted.');
+      return true;
+    } catch (error) {
+      console.error('Failed to delete call comment:', error);
+      toast.error(error?.message || 'Could not delete the comment.');
+      return false;
+    }
+  }, [activeThread, CompanyInfo, user]);
+
   const handleSendMessage = useCallback(
     async (text, fileOrAttachment = null) => {
       if (!activeThreadId) return;
@@ -1696,20 +1910,17 @@ export default function ChatWorkspace() {
         activeThreadItem?.sr ||
         activeThreadItem?.rawRecord?.sr ||
         (typeof activeThreadId === 'number' ? activeThreadId : null);
+      if (!callLogSr) {
+        toast.error('Select a call before adding a comment or attachment.');
+        return;
+      }
 
       const senderName = user?.firstname
         ? `${user.firstname} ${user.lastname || ''}`.trim()
         : user?.name || '-';
 
       const now = new Date();
-      const nowFormatted = now.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-      });
-
       let uploadedUrl = null;
-      let attachmentData = null;
 
       const isArrayOfFiles = Array.isArray(fileOrAttachment) && fileOrAttachment.length > 0;
       const isSingleFile = fileOrAttachment instanceof File ||
@@ -1719,87 +1930,90 @@ export default function ChatWorkspace() {
       if (isArrayOfFiles || isSingleFile) {
         const filesToUpload = isArrayOfFiles ? fileOrAttachment : [fileOrAttachment];
         try {
-          const uploadRes = await filesUploadApi({
+          const uploadedPaths = await uploadCommentAttachments({
+            files: filesToUpload,
+            callLogId: callLogSr,
             ukey: CompanyInfo?.ukey || user?.ukey,
-            folderName: 'CallLog',
-            uniqueNo: callLogSr,
-            attachments: filesToUpload,
           });
 
-          // Join multiple uploaded URLs by comma
-          const uploadedUrls = (uploadRes?.files || []).map(f => f.url || f.fileUrl).filter(Boolean);
-          if (uploadedUrls.length === 0 && uploadRes?.url) uploadedUrls.push(uploadRes.url);
-          if (uploadedUrls.length === 0 && uploadRes?.data?.[0]?.url) uploadedUrls.push(uploadRes.data[0].url);
-
-          uploadedUrl = uploadedUrls.join(',') || null;
-
-          if (uploadedUrl) {
-            const firstFile = filesToUpload[0];
-            attachmentData = {
-              id: Date.now(),
-              filename: filesToUpload.length > 1 ? `${filesToUpload.length} files attached` : firstFile.name,
-              size: firstFile.size,
-              fileType: firstFile.type || 'file',
-              type: firstFile.type?.startsWith('image/') ? 'image' : 'file',
-              imgUrl: uploadedUrl,
-              text: text || '',
-            };
-          }
+          uploadedUrl = uploadedPaths.join(',') || null;
         } catch (uploadErr) {
           console.error('File upload failed:', uploadErr);
-          // toast.error('Failed to upload attachment');
+          toast.error(uploadErr?.message || 'Failed to upload attachment.');
           return;
         }
       } else if (fileOrAttachment && !isArrayOfFiles) {
-        attachmentData = fileOrAttachment;
         uploadedUrl = fileOrAttachment.imgUrl || fileOrAttachment.url || null;
       }
 
       const messageContent = text?.trim() || (uploadedUrl ? 'Shared an attachment' : '');
       if (!messageContent && !uploadedUrl) return;
 
-      const newMsg = {
-        id: `msg-${Date.now()}`,
-        dateGroup: nowFormatted,
-        sender: senderName,
-        avatar: user?.avatar || '',
-        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        content: messageContent,
-        isOutgoing: true,
-        sortTime: now.getTime(),
-        attachment: attachmentData,
-      };
-
-      // 2. Optimistically append message to stream (indexed by both activeThreadId and callLogSr)
-      callStreamService.addCustomMessage(activeThreadId, newMsg, callLogSr);
-
-      // Optimistically update thread's rawRecord.comment immediately
+      const pendingCommentId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       if (callLogSr) {
         callStreamService.patchComment(callLogSr, {
+          id: pendingCommentId,
+          _clientKey: pendingCommentId,
           text: messageContent,
           img: uploadedUrl || '',
           time: getLocalISOString(),
           Name: senderName,
+          CreatedBy: user?.id,
           IsClient: 0,
+          _optimisticComment: true,
         });
       }
 
-      // 3. Persist to Backend API via CallLogApi.addCallComments or addComment
+      // Keep the optimistic comment in the comment stream and reconcile it
+      // with the API/socket record; do not add a second generic chat bubble.
       if (callLogSr) {
         try {
-          if (callLogCtx?.addComment) {
-            await callLogCtx.addComment(callLogSr, messageContent, uploadedUrl || '', user?.id, 0); // IsClient=0 => Support Agent
-          } else {
-            await CallLogApi.addCallComments(callLogSr, messageContent, uploadedUrl || '', user?.id, 0);
+          const response = await CallLogApi.addCallComments(
+            callLogSr,
+            messageContent,
+            uploadedUrl || '',
+            user?.id,
+            0
+          );
+          assertCommentMutationSucceeded(response, 'The comment could not be sent.');
+
+          const savedComment = response?.rd1?.[0];
+          if (savedComment) {
+            callStreamService.patchComment(callLogSr, savedComment);
+            const savedPathField = savedComment.FilePath ?? savedComment.filePath ?? savedComment.img;
+            if (uploadedUrl && savedPathField != null) {
+              const orphanedPaths = getUnreferencedAttachmentPaths(
+                parseCommentAttachmentPaths(uploadedUrl),
+                savedPathField
+              );
+              if (orphanedPaths.length) {
+                try {
+                  await removeCommentAttachments(orphanedPaths);
+                } catch (cleanupError) {
+                  console.error('Comment saved, but its unreferenced uploaded attachment could not be removed:', cleanupError);
+                  toast.warning('Comment saved, but an unused attachment could not be removed.');
+                }
+              }
+            }
           }
-          if (callLogCtx?.triggerRefresh) callLogCtx.triggerRefresh();
         } catch (error) {
           console.error('Error posting comment:', error);
-          // toast.error('Could not save comment to server');
+          mutateCallCommentsInStream(callLogSr, (comments) => {
+            const remaining = removeCommentRecord(comments, pendingCommentId);
+            return remaining.length === comments.length ? null : remaining;
+          });
+          if (uploadedUrl) {
+            try {
+              await removeCommentAttachments(parseCommentAttachmentPaths(uploadedUrl));
+            } catch (cleanupError) {
+              console.error('Failed to clean up an unused comment attachment:', cleanupError);
+            }
+          }
+          toast.error(error?.message || 'Could not send the comment.');
         }
       }
     },
-    [activeThreadId, activeThread, threadMap, user, callLogCtx]
+    [activeThreadId, activeThread, threadMap, CompanyInfo, user]
   );
 
   const handleExportCSV = useCallback(() => {
@@ -1896,39 +2110,48 @@ export default function ChatWorkspace() {
       )}
 
       {/* Main Workspace: Company Avatars Rail + Direct Messages Sidebar + Chat Canvas + Inspector */}
-      <Box sx={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden', bgcolor: '#FFFFFF' }}>
+      <Box sx={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden', bgcolor: '#d6d6d83d', p: 0.5 }}>
         {/* Inner Sidebar 1: Company Avatars Rail */}
-        <CompanyAvatarRail
-          open={showCompanies}
-          onClose={() => setShowCompanies(false)}
-          onOpen={() => setShowCompanies(true)}
-          isCallsOpen={showCallsList}
-          onOpenCalls={() => setShowCallsList(true)}
-          companies={visibleCompanies}
-          selectedCompany={selectedCompany}
-          onSelectCompany={handleSelectCompany}
-          onClearAll={handleClearAllFilters}
-          totalCallsCount={countScopeThreads.length}
-          isLoading={isLoading}
-        />
+        <Box
+          sx={{
+            display: 'flex',
+            bgcolor: "#fff",
+            borderRadius: 1,
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.04)",
+          }}
+        >
+          <CompanyAvatarRail
+            open={showCompanies}
+            onClose={() => setShowCompanies(false)}
+            onOpen={() => setShowCompanies(true)}
+            isCallsOpen={showCallsList}
+            onOpenCalls={() => setShowCallsList(true)}
+            companies={visibleCompanies}
+            selectedCompany={selectedCompany}
+            onSelectCompany={handleSelectCompany}
+            onClearAll={handleClearAllFilters}
+            totalCallsCount={countScopeThreads.length}
+            isLoading={isLoading}
+          />
 
-        {/* Inner Sidebar 2: Individual Calls List */}
-        <DirectMessagesSidebar
-          open={showCallsList}
-          onClose={() => setShowCallsList(false)}
-          onOpen={() => setShowCallsList(true)}
-          isCompaniesOpen={showCompanies}
-          onOpenCompanies={() => setShowCompanies(true)}
-          threads={threads}
-          companies={visibleCompanies}
-          overallCallsCount={countScopeThreads.length}
-          activeThreadId={activeThreadId}
-          onSelectThread={handleSelectThread}
-          searchQuery={searchQuery}
-          selectedCompany={selectedCompany}
-          onSelectCompany={handleSelectCompany}
-          isLoading={isLoading}
-        />
+          {/* Inner Sidebar 2: Individual Calls List */}
+          <DirectMessagesSidebar
+            open={showCallsList}
+            onClose={() => setShowCallsList(false)}
+            onOpen={() => setShowCallsList(true)}
+            isCompaniesOpen={showCompanies}
+            onOpenCompanies={() => setShowCompanies(true)}
+            threads={threads}
+            companies={visibleCompanies}
+            overallCallsCount={countScopeThreads.length}
+            activeThreadId={activeThreadId}
+            onSelectThread={handleSelectThread}
+            searchQuery={searchQuery}
+            selectedCompany={selectedCompany}
+            onSelectCompany={handleSelectCompany}
+            isLoading={isLoading}
+          />
+        </Box>
 
         {/* Right Center: Main Chat Conversation Canvas */}
         <Box
@@ -1938,12 +2161,10 @@ export default function ChatWorkspace() {
             flexDirection: 'column',
             height: '100%',
             overflow: 'hidden',
-            // bgcolor: '#EFEAE2', // Light chat background tone
-            // backgroundImage: `url(${ChatBgPattern})`,
-            backgroundRepeat: 'repeat',
-            backgroundSize: '400px', // Standard repeating size for this pattern
-            backgroundPosition: 'center',
-            backgroundBlendMode: 'overlay', // Soften the pattern
+            px: 0.8,
+            borderRadius: 3,
+            borderRight: '1px solid #E5E7EB',
+            borderBottom: '1px solid #E5E7EB',
           }}
         >
           {/* Header with Sleek Status Pills & Company Timeline Switch */}
@@ -1964,7 +2185,12 @@ export default function ChatWorkspace() {
           />
 
           {/* Messages Feed */}
-          <MessageList messages={messages} isLoading={isLoading} />
+          <MessageList
+            messages={messages}
+            isLoading={isLoading}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
+          />
 
           {/* Bottom Message Composer */}
           <MessageComposer
