@@ -27,7 +27,6 @@ export default function CompanyAvatarRail({
   companies = [],
   selectedCompany = 'all',
   onSelectCompany,
-  onClearAll,
   totalCallsCount = 0,
   isLoading = false,
 }) {
@@ -199,10 +198,7 @@ export default function CompanyAvatarRail({
                   const isAllSelected = !selectedCompany || selectedCompany === 'all' || (Array.isArray(selectedCompany) && selectedCompany.length === 0);
                   return (
                     <Box
-                      onClick={() => {
-                        onSelectCompany('all');
-                        if (onClearAll) onClearAll();
-                      }}
+                      onClick={() => onSelectCompany('all')}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',

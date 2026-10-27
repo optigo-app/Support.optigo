@@ -260,7 +260,9 @@ export default function ChatHeader({
     return getSanitizedStatuses(activeThread || raw, isCallEnded);
   }, [activeThread, raw, isCallEnded]);
 
-  const currentPriority = activeThread?.priority || raw.priority || 'Normal';
+  // An empty priority is an explicit cleared value. Only fall back when the
+  // active thread does not provide a priority field at all.
+  const currentPriority = activeThread?.priority ?? raw.priority ?? '';
   const currentRating = raw.rating || activeThread?.rating || 0;
   const isForwarded = raw.CallType === 'Forwarded' || Boolean(raw.ForwardedEmp || raw.ForwardedEmpId);
   const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim() || user?.name || '';

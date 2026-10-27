@@ -118,7 +118,7 @@ export function normalizeCallRecord(rec, idx = 0) {
     estatus: rawEstatus,
     statusId: rec.StatusID || rec.statusId || '',
     estatusId: rec.EStatusId || rec.estatusId || '',
-    priority: rec.priority || rec.PriorityId || 'Normal',
+    priority: rec.priority ?? rec.PriorityId ?? '',
     priorityId: rec.PriorityId || '',
     rating: Number(rec.rating) || 0,
     duration: rec.CallDuration || '',

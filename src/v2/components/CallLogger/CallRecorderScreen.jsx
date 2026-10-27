@@ -685,7 +685,7 @@ export const CallQueueUI = ({ onEditCall }) => {
 							department={call?.department}
 							description={call?.description}
 							name={call?.callBy}
-							date={call?.date}
+							date={call?.CreatedDateExact || call?.createdDateExact || call?.CreatedDate || call?.createdDate || call?.date}
 							time={call?.time}
 							onAccept={() => handleCall(call?.sr)}
 						/>
@@ -741,6 +741,11 @@ const COLORS = {
 };
 
 const UserRequestCard = ({ name, appname, company, description, date, time, onAccept }) => {
+	const [now, setNow] = useState(Date.now());
+	React.useEffect(() => {
+		const intervalId = window.setInterval(() => setNow(Date.now()), 15000);
+		return () => window.clearInterval(intervalId);
+	}, []);
 	const truncatedDesc = description?.length > 15 ? `${description?.substring(0, 15)}...` : description;
 	const truncatedAppName = appname?.length > 12 ? `${appname?.substring(0, 12)}...` : appname;
 	const truncatedCompany = company?.length > 12 ? `${company?.substring(0, 12)}...` : company;
@@ -756,41 +761,36 @@ const UserRequestCard = ({ name, appname, company, description, date, time, onAc
 			{description && <Typography sx={{ fontSize: 12 }}><strong>Description:</strong> {description}</Typography>}
 		</Box>
 	);
-
-	// Calculate wait time for conditional row coloring
+	// Preserve full timestamps, and combine date with time for the queue API's date-only response.
 	const { baseBgColor, hoverBgColor, textColor, relativeTime, shortTime } = React.useMemo(() => {
 		if (!date) return { baseBgColor: "#fff", hoverBgColor: "#F1F3F4", textColor: "#80868b", relativeTime: "", shortTime: "" };
 
 		let callDateTime = new Date(date);
-		if (time) {
-			const dateStr = date.includes('T') ? date.split('T')[0] : date.split(' ')[0];
-			const combined = new Date(`${dateStr} ${time}`);
-			if (!isNaN(combined.getTime())) {
-				callDateTime = combined;
-			}
+		const dateText = typeof date === "string" ? date : "";
+		const dateHasTime = /[T\s]\d{1,2}:\d{2}/.test(dateText);
+		const dateIsMidnightPlaceholder = /T00:00:00(?:\.000)?Z?$/.test(dateText);
+		if (time && (!dateHasTime || dateIsMidnightPlaceholder)) {
+			const dateOnly = dateText.split(/[T\s]/)[0];
+			const combined = new Date(`${dateOnly} ${time}`);
+			if (!isNaN(combined.getTime())) callDateTime = combined;
 		}
 
-		const diffMins = Math.floor((Date.now() - callDateTime.getTime()) / 60000);
-
-		const relTime = FormatTime(callDateTime, "relative");
-		let sTime = "";
-		if (diffMins < 1) {
-			sTime = "now";
-		} else if (diffMins < 60) {
-			sTime = `${diffMins}m`;
-		} else if (diffMins < 1440) {
-			const hours = Math.floor(diffMins / 60);
-			sTime = `${hours}h`;
-		} else {
-			const days = Math.floor(diffMins / 1440);
-			sTime = `${days}d`;
+		if (isNaN(callDateTime.getTime())) {
+			return { baseBgColor: "#fff", hoverBgColor: "#F1F3F4", textColor: "#80868b", relativeTime: "", shortTime: "" };
 		}
 
-		if (diffMins < 0) return { baseBgColor: "#fff", hoverBgColor: "#F1F3F4", textColor: "#80868b", relativeTime: relTime, shortTime: sTime };
-		if (diffMins <= 10) return { baseBgColor: COLORS.greenBg, hoverBgColor: COLORS.greenBg, textColor: COLORS.greenFg, relativeTime: relTime, shortTime: sTime }; // Green
-		if (diffMins <= 20) return { baseBgColor: COLORS.orangeBg, hoverBgColor: COLORS.orangeBg, textColor: COLORS.orangeFg, relativeTime: relTime, shortTime: sTime }; // Orange
-		return { baseBgColor: COLORS.redBg, hoverBgColor: COLORS.redBg, textColor: COLORS.redFg, relativeTime: relTime, shortTime: sTime }; // Red
-	}, [date, time]);
+		const diffMs = Math.max(0, now - callDateTime.getTime());
+		const diffMins = Math.floor(diffMs / 60000);
+		const relTime = diffMs < 60000 ? "just now" : FormatTime(callDateTime, "relative");
+		let sTime = "now";
+		if (diffMins > 0 && diffMins < 60) sTime = `${diffMins}m`;
+		else if (diffMins >= 60 && diffMins < 1440) sTime = `${Math.floor(diffMins / 60)}h`;
+		else if (diffMins >= 1440) sTime = `${Math.floor(diffMins / 1440)}d`;
+
+		if (diffMins <= 10) return { baseBgColor: COLORS.greenBg, hoverBgColor: COLORS.greenBg, textColor: COLORS.greenFg, relativeTime: relTime, shortTime: sTime };
+		if (diffMins <= 20) return { baseBgColor: COLORS.orangeBg, hoverBgColor: COLORS.orangeBg, textColor: COLORS.orangeFg, relativeTime: relTime, shortTime: sTime };
+		return { baseBgColor: COLORS.redBg, hoverBgColor: COLORS.redBg, textColor: COLORS.redFg, relativeTime: relTime, shortTime: sTime };
+	}, [date, time, now]);
 
 	return <>
 		<PremiumTooltip title={titleText} placement="top" arrow>

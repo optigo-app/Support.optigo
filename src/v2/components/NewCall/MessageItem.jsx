@@ -42,25 +42,31 @@ import {
   parseCommentAttachmentPaths,
 } from './utils/commentAttachmentUtils';
 
-export default function MessageItem({ message, onEditComment, onDeleteComment }) {
+export default function MessageItem({ message, isEditingComment, onStartEditing, onStopEditing, onEditComment, onDeleteComment }) {
   const navigate = useNavigate();
   const { getTaskList } = useCallLog();
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskData, setTaskData] = useState([]);
-  const [isEditingComment, setIsEditingComment] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState(message?.content || '');
   const [commentFiles, setCommentFiles] = useState([]);
   const [removedAttachmentPaths, setRemovedAttachmentPaths] = useState([]);
   const [isCommentSaving, setIsCommentSaving] = useState(false);
   const commentFileInputRef = useRef(null);
+  const commentInputRef = useRef(null);
 
   useEffect(() => {
     setCommentDraft(message?.content || '');
     setCommentFiles([]);
     setRemovedAttachmentPaths([]);
-    setIsEditingComment(false);
   }, [message?.id, message?.content, message?.filePath]);
+
+  useEffect(() => {
+    if (!isEditingComment || !commentInputRef.current) return;
+    const input = commentInputRef.current;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [isEditingComment, message?.id]);
 
   const handleSaveComment = async () => {
     if (!onEditComment || isCommentSaving) return;
@@ -71,7 +77,7 @@ export default function MessageItem({ message, onEditComment, onDeleteComment })
         files: commentFiles,
         removeAttachmentPaths: removedAttachmentPaths,
       });
-      if (saved) setIsEditingComment(false);
+      if (saved) onStopEditing?.();
     } finally {
       setIsCommentSaving(false);
     }
@@ -816,7 +822,7 @@ export default function MessageItem({ message, onEditComment, onDeleteComment })
                 minRows={2}
                 maxRows={6}
                 fullWidth
-                autoFocus
+                inputRef={commentInputRef}
                 placeholder="Write a comment..."
                 inputProps={{ 'aria-label': 'Edit comment' }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: '#FFFFFF', fontSize: 13 } }}
@@ -870,7 +876,7 @@ export default function MessageItem({ message, onEditComment, onDeleteComment })
                   Add attachments
                 </Button>
                 <Box sx={{ display: 'flex', gap: 0.7 }}>
-                  <Button size="small" disabled={isCommentSaving} onClick={() => setIsEditingComment(false)} sx={{ textTransform: 'none', color: '#64748B' }}>
+                  <Button size="small" disabled={isCommentSaving} onClick={() => onStopEditing?.()} sx={{ textTransform: 'none', color: '#64748B' }}>
                     Cancel
                   </Button>
                   <Button
@@ -944,7 +950,7 @@ export default function MessageItem({ message, onEditComment, onDeleteComment })
                   setCommentDraft(message.content || '');
                   setCommentFiles([]);
                   setRemovedAttachmentPaths([]);
-                  setIsEditingComment(true);
+                  onStartEditing?.();
                 }}
                 sx={{ width: 27, height: 27, color: '#475569' }}
               >

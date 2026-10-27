@@ -15,7 +15,8 @@ import { useAuth } from "./UseAuth";
 import { useSocketEvent } from "../hooks/useSocketListener";
 import { notify } from "../libs/NOTIFICATION_TEMPLATES";
 import { useNavigate } from "react-router-dom";
-import { concatMap } from "rxjs/operators";
+import { defer, from, merge, timer, fromEvent } from "rxjs";
+import { concatMap, exhaustMap, filter } from "rxjs/operators";
 import {
   statusPriorityUpdates$,
   commentUpdates$,
@@ -62,6 +63,24 @@ const isValidCommentPayload = (data) => {
   }
   return true;
 };
+
+const readMasterDataCache = () => {
+  try {
+    const cached = sessionStorage.getItem("masterData");
+    if (!cached) return { master: null, employees: null };
+    const parsed = JSON.parse(cached);
+    return parsed && typeof parsed === "object"
+      ? parsed
+      : { master: null, employees: null };
+  } catch (_) {
+    return { master: null, employees: null };
+  }
+};
+
+const hasCachedStatusOptions = (data) =>
+  [data?.master?.rd2, data?.master?.rd6].some(
+    (list) => Array.isArray(list) && list.length > 0,
+  );
 
 const appendCommentToCallRecord = (callRecord, commentPayload) => {
   if (!callRecord) return callRecord;
@@ -134,6 +153,7 @@ export function CallLogProvider(props) {
   const { user } = useAuth();
   const [callLog, setCallLog] = useState([]);
   const [callQueue, setCallQueue] = useState([]);
+  const callQueueRequestId = useRef(0);
   const [CurrentCall, setCurrentCall] = useState(null);
 
   const callLogRef = useRef(callLog);
@@ -180,8 +200,7 @@ export function CallLogProvider(props) {
   const updateQueue = useRef([]);
 
   const [masterData, setMasterData] = useState(() => {
-    const stored = sessionStorage.getItem("masterData");
-    return stored ? JSON.parse(stored) : { master: null, employees: null };
+    return readMasterDataCache();
   });
   const navigate = useNavigate();
   const isFilterActiveRef = useRef(false);
@@ -384,14 +403,31 @@ export function CallLogProvider(props) {
   }, [triggerRefresh]);
 
   const getCallQueue = useCallback(async () => {
+    const requestId = ++callQueueRequestId.current;
     try {
       const data = await CallLogApi.getCallQueue();
-      console.log("🚀 ~ CallLogProvider ~ data:", data);
-      // setCallLog(data?.rd);
+      if (requestId === callQueueRequestId.current && Array.isArray(data?.rd)) {
+        setCallQueue(data.rd);
+      }
     } catch (error) {
-      console.log(error);
+      console.error("Error loading call queue:", error);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const isVisible = () => document.visibilityState === "visible";
+    const refreshTriggers$ = merge(
+      timer(60_000, 60_000).pipe(filter(isVisible)),
+      fromEvent(document, "visibilitychange").pipe(filter(isVisible)),
+    );
+    const subscription = refreshTriggers$
+      .pipe(exhaustMap(() => defer(() => from(getCallQueue()))))
+      .subscribe();
+
+    return () => subscription.unsubscribe();
+  }, [getCallQueue]);
 
   useEffect(() => {
     const GetMasterData = async () => {
@@ -407,7 +443,7 @@ export function CallLogProvider(props) {
         console.error("Error fetching master data:", err.message);
       }
     };
-    if (!sessionStorage.getItem("masterData")) {
+    if (!hasCachedStatusOptions(readMasterDataCache())) {
       GetMasterData();
     }
   }, []);
@@ -445,8 +481,8 @@ export function CallLogProvider(props) {
       }
     };
     GetAllCallLogs();
-    // getCallQueue();
-  }, [refreshList]);
+    getCallQueue();
+  }, [refreshList, getCallQueue]);
 
   const addCall = useCallback(
     async (call, isConcurrent) => {
@@ -515,9 +551,71 @@ export function CallLogProvider(props) {
         if (isRejected) {
           return { success: false, msg: statusObj };
         }
-        if (statusObj?.sr) {
-          setCurrentCall(statusObj);
-        }
+
+        const optionLabel = (options, value) =>
+          options.find((option) => String(option?.value) === String(value))?.label || "";
+        const mergeEditedCall = (call) => {
+          const next = { ...call, ...updatedFields };
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "CustomerName")) {
+            next.callBy = updatedFields.CustomerName;
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "PriorityId")) {
+            next.priorityId = updatedFields.PriorityId;
+            next.priority = optionLabel(PRIORITY_LIST, updatedFields.PriorityId);
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "StatusId")) {
+            next.statusId = updatedFields.StatusId;
+            next.StatusID = updatedFields.StatusId;
+            next.status = optionLabel(STATUS_LIST, updatedFields.StatusId);
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "Estatus")) {
+            next.estatusId = updatedFields.Estatus;
+            next.EStatusId = updatedFields.Estatus;
+            next.Estatus = optionLabel(ESTATUS_LIST, updatedFields.Estatus);
+            next.estatus = next.Estatus;
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "Descr")) {
+            next.description = updatedFields.Descr;
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "calldetails")) {
+            next.callDetails = updatedFields.calldetails;
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "EntryDate")) {
+            next.date = updatedFields.EntryDate;
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "CallType")) {
+            next.callType = CALL_TYPE_MASTER.find(
+              (option) => String(option?.value) === String(updatedFields.CallType),
+            )?.label || "";
+          }
+          if (Object.prototype.hasOwnProperty.call(updatedFields, "AppId")) {
+            next.appname = APPNAME_LIST.find(
+              (option) => String(option?.AppId) === String(updatedFields.AppId),
+            )?.AppName || "";
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(updatedFields, "EmpId") ||
+            Object.prototype.hasOwnProperty.call(updatedFields, "DeptId")
+          ) {
+            next.AssignedEmpName = updatedFields.EmpId
+              ? forwardOption.find((option) => option.id === `${updatedFields.DeptId},${updatedFields.EmpId}`)?.person || ""
+              : "";
+          }
+          return next;
+        };
+
+        setCurrentCall((previous) =>
+          previous && String(previous.sr) === String(callId)
+            ? mergeEditedCall(previous)
+            : previous,
+        );
+        setCallLog((previous) =>
+          Array.isArray(previous)
+            ? previous.map((call) =>
+              String(call.sr) === String(callId) ? mergeEditedCall(call) : call,
+            )
+            : previous,
+        );
         triggerRefresh();
         return { success: true, msg: statusObj };
       } catch (error) {
@@ -525,7 +623,7 @@ export function CallLogProvider(props) {
         return { success: false, error };
       }
     },
-    [triggerRefresh],
+    [triggerRefresh, PRIORITY_LIST, STATUS_LIST, ESTATUS_LIST, CALL_TYPE_MASTER, APPNAME_LIST, forwardOption],
   );
 
   const UpdateStatusAndPriority = useCallback(
@@ -1091,7 +1189,6 @@ export function CallLogProvider(props) {
           createdBy,
           isClient,
         );
-        console.log(data, "data");
         triggerRefresh();
       } catch (error) { }
     },
@@ -1099,10 +1196,10 @@ export function CallLogProvider(props) {
   );
 
   const queue = useMemo(() => {
-    return [...callLog]
-      .filter((val) => !val?.receivedBy)
-      ?.sort((a, b) => new Date(b?.date) - new Date(a?.date));
-  }, [callLog]);
+    return [...callQueue].sort(
+      (a, b) => new Date(b?.date) - new Date(a?.date),
+    );
+  }, [callQueue]);
 
   const forwardedCalls = useForwardedCalls();
 
@@ -1196,6 +1293,7 @@ export function CallLogProvider(props) {
   // Add Call Events
   useSocketEvent("AddCall", (data) => {
     if (!isValidCallPayload(data)) return;
+    getCallQueue();
     if (areUpdatesBlocked.current) {
       updateQueue.current.push({ type: "ADD", data });
       return;
@@ -1210,6 +1308,7 @@ export function CallLogProvider(props) {
   // Accept Call Events
   useSocketEvent("AcceptCall", (data) => {
     if (!isValidCallPayload(data)) return;
+    getCallQueue();
     if (areUpdatesBlocked.current) {
       updateQueue.current.push({ type: "UPDATE", data });
       return;
@@ -1316,6 +1415,7 @@ export function CallLogProvider(props) {
   // Forwarded Call Events
   useSocketEvent("ForwardedCall", (data) => {
     if (!isValidCallPayload(data)) return;
+    getCallQueue();
     if (areUpdatesBlocked.current) {
       updateQueue.current.push({ type: "UPDATE", data }); // Treat as update or add based on logic
       return;
@@ -1330,6 +1430,7 @@ export function CallLogProvider(props) {
   });
 
   useSocketEvent("ES", (data) => {
+    getCallQueue();
     callLogStatusEvents$.next(data);
   });
 

@@ -666,7 +666,7 @@ export default function ChatWorkspace() {
               : ''),
           status: rec.status || 'Solved',
           Estatus: rec.Estatus || rec.estatus || 'Completed',
-          priority: rec.priority || 'Normal',
+          priority: rec.priority ?? '',
           rating: rec.rating || 0,
         },
       },

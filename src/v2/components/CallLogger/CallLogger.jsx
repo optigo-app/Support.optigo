@@ -311,6 +311,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
 
   // Flag to distinguish our own URL writes from external navigation
   const isInternalUrlUpdate = useRef(false);
+  const filterRequestIdRef = useRef(0);
 
   useEffect(() => {
     const isEditing = sliders.addMode || sliders.editMode;
@@ -366,6 +367,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
 
   const debouncedFilterCallLog = useCallback(
     debounce(async (filters) => {
+      const requestId = filters.requestId ?? ++filterRequestIdRef.current;
       try {
         const data = await CallLogApi.getCallLogs({
           endDate: filters.endDate || "",
@@ -375,10 +377,13 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
           filter: filters.filter || "",
           searchTerm: filters.searchTerm || "",
         });
-        setCallLog(data?.rd);
+        if (requestId === filterRequestIdRef.current) {
+          setCallLog(Array.isArray(data?.rd) ? data.rd : []);
+        }
       } catch (error) {
         console.error(error);
       } finally {
+        if (requestId !== filterRequestIdRef.current) return;
         setIsLoading(false); // ✅ Stop loading
       }
     }, 500),
@@ -484,6 +489,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
   // Filter data on criteria change
   useEffect(() => {
     setIsLoading(true); // ⚡ Show skeleton IMMEDIATELY on filter change!
+    const requestId = ++filterRequestIdRef.current;
     const startDate = filterState?.dateRange?.startDate || "";
     const endDate = filterState?.dateRange?.endDate || "";
     const targetFilter =
@@ -496,6 +502,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
       projectId: companyStatus || "",
       filter: targetFilter,
       searchTerm: searchQuery || "",
+      requestId,
     };
 
     debouncedFilterCallLog(filters);

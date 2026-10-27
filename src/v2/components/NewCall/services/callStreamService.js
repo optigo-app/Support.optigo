@@ -43,31 +43,12 @@ export function normalizeCallRecord(rec, idx = 0) {
     }
   }
 
-  // Parse comments if stringified
-  let parsedComments = [];
-  if (rec.comment) {
-    if (typeof rec.comment === 'string') {
-      try {
-        parsedComments = JSON.parse(rec.comment);
-      } catch (_) {
-        parsedComments = [];
-      }
-    } else if (Array.isArray(rec.comment)) {
-      parsedComments = rec.comment;
-    }
-  } else if (rec.CommentsArray) {
-    if (typeof rec.CommentsArray === 'string') {
-      try {
-        parsedComments = JSON.parse(rec.CommentsArray);
-      } catch (_) {
-        parsedComments = [];
-      }
-    } else if (Array.isArray(rec.CommentsArray)) {
-      parsedComments = rec.CommentsArray;
-    }
-  } else if (Array.isArray(rec.comments)) {
-    parsedComments = rec.comments;
-  }
+  // Honor an explicitly empty comment field instead of falling through to a
+  // stale alternate field such as CommentsArray.
+  const commentsField = ['comment', 'CommentsArray', 'comments'].find((field) =>
+    Object.prototype.hasOwnProperty.call(rec, field) && rec[field] !== undefined
+  );
+  const parsedComments = commentsField ? parseCommentRecords(rec[commentsField]) : [];
 
   // Extract latest comment (WhatsApp style preview & timestamp)
   let latestCommentText = '';
@@ -148,7 +129,7 @@ export function normalizeCallRecord(rec, idx = 0) {
     estatus: rawEstatus,
     statusId: rec.StatusID || rec.statusId || '',
     estatusId: rec.EStatusId || rec.estatusId || '',
-    priority: rec.priority || rec.PriorityId || 'Normal',
+    priority: rec.priority ?? rec.PriorityId ?? '',
     priorityId: rec.PriorityId || '',
     rating: Number(rec.rating) || 0,
     duration: rec.CallDuration || '',
@@ -195,6 +176,7 @@ class CallStreamService {
     this.customMessages$ = new BehaviorSubject({});
     this.unreadThreadIds = new Set();
     this.unreadCommentCounts = new Map();
+    this.deletedCommentIds = new Map();
     this.newCallThreadIds = new Set();
     let savedCall = null;
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -391,6 +373,9 @@ class CallStreamService {
     const normalizedThreads = rawCallsList.map((rec, idx) => {
       const thread = normalizeCallRecord(rec, idx);
       if (!thread) return null;
+      thread.comments = this.filterDeletedComments(thread.sr, thread.comments);
+      thread.rawRecord.comment = JSON.stringify(thread.comments);
+      thread.rawRecord.comments = thread.comments;
       const isUnread =
         this.unreadThreadIds.has(thread.id) ||
         this.unreadThreadIds.has(String(thread.sr)) ||
@@ -652,7 +637,7 @@ class CallStreamService {
   replaceComments(callLogId, commentRecords = []) {
     if (callLogId == null) return false;
 
-    const comments = Array.isArray(commentRecords) ? commentRecords : [];
+    const comments = this.filterDeletedComments(callLogId, commentRecords);
     let changed = false;
     const updatedThreads = (this.threads$.getValue() || []).map((thread) => {
       if (
@@ -699,12 +684,38 @@ class CallStreamService {
     return changed;
   }
 
+  filterDeletedComments(callLogId, comments = []) {
+    const records = Array.isArray(comments) ? comments : [];
+    const deletedIds = this.deletedCommentIds.get(String(callLogId));
+    if (!deletedIds?.size) return records;
+    return records.filter((comment) => !deletedIds.has(String(getCommentRecordId(comment))));
+  }
+
+  removeComment(callLogId, commentId) {
+    if (callLogId == null || commentId == null) return false;
+    const callKey = String(callLogId);
+    const deletedIds = this.deletedCommentIds.get(callKey) || new Set();
+    deletedIds.add(String(commentId));
+    this.deletedCommentIds.set(callKey, deletedIds);
+
+    const thread = (this.threads$.getValue() || []).find((item) =>
+      String(item.sr ?? item.rawRecord?.sr ?? '') === callKey
+    );
+    if (!thread) return false;
+    const currentComments = parseCommentRecords(thread.rawRecord?.comment ?? thread.comments);
+    const comments = currentComments.filter((comment) => String(getCommentRecordId(comment)) !== String(commentId));
+    return this.replaceComments(callLogId, comments);
+  }
+
   // Optimistically prepend newly created call log into reactive stream
   addNewCall(rawRecord, autoSelect = false) {
     if (!rawRecord) return;
     const currentThreads = this.threads$.getValue() || [];
     const normalized = normalizeCallRecord(rawRecord, currentThreads.length);
     if (!normalized) return;
+    normalized.comments = this.filterDeletedComments(normalized.sr, normalized.comments);
+    normalized.rawRecord.comment = JSON.stringify(normalized.comments);
+    normalized.rawRecord.comments = normalized.comments;
     const exists = currentThreads.some((t) => String(t.sr) === String(normalized.sr));
     if (autoSelect) {
       this.newCallThreadIds.delete(normalized.id);
@@ -773,6 +784,8 @@ class CallStreamService {
   // Optimistically patch comment into thread's rawRecord and comments list
   patchComment(callLogId, commentObj) {
     if (!callLogId || !commentObj) return;
+    const incomingId = getCommentRecordId(commentObj);
+    if (incomingId != null && this.deletedCommentIds.get(String(callLogId))?.has(String(incomingId))) return;
     const hasAttachmentField = ['FilePath', 'filePath', 'img', 'attachment'].some((key) =>
       Object.prototype.hasOwnProperty.call(commentObj, key)
     );
@@ -804,7 +817,6 @@ class CallStreamService {
       hasUpdated = true;
       const raw = { ...(t.rawRecord || {}) };
       const existingComments = parseCommentRecords(raw.comment);
-      const incomingId = getCommentRecordId(commentObj);
       const matchingExisting = incomingId == null
         ? null
         : existingComments.find((item) => String(getCommentRecordId(item)) === String(incomingId));

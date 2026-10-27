@@ -33,7 +33,11 @@ class CallLogApi extends BaseAPI {
   }) {
     try {
       const params = {
-        ...(statusIds !== undefined ? { StatusIds: statusIds } : { StatusId: statusId }),
+        ...(statusIds !== undefined
+          ? (statusIds !== null && String(statusIds).trim() !== "" ? { StatusIds: statusIds } : {})
+          : (statusId !== null && statusId !== undefined && String(statusId).trim() !== "" && statusId !== "all"
+            ? { StatusId: statusId }
+            : {})),
         ...(projectIds !== undefined ? { ProjectIds: projectIds } : { ProjectID: projectId }),
         Filter: filter,
         StartDate: startDate,

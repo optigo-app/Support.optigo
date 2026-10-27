@@ -328,7 +328,7 @@ export default function FloatingCallWidget() {
         {/* You (Support Agent) */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
           <Avatar
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
+            src={`https://ui-avatars.com/api/?name=${user?.firstname || "U"}+${user?.lastname || "S"}&rounded=true`}
             sx={{ width: 26, height: 26, borderRadius: '50%' }}
           />
           <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: '#FFFFFF' }}>

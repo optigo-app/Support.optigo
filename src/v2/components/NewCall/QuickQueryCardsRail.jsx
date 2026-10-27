@@ -33,28 +33,32 @@ function CardTooltipContent({ card }) {
 }
 
 // Helper to calculate exact wait time metrics & colors (Green <=10m, Orange <=20m, Red >20m)
-function getWaitMetrics(dateStr, timeStr) {
+function getWaitMetrics(dateStr, timeStr, now = dayjs()) {
 	if (!dateStr) {
-		return { shortBadge: "1m", timeAgo: "recently", color: "#16A34A", bg: "#DCFCE7" };
+		return { shortBadge: "now", timeAgo: "just now", color: "#16A34A", bg: "#DCFCE7" };
 	}
 	try {
 		let callDateTime = dayjs(dateStr);
-		if (timeStr && typeof timeStr === "string" && timeStr.includes(":")) {
+		const dateIncludesTime = typeof dateStr === "string" && /[T\s]\d{1,2}:\d{2}/.test(dateStr);
+		const dateIsMidnightPlaceholder = typeof dateStr === "string" && /T00:00:00(?:\.000)?Z?$/.test(dateStr);
+		if ((!dateIncludesTime || dateIsMidnightPlaceholder) && timeStr && typeof timeStr === "string" && timeStr.includes(":")) {
 			const parts = timeStr.split(":");
-			callDateTime = callDateTime.hour(Number.parseInt(parts[0], 10)).minute(Number.parseInt(parts[1], 10));
+			callDateTime = callDateTime.hour(Number.parseInt(parts[0], 10)).minute(Number.parseInt(parts[1], 10)).second(Number.parseInt(parts[2] || "0", 10));
 		}
-		const now = dayjs();
-		const diffMins = Math.max(0, now.diff(callDateTime, "minute"));
+		if (!callDateTime.isValid()) {
+			return { shortBadge: "now", timeAgo: "just now", color: "#16A34A", bg: "#DCFCE7" };
+		}
+		const diffMs = Math.max(0, now.diff(callDateTime, "millisecond"));
+		const diffMins = Math.floor(diffMs / 60000);
 		const diffHours = Math.floor(diffMins / 60);
 		const diffDays = Math.floor(diffMins / 1440);
 
-		let shortBadge = "1m";
+		let shortBadge = "now";
 		if (diffDays > 0) shortBadge = `${diffDays}d`;
 		else if (diffHours > 0) shortBadge = `${diffHours}h`;
 		else if (diffMins > 0) shortBadge = `${diffMins}m`;
-		else shortBadge = "now";
 
-		const timeAgo = callDateTime.fromNow();
+		const timeAgo = diffMs < 60000 ? "just now" : callDateTime.fromNow();
 
 		let color = "#DC2626";
 		let bg = "#FEE2E2";
@@ -68,12 +72,17 @@ function getWaitMetrics(dateStr, timeStr) {
 
 		return { shortBadge, timeAgo, color, bg };
 	} catch (_) {
-		return { shortBadge: "1m", timeAgo: "recently", color: "#DC2626", bg: "#FEE2E2" };
+		return { shortBadge: "now", timeAgo: "just now", color: "#16A34A", bg: "#DCFCE7" };
 	}
 }
-
 export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, onAcceptCall, onClose }) {
 	const { queue = [] } = useCallLog();
+	const [now, setNow] = React.useState(() => dayjs());
+
+	React.useEffect(() => {
+		const intervalId = window.setInterval(() => setNow(dayjs()), 15000);
+		return () => window.clearInterval(intervalId);
+	}, []);
 
 	// Normalize queue items for the compact rail
 	const queueCards = useMemo(() => {
@@ -85,10 +94,10 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 			const appName = item.appname || item.DeptName || company;
 			const caller = item.callBy || item.CustomerName || item.name || "";
 			const topic = item.description || item.Descr || item.topic || `${company} • Support Enquiry`;
-			const dateStr = item.date || item.callStart || "";
+			const dateStr = item.CreatedDateExact || item.createdDateExact || item.CreatedDate || item.createdDate || item.createddate || item.date || item.callStart || "";
 			const timeStr = item.time || "";
 
-			const { shortBadge, timeAgo, color, bg } = getWaitMetrics(dateStr, timeStr);
+			const { shortBadge, timeAgo, color, bg } = getWaitMetrics(dateStr, timeStr, now);
 
 			return {
 				id: `queue-${sr}`,
@@ -105,7 +114,7 @@ export default function QuickQueryCardsRail({ activeThreadId, onSelectThread, on
 				rawCall: item,
 			};
 		});
-	}, [queue]);
+	}, [queue, now]);
 
 	if (!queueCards || queueCards.length === 0) {
 		return null;

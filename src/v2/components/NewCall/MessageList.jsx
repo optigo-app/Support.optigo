@@ -50,6 +50,13 @@ export default function MessageList({ messages = [], isLoading = false, onEditCo
   const scrollAnimCancelRef = useRef(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+
+  useEffect(() => {
+    if (editingMessageId != null && !messages.some((message) => message.id === editingMessageId)) {
+      setEditingMessageId(null);
+    }
+  }, [editingMessageId, messages]);
 
   const toggleGroup = (dateGroup) => {
     setCollapsedGroups((prev) => ({
@@ -362,6 +369,9 @@ export default function MessageList({ messages = [], isLoading = false, onEditCo
                         <MessageItem
                           key={msg.id}
                           message={msg}
+                          isEditingComment={editingMessageId === msg.id}
+                          onStartEditing={() => setEditingMessageId(msg.id)}
+                          onStopEditing={() => setEditingMessageId(null)}
                           onEditComment={onEditComment}
                           onDeleteComment={onDeleteComment}
                         />

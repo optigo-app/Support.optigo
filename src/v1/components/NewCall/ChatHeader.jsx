@@ -241,7 +241,7 @@ export default function ChatHeader({
     return getSanitizedStatuses(activeThread || raw, isCallEnded);
   }, [activeThread, raw, isCallEnded]);
 
-  const currentPriority = activeThread?.priority || raw.priority || 'Normal';
+  const currentPriority = activeThread?.priority ?? raw.priority ?? '';
   const currentRating = raw.rating || activeThread?.rating || 0;
   const isForwarded = raw.CallType === 'Forwarded' || Boolean(raw.ForwardedEmp);
 

@@ -61,8 +61,10 @@ const parseFilterValues = (value) => {
 };
 
 const parseCallComments = (record) => {
-  const rawComments = record?.comment || record?.CommentsArray || record?.comments || record?.Comments;
-  return parseCommentRecords(rawComments);
+  const commentField = ['comment', 'CommentsArray', 'comments', 'Comments'].find((field) =>
+    Object.prototype.hasOwnProperty.call(record || {}, field) && record[field] !== undefined
+  );
+  return commentField ? parseCommentRecords(record[commentField]) : [];
 };
 
 const getCommentId = getCommentRecordId;
@@ -99,6 +101,9 @@ const mutateCallCommentsInStream = (callLogId, mutate) => {
 
   return callStreamService.replaceComments?.(callLogId, nextComments) || false;
 };
+
+const removeCallCommentFromStream = (callLogId, commentId) =>
+  callStreamService.removeComment?.(callLogId, commentId) || false;
 
 
 export default function ChatWorkspace() {
@@ -170,6 +175,7 @@ export default function ChatWorkspace() {
   const lastFilterKeyRef = useRef('');
   const filterRequestIdRef = useRef(0);
   const isInternalUrlUpdateRef = useRef(false);
+  const hasInitializedUrlSyncRef = useRef(false);
   const lastHandledExternalSrRef = useRef('');
   const requestedCallSrRef = useRef('');
   // When ChatWorkspace has fetched its own filtered data, it "owns" the stream.
@@ -254,11 +260,20 @@ export default function ChatWorkspace() {
       const fresh = liveMap.get(key);
       if (!fresh) return t;
 
+      const commentsField = ['comment', 'CommentsArray', 'comments', 'Comments'].find((field) =>
+        Object.prototype.hasOwnProperty.call(fresh, field) && fresh[field] !== undefined
+      );
+      const freshComments = commentsField
+        ? callStreamService.filterDeletedComments(fresh.sr ?? t.sr, parseCommentRecords(fresh[commentsField]))
+        : t.comments || [];
+      const commentsChanged = commentsField != null &&
+        JSON.stringify(freshComments) !== JSON.stringify(t.comments || []);
+
       // Check if anything meaningful changed (including comments!)
       const changed =
         fresh.description !== (t.rawRecord?.description || t.rawRecord?.Descr) ||
         fresh.FollowUpList !== t.rawRecord?.FollowUpList ||
-        fresh.comment !== t.rawRecord?.comment ||
+        commentsChanged ||
         fresh.callClosed !== t.callClosed ||
         fresh.callStart !== t.callStart ||
         fresh.Estatus !== (t.rawRecord?.Estatus || t.estatus) ||
@@ -328,16 +343,8 @@ export default function ChatWorkspace() {
         } catch { return t.followUps; }
       })();
 
-      const parsedComments = (() => {
-        if (!fresh.comment && !fresh.CommentsArray) return t.comments || [];
-        const rawComments = fresh.comment || fresh.CommentsArray;
-        try {
-          const parsed = typeof rawComments === 'string'
-            ? JSON.parse(rawComments)
-            : rawComments;
-          return Array.isArray(parsed) ? parsed : (t.comments || []);
-        } catch { return t.comments || []; }
-      })();
+      const parsedComments = freshComments;
+      const serializedComments = JSON.stringify(parsedComments);
 
       let latestCommentText = '';
       let latestCommentTime = '';
@@ -382,12 +389,15 @@ export default function ChatWorkspace() {
           t.lastMessage ||
           'Voice support call logged',
         timestamp: latestCommentTime || t.timestamp,
-        comment: fresh.comment || t.comment,
+        comment: serializedComments,
         comments: parsedComments,
         followUps: finalFollowUps,
         rawRecord: {
           ...t.rawRecord,
           ...fresh,
+          comment: serializedComments,
+          comments: parsedComments,
+          CommentsArray: serializedComments,
           FollowUpList: JSON.stringify(finalFollowUps)
         },
       };
@@ -706,6 +716,13 @@ export default function ChatWorkspace() {
 
   // 5. Sync filters into URL search params safely without overwriting external search
   useEffect(() => {
+    // Let the mount-time URL parser apply saved filters before serializing state.
+    // Otherwise the initial "all" state can erase a saved railCompany value.
+    if (!hasInitializedUrlSyncRef.current) {
+      hasInitializedUrlSyncRef.current = true;
+      return;
+    }
+
     const currentParams = new URLSearchParams(location.search);
     const newParams = new URLSearchParams();
     if (searchQuery) newParams.set('search', searchQuery);
@@ -975,9 +992,9 @@ export default function ChatWorkspace() {
   const debouncedFilterCallLog = useMemo(
     () =>
       debounce(async (filters) => {
+        const requestId = filters.requestId ?? ++filterRequestIdRef.current;
         try {
           setIsLoading(true);
-          const requestId = ++filterRequestIdRef.current;
           const data = await CallLogApi.getCallLogs({
             endDate: filters.endDate || '',
             startDate: filters.startDate || '',
@@ -994,7 +1011,9 @@ export default function ChatWorkspace() {
         } catch (error) {
           console.error('CallLogApi.getCallLogs error:', error);
         } finally {
-          setIsLoading(false);
+          if (requestId === filterRequestIdRef.current) {
+            setIsLoading(false);
+          }
         }
       }, 400),
     []
@@ -1021,6 +1040,7 @@ export default function ChatWorkspace() {
     // On initial mount or whenever filter criteria changes, fetch NewCall data from server
     if (lastFilterKeyRef.current !== filterKey) {
       lastFilterKeyRef.current = filterKey;
+      const requestId = ++filterRequestIdRef.current;
       setIsLoading(true);
       debouncedFilterCallLog({
         startDate: startStr,
@@ -1029,6 +1049,7 @@ export default function ChatWorkspace() {
         statusIds: resolvedStatusId,
         filter: targetFilter,
         searchTerm: searchStr,
+        requestId,
       });
     }
 
@@ -1149,10 +1170,7 @@ export default function ChatWorkspace() {
     const commentId = event?.CommentId ?? event?.CommentID ?? event?.commentId ?? event?.id;
     if (callLogId == null || commentId == null) return;
 
-    mutateCallCommentsInStream(callLogId, (comments) => {
-      const filteredComments = removeCommentRecord(comments, commentId);
-      return filteredComments.length === comments.length ? null : filteredComments;
-    });
+    removeCallCommentFromStream(callLogId, commentId);
   }, []);
 
   useSocketEvent('EDITCOMMENTS', handleEditCommentSocketEvent);
@@ -1204,7 +1222,7 @@ export default function ChatWorkspace() {
               : ''),
           status: rec.status || (rec.callClosed || rec.CallClosed || (rec.CallDuration && !['00:00', '00:00:00', '0'].includes(String(rec.CallDuration))) ? 'Solved' : 'Pending'),
           Estatus: rec.Estatus || rec.estatus || (rec.callClosed || rec.CallClosed || (rec.CallDuration && !['00:00', '00:00:00', '0'].includes(String(rec.CallDuration))) ? 'Completed' : 'Running'),
-          priority: rec.priority || 'Normal',
+          priority: rec.priority ?? '',
           rating: rec.rating || 0,
         },
       },
@@ -1378,7 +1396,6 @@ export default function ChatWorkspace() {
 
             const rawImg = cItem.img || cItem.FilePath || cItem.filePath || '';
             const hasAttachment = Boolean(rawImg);
-            const isAgent = Boolean(cItem.Name && cItem.Name !== rec.callBy);
             const filenameFromUrl = rawImg ? rawImg.split('/').pop() : '';
 
             const attachmentData = hasAttachment
@@ -1394,19 +1411,27 @@ export default function ChatWorkspace() {
               : null;
 
             const commentCreatedBy = cItem.CreatedBy ?? cItem.createdBy;
+            const clientFlag = cItem.IsClient ?? cItem.isClient;
+            const isClient = Number(clientFlag) === 1;
+            const explicitSender = String(cItem.Name || cItem.CreatedByName || '').trim();
+            const fallbackSender = clientFlag == null
+              ? rec.callBy || 'Client'
+              : isClient
+                ? rec.callBy || 'Client'
+                : rec.receivedBy || rec.AssignedEmpName || 'Support Executive';
             const currentUserName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim().toLowerCase() || String(user?.name || '').trim().toLowerCase();
+            const isAdmin = String(user?.role || '').trim().toLowerCase() === 'admin' || Number(user?.roleid) === 1;
             const isCurrentUser = commentCreatedBy != null && user?.id != null
               ? String(commentCreatedBy) === String(user.id)
               : Boolean(currentUserName && String(cItem.Name || cItem.CreatedByName || '').toLowerCase().trim() === currentUserName);
-            const isClient = Number(cItem.IsClient ?? cItem.isClient) === 1;
 
             items.push({
-              id: `comment-${rec.sr}-${cItem._clientKey || commentId || cIdx}`,
+              id: `comment-${rec.sr}-${cItem._clientKey || commentId || 'comment'}-${cIdx}`,
               commentId,
               filePath: rawImg,
               createdBy: commentCreatedBy,
               dateGroup: cDateFormatted,
-              sender: cItem.Name || cItem.CreatedByName || (isAgent ? rec.receivedBy || 'Support Executive' : rec.callBy || 'Client'),
+              sender: explicitSender || fallbackSender,
               company: rec.company,
               avatar: isCurrentUser ? user?.avatar || '' : '',
               time: cTimeFormatted,
@@ -1416,7 +1441,7 @@ export default function ChatWorkspace() {
               isOutgoing: false,
               isClient,
               IsClient: cItem.IsClient,
-              canManageComment: user?.id != null && isCurrentUser && Boolean(commentId) && !isClient && !cItem._optimisticComment,
+              canManageComment: user?.id != null && (isCurrentUser || isAdmin) && Boolean(commentId) && !isClient && !cItem._optimisticComment,
               hasAttachment: hasAttachment,
               attachment: attachmentData,
               isClientReply: false,
@@ -1621,36 +1646,8 @@ export default function ChatWorkspace() {
     isInternalUrlUpdateRef.current = true;
     navigate({ pathname: location.pathname, search: '?status=all' }, { replace: true });
 
-    // 3. Cancel any pending debounced filter
-    debouncedFilterCallLog.cancel();
-    const requestId = ++filterRequestIdRef.current;
-
-    // 4. Force immediate server refetch with clean empty criteria
-    lastFilterKeyRef.current = '|||||';
-    setIsLoading(true);
-    CallLogApi.getCallLogs({
-      endDate: '',
-      startDate: '',
-      statusIds: '',
-      projectIds: '',
-      filter: '',
-      searchTerm: '',
-    })
-      .then((data) => {
-        if (requestId === filterRequestIdRef.current && data?.rd && Array.isArray(data.rd)) {
-          workspaceOwnsDataRef.current = true;
-          callStreamService.initData(data.rd);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to fetch call logs on clear filters:', err);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-
-    // toast.info('All filters cleared');
-  }, [navigate, location.pathname, debouncedFilterCallLog]);
+    // The filter effect observes the reset state and performs the single refetch.
+  }, [navigate, location.pathname]);
 
   // Start Live VoIP Support Call & push call record via RxJS Stream
   const handleStartCall = useCallback(async () => {
@@ -1873,13 +1870,8 @@ export default function ChatWorkspace() {
 
       const deletedComment = response?.rd1?.[0] || {};
       const deletedCallLogId = deletedComment.CallLogid ?? deletedComment.CallLogId ?? callLogId;
-      const deletedCommentId = deletedComment.CommentId ?? getCommentId(deletedComment) ?? commentId;
-
-      mutateCallCommentsInStream(deletedCallLogId, (comments) =>
-        comments.length === comments.filter((comment) => String(getCommentId(comment)) !== String(deletedCommentId)).length
-          ? null
-          : comments.filter((comment) => String(getCommentId(comment)) !== String(deletedCommentId))
-      );
+      const deletedCommentId = getCommentId(deletedComment) ?? commentId;
+      removeCallCommentFromStream(deletedCallLogId, deletedCommentId);
 
       const pathsToRemove = parseCommentAttachmentPaths(message.filePath || message.attachment?.imgUrl);
       if (pathsToRemove.length) {
@@ -1895,6 +1887,9 @@ export default function ChatWorkspace() {
       if (!attachmentCleanupFailed) toast.success('Comment deleted.');
       return true;
     } catch (error) {
+      // Keep the comment visible unless the API confirms deletion. In
+      // particular, "Comment not found" can mean the submitted ID did not
+      // match a server record, so removing it locally would hide undeleted data.
       console.error('Failed to delete call comment:', error);
       toast.error(error?.message || 'Could not delete the comment.');
       return false;
@@ -2129,7 +2124,6 @@ export default function ChatWorkspace() {
             companies={visibleCompanies}
             selectedCompany={selectedCompany}
             onSelectCompany={handleSelectCompany}
-            onClearAll={handleClearAllFilters}
             totalCallsCount={countScopeThreads.length}
             isLoading={isLoading}
           />
