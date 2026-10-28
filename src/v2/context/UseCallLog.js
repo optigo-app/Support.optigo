@@ -14,7 +14,7 @@ import ITaskApi from "../apis/ITaskApi";
 import { useAuth } from "./UseAuth";
 import { useSocketEvent } from "../hooks/useSocketListener";
 import { notify } from "../libs/NOTIFICATION_TEMPLATES";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { defer, from, merge, timer, fromEvent } from "rxjs";
 import { concatMap, exhaustMap, filter } from "rxjs/operators";
 import {
@@ -153,7 +153,10 @@ export function CallLogProvider(props) {
   const { user } = useAuth();
   const [callLog, setCallLog] = useState([]);
   const [callQueue, setCallQueue] = useState([]);
+  const [refreshList, setrefreshList] = useState(false);
+  const callLogRequestId = useRef(0);
   const callQueueRequestId = useRef(0);
+  const callLogRefreshTimer = useRef(null);
   const [CurrentCall, setCurrentCall] = useState(null);
 
   const callLogRef = useRef(callLog);
@@ -203,6 +206,7 @@ export function CallLogProvider(props) {
     return readMasterDataCache();
   });
   const navigate = useNavigate();
+  const routeLocation = useLocation();
   const isFilterActiveRef = useRef(false);
   const EMPLOYEE_LIST = masterData?.employees || [];
   const COMPANY_LIST = masterData?.master?.rd || [];
@@ -258,10 +262,30 @@ export function CallLogProvider(props) {
       })),
   );
 
-  const [refreshList, setrefreshList] = useState(false);
+  const triggerRefresh = useCallback(() => {
+    callLogRequestId.current += 1;
+    startTransition(() => {
+      setrefreshList((prev) => !prev);
+    });
+  }, []);
+
+  const scheduleCallLogRefresh = useCallback(() => {
+    callLogRequestId.current += 1;
+    if (callLogRefreshTimer.current) clearTimeout(callLogRefreshTimer.current);
+    callLogRefreshTimer.current = setTimeout(() => {
+      callLogRefreshTimer.current = null;
+      triggerRefresh();
+    }, 250);
+  }, [triggerRefresh]);
+
+  useEffect(() => () => {
+    if (callLogRefreshTimer.current) clearTimeout(callLogRefreshTimer.current);
+  }, []);
 
   const setUpdatesBlocked = useCallback((isBlocked) => {
+    const wasBlocked = areUpdatesBlocked.current;
     areUpdatesBlocked.current = isBlocked;
+    if (isBlocked) callLogRequestId.current += 1;
     if (!isBlocked && updateQueue.current.length > 0) {
       console.log(`Flushing ${updateQueue.current.length} queued updates...`);
 
@@ -295,14 +319,8 @@ export function CallLogProvider(props) {
         return newLog;
       });
     }
-  }, []);
-
-  const triggerRefresh = useCallback(() => {
-    // 3. Mark list refresh as "low priority" so it doesn't freeze the drawer
-    startTransition(() => {
-      setrefreshList((prev) => !prev);
-    });
-  }, []);
+    if (wasBlocked && !isBlocked) triggerRefresh();
+  }, [triggerRefresh]);
 
   // RxJS queue: process status/priority updates in order, applying changes only on success
   useEffect(() => {
@@ -449,6 +467,15 @@ export function CallLogProvider(props) {
   }, []);
 
   useEffect(() => {
+    const currentPath = routeLocation.pathname.toLowerCase().replace(/\/$/, "") || "/";
+    const callLoggerOwnsInitialLoad =
+      !refreshList && (currentPath === "/" || currentPath === "/calllog");
+
+    if (callLoggerOwnsInitialLoad) {
+      getCallQueue();
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const savedSearch = params.get("search") || "";
     const savedCompanyStatus = params.get("companyStatus") || "";
@@ -459,6 +486,7 @@ export function CallLogProvider(props) {
     const end = params.get("end");
 
     const GetAllCallLogs = async () => {
+      const requestId = ++callLogRequestId.current;
       try {
         const resolvedStatusId = savedStatus === "all" ? "" : (savedStatus ?? 44);
         const data = await CallLogApi.getCallLogs({
@@ -469,8 +497,7 @@ export function CallLogProvider(props) {
           filter: savedTarget || "",
           searchTerm: savedSearch || "",
         });
-        if (areUpdatesBlocked.current) {
-          console.log("Background refresh skipped due to active edit mode.");
+        if (requestId !== callLogRequestId.current || areUpdatesBlocked.current) {
           return;
         }
         startTransition(() => {
@@ -482,7 +509,7 @@ export function CallLogProvider(props) {
     };
     GetAllCallLogs();
     getCallQueue();
-  }, [refreshList, getCallQueue]);
+  }, [refreshList, getCallQueue, routeLocation.pathname]);
 
   const addCall = useCallback(
     async (call, isConcurrent) => {
@@ -1293,6 +1320,7 @@ export function CallLogProvider(props) {
   // Add Call Events
   useSocketEvent("AddCall", (data) => {
     if (!isValidCallPayload(data)) return;
+    scheduleCallLogRefresh();
     getCallQueue();
     if (areUpdatesBlocked.current) {
       updateQueue.current.push({ type: "ADD", data });
@@ -1308,6 +1336,7 @@ export function CallLogProvider(props) {
   // Accept Call Events
   useSocketEvent("AcceptCall", (data) => {
     if (!isValidCallPayload(data)) return;
+    scheduleCallLogRefresh();
     getCallQueue();
     if (areUpdatesBlocked.current) {
       updateQueue.current.push({ type: "UPDATE", data });
@@ -1367,6 +1396,7 @@ export function CallLogProvider(props) {
           ? String(commentData.CreatedBy) !== String(user.id)
           : true;
 
+      scheduleCallLogRefresh();
       if (areUpdatesBlocked.current) {
         updateQueue.current.push({ type: "COMMENT", data: commentData });
       } else {
@@ -1403,7 +1433,7 @@ export function CallLogProvider(props) {
     });
 
     return () => sub.unsubscribe();
-  }, [user]);
+  }, [user, scheduleCallLogRefresh]);
 
   // Add Comments Socket Event
   useSocketEvent("ADDCOMMENTS", (data) => {
@@ -1415,6 +1445,7 @@ export function CallLogProvider(props) {
   // Forwarded Call Events
   useSocketEvent("ForwardedCall", (data) => {
     if (!isValidCallPayload(data)) return;
+    scheduleCallLogRefresh();
     getCallQueue();
     if (areUpdatesBlocked.current) {
       updateQueue.current.push({ type: "UPDATE", data }); // Treat as update or add based on logic
@@ -1430,6 +1461,7 @@ export function CallLogProvider(props) {
   });
 
   useSocketEvent("ES", (data) => {
+    scheduleCallLogRefresh();
     getCallQueue();
     callLogStatusEvents$.next(data);
   });

@@ -312,6 +312,16 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
   // Flag to distinguish our own URL writes from external navigation
   const isInternalUrlUpdate = useRef(false);
   const filterRequestIdRef = useRef(0);
+  const ownFilterResultRef = useRef(null);
+
+  useEffect(() => {
+    if (callLog === ownFilterResultRef.current) {
+      ownFilterResultRef.current = null;
+      return;
+    }
+    // A provider refresh or socket update is newer than a pending filter snapshot.
+    filterRequestIdRef.current += 1;
+  }, [callLog]);
 
   useEffect(() => {
     const isEditing = sliders.addMode || sliders.editMode;
@@ -378,7 +388,9 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
           searchTerm: filters.searchTerm || "",
         });
         if (requestId === filterRequestIdRef.current) {
-          setCallLog(Array.isArray(data?.rd) ? data.rd : []);
+          const nextCallLog = Array.isArray(data?.rd) ? data.rd : [];
+          ownFilterResultRef.current = nextCallLog;
+          setCallLog(nextCallLog);
         }
       } catch (error) {
         console.error(error);

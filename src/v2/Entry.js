@@ -14,6 +14,7 @@ import { PWAInstallBanner, PWAInstallDialog, PWAUpdatePrompt, PWAOfflineBanner, 
 import { notify } from "./libs/NOTIFICATION_TEMPLATES";
 import AccountCenter from "./components/AccountCenter";
 import { isArchiveDomain } from "./utils/AppBasePath";
+import QuoOnboardingMUI from "./components/login/Login.v2";
 const CallLogDashBoard = lazy(() => import("./components/CallLogger"));
 const ArchivedCallLogPage = lazy(() => import("./components/ArchivedCallLog"));
 const NewCallDashBoard = lazy(() => import("./components/NewCall"));
@@ -33,6 +34,7 @@ const Entry = () => {
 					<PWAOfflineBanner />
 					<Routes>
 						<Route path="/login" element={<LoginPage />} />
+						{/* <Route path="/QuoOnboardingMUI" element={<QuoOnboardingMUI />} /> */}
 						<Route path="/" element={<CallLogDashBoard />} />
 						<Route path="/callLog" element={<CallLogDashBoard />} />
 						<Route path="/newCall" element={<NewCallDashBoard />} />

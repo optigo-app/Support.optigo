@@ -657,7 +657,7 @@ export const getCallColumns = ({
                   },
                 }}
               >
-               <QuestionAnswerRoundedIcon/>
+                <QuestionAnswerRoundedIcon />
               </IconButton>
             </Tooltip>
           </Box>
@@ -1263,29 +1263,29 @@ export const getCallColumns = ({
               height: 22,
               ...(isDone
                 ? {
+                  background:
+                    "linear-gradient(90deg, #E3F2FD 0%, #F1F8FF 100%)", // calm blue success
+                  color: "#1565C0",
+                  border: "1px solid #BBDEFB",
+                  boxShadow: "0 1px 4px rgba(21,101,192,0.12)",
+                  "&:hover": {
                     background:
-                      "linear-gradient(90deg, #E3F2FD 0%, #F1F8FF 100%)", // calm blue success
-                    color: "#1565C0",
-                    border: "1px solid #BBDEFB",
-                    boxShadow: "0 1px 4px rgba(21,101,192,0.12)",
-                    "&:hover": {
-                      background:
-                        "linear-gradient(90deg, #E0F0FC 0%, #EFF7FF 100%)",
-                      boxShadow: "0 2px 6px rgba(21,101,192,0.18)",
-                    },
-                  }
+                      "linear-gradient(90deg, #E0F0FC 0%, #EFF7FF 100%)",
+                    boxShadow: "0 2px 6px rgba(21,101,192,0.18)",
+                  },
+                }
                 : {
+                  background:
+                    "linear-gradient(90deg, #F9FAFB 0%, #FDFEFE 100%)", // light warm gray
+                  color: "#4A4A4A",
+                  border: "1px solid #E0E0E0",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                  "&:hover": {
                     background:
-                      "linear-gradient(90deg, #F9FAFB 0%, #FDFEFE 100%)", // light warm gray
-                    color: "#4A4A4A",
-                    border: "1px solid #E0E0E0",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                    "&:hover": {
-                      background:
-                        "linear-gradient(90deg, #F6F8FA 0%, #FBFCFD 100%)",
-                      boxShadow: "0 2px 5px rgba(0,0,0,0.08)",
-                    },
-                  }),
+                      "linear-gradient(90deg, #F6F8FA 0%, #FBFCFD 100%)",
+                    boxShadow: "0 2px 5px rgba(0,0,0,0.08)",
+                  },
+                }),
             }}
           />
         );
@@ -1426,8 +1426,8 @@ export const getCallColumns = ({
       headerName: "Source",
       width: 120,
       renderCell: (params) => {
-        const sourceVal = params?.row?.topicRaisedBy || "";
-        const source = sourceVal.trim().toLowerCase();
+        const sourceVal = params?.row?.topicRaisedBy;
+        const source = String(sourceVal ?? "").trim().toLowerCase();
 
         let label = "Csystem";
         let descriptionText = "This call was created internally by Csystem";

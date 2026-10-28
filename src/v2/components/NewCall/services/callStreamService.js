@@ -62,7 +62,7 @@ export function normalizeCallRecord(rec, idx = 0) {
       lastComment.Remarks ||
       (lastComment.img || lastComment.FilePath ? '📷 Photo' : '') ||
       ''
-    ).trim();
+    ).toString().trim();
 
     const rawCommentTime = lastComment.time || lastComment.CreatedDate || lastComment.createdDate;
     if (rawCommentTime) {
@@ -77,9 +77,9 @@ export function normalizeCallRecord(rec, idx = 0) {
   }
 
   const sr = rec.sr || rec.id || idx;
-  const company = (rec.company || 'Unknown Company').trim();
-  const callBy = (rec.callBy || 'Client Caller').trim();
-  const receivedBy = (rec.receivedBy || rec.AssignedEmpName || 'Support Desk').trim();
+  const company = String(rec.company || 'Unknown Company').trim();
+  const callBy = String(rec.callBy || 'Client Caller').trim();
+  const receivedBy = String(rec.receivedBy || rec.AssignedEmpName || 'Support Desk').trim();
   const projectId = rec.ProjectID || rec.projectID || rec.projectId || rec.CompanyID || rec.project_id || '';
 
   const hasTicket = hasRealTicket(rec);
@@ -208,7 +208,7 @@ class CallStreamService {
         if (!threads || threads.length === 0) return [];
 
         const norm = (s) => (s ? String(s).toLowerCase().replace(/[\s\-_]/g, '') : '');
-        const query = searchQuery ? searchQuery.trim().toLowerCase() : '';
+        const query = String(searchQuery || '').trim().toLowerCase();
 
         // selectedCompany = left-rail company avatar click (local client-side filter only)
         const compFilter = selectedCompany && selectedCompany !== 'all'

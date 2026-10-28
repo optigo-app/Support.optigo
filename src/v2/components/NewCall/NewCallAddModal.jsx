@@ -233,9 +233,9 @@ export default function NewCallAddModal() {
         date: entryDate,
         time: timeFormatted,
         timestamp: timeFormatted ? timeFormatted.slice(0, 5) : '00:00',
-        status: 'Solved',
-        estatus: 'Completed',
-        Estatus: 'Completed',
+        status: 'Pending',
+        estatus: 'Running',
+        Estatus: 'Running',
         receivedBy: user?.firstname
           ? `${user.firstname} ${user.lastname || ''}`.trim()
           : user?.name || 'Support Desk',

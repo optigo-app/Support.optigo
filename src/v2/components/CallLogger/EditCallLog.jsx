@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import { Drawer, Box, Typography, Divider, TextField, Grid, Button, Autocomplete } from "@mui/material";
 import { CopyPlus } from "lucide-react";
@@ -11,14 +11,23 @@ const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
 export default function EditCallLogDrawer({ open, onClose, callData, showNotification }) {
 	const [formData, setFormData] = useState({});
 	const [saving, setSaving] = useState(false);
-	const { editCall, APPNAME_LIST, currentCall, companyOptions, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, setCurrentCall, CALL_TYPE_MASTER } = useCallLog();
+	const formDirtyRef = useRef(false);
+	const formCallIdRef = useRef(null);
+	const { editCall, APPNAME_LIST, companyOptions, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, CALL_TYPE_MASTER } = useCallLog();
 	const { user } = useAuth();
 
 	console.log(forwardOption, "forwardOption")
 
 
 	useEffect(() => {
+		if (!open) {
+			formDirtyRef.current = false;
+			formCallIdRef.current = null;
+			return;
+		}
 		if (open && callData) {
+			const callId = callData?.sr ?? callData?.id;
+			if (formDirtyRef.current && formCallIdRef.current != null) return;
 			const companyObj = companyOptions?.find((option) => normalizeText(option?.label).split("/")[0] === normalizeText(callData?.company) || null);
 			const appnameObj = APPNAME_LIST?.find((option) => option?.AppName === callData?.appname || option?.AppId === callData?.appname);
 			const callTypeObj = CALL_TYPE_MASTER?.find(
@@ -83,11 +92,14 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 				callType: callTypeObj || null,
 
 			});
+			formDirtyRef.current = false;
+			formCallIdRef.current = callId;
 		}
-	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption, currentCall]);
+	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption]);
 
 	const handleChange = (field) => {
 		return (event, newValue) => {
+			formDirtyRef.current = true;
 			if (field === "appname" || field === "company" || field === "callType" || field === "status" || field === "Estatus" || field === "priority" || field === "receivedBy" || field === "forwardTo") {
 				setFormData((prev) => ({
 					...prev,
@@ -135,7 +147,8 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 				empId = parts[1] || "";
 			}
 
-			const result = await editCall(callData?.sr, {
+			const callId = formCallIdRef.current ?? callData?.sr ?? callData?.id;
+			const result = await editCall(callId, {
 				CreatedBy: user?.id,
 				CustomerName: submitData?.callBy || "",
 				PriorityId: submitData?.priority?.value || "",

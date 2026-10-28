@@ -272,7 +272,7 @@ const CallTable = ({
                   }}
                 >
                   {(() => {
-                    const name = (row?.AssignedEmpName || "").trim();
+                    const name = String(row?.AssignedEmpName ?? "").trim();
                     if (!name) return " ";
 
                     const parts = name.split(/\s+/);

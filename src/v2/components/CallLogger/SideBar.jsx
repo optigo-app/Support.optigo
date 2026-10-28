@@ -50,6 +50,7 @@ export default function CallLogDrawer({
   const [additionalSettingsOpen, setAdditionalSettingsOpen] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [formKey, setFormKey] = useState(0);
+  const formDirtyRef = useRef(false);
   const {
     addCall,
     APPNAME_LIST,
@@ -63,6 +64,9 @@ export default function CallLogDrawer({
 
   useEffect(() => {
     if (open) {
+      // `data` can change when another call arrives while this drawer is open.
+      // Keep the in-progress draft instead of replacing it with that update.
+      if (formDirtyRef.current) return;
       setFormKey((k) => k + 1);
       if (!data) {
         const now = new Date();
@@ -145,6 +149,7 @@ export default function CallLogDrawer({
         });
       }
     } else {
+      formDirtyRef.current = false;
       // When drawer is closed, reset form state completely so next open starts fresh
       setFormData({ ...INITIAL_FORM_STATE, id: uuidv4() });
       setErrors({});
@@ -152,6 +157,11 @@ export default function CallLogDrawer({
       setFormKey((k) => k + 1);
     }
   }, [open, data, companyOptions, defaultCompany, user?.id]);
+
+  const updateFormData = (updater) => {
+    formDirtyRef.current = true;
+    setFormData(updater);
+  };
 
   useEffect(() => {
     if (open && companyInputRef.current) {
@@ -170,7 +180,7 @@ export default function CallLogDrawer({
   const handleTextFieldChange = (field) => (event) => {
     if (!event?.target) return;
 
-    setFormData((prev) => ({
+    updateFormData((prev) => ({
       ...prev,
       [field]: event.target.value,
     }));
@@ -180,13 +190,13 @@ export default function CallLogDrawer({
   // Handle company selection - robust for objects and freeSolo strings
   const handleCompanyChange = (event, newValue) => {
     if (!newValue) {
-      setFormData((prev) => ({ ...prev, company: "" }));
+      updateFormData((prev) => ({ ...prev, company: "" }));
       setErrors((prev) => ({ ...prev, company: "" }));
       return;
     }
 
     if (typeof newValue === "object") {
-      setFormData((prev) => ({
+      updateFormData((prev) => ({
         ...prev,
         company: newValue?.value || newValue?.label || "",
       }));
@@ -198,7 +208,7 @@ export default function CallLogDrawer({
           opt?.value === trimmed ||
           normalizeText(opt?.label).split("/")[0] === normalizeText(trimmed)
       );
-      setFormData((prev) => ({
+      updateFormData((prev) => ({
         ...prev,
         company: matched ? matched.value : trimmed,
       }));
@@ -208,7 +218,7 @@ export default function CallLogDrawer({
 
   // Handle app name selection
   const handleAppNameChange = (event, newValue) => {
-    setFormData((prev) => ({
+    updateFormData((prev) => ({
       ...prev,
       appname: newValue?.value || null,
     }));
@@ -216,7 +226,7 @@ export default function CallLogDrawer({
   };
 
   const handleCallTypeChange = (event, newValue) => {
-    setFormData((prev) => ({
+    updateFormData((prev) => ({
       ...prev,
       callType: newValue?.value || null,
     }));
@@ -226,19 +236,19 @@ export default function CallLogDrawer({
   const handleReceivedByChange = (event, newValue) => {
     if (typeof newValue === "string") {
       // Direct input as string
-      setFormData((prev) => ({
+      updateFormData((prev) => ({
         ...prev,
         receivedBy: newValue,
       }));
     } else if (newValue && typeof newValue === "object") {
       // Selection from dropdown with value property
-      setFormData((prev) => ({
+      updateFormData((prev) => ({
         ...prev,
         receivedBy: newValue.value || "",
       }));
     } else {
       // Fallback for null/undefined
-      setFormData((prev) => ({
+      updateFormData((prev) => ({
         ...prev,
         receivedBy: "",
       }));
@@ -249,7 +259,7 @@ export default function CallLogDrawer({
 
   // Handle forward selection
   const handleForwardChange = (event, newValue) => {
-    setFormData((prev) => ({
+    updateFormData((prev) => ({
       ...prev,
       forward: newValue?.id || "",
     }));
@@ -308,6 +318,7 @@ export default function CallLogDrawer({
   };
 
   const handleReset = () => {
+    formDirtyRef.current = false;
     setFormData({ ...INITIAL_FORM_STATE, id: uuidv4() });
     setErrors({});
     setAdditionalSettingsOpen(false);
@@ -521,7 +532,7 @@ export default function CallLogDrawer({
               onChange={handleCompanyChange}
               onInputChange={(event, newInputValue, reason) => {
                 if (reason === "clear") {
-                  setFormData((prev) => ({ ...prev, company: "" }));
+                  updateFormData((prev) => ({ ...prev, company: "" }));
                 }
               }}
               getOptionLabel={(option) => {
@@ -555,11 +566,11 @@ export default function CallLogDrawer({
               options={customerSuggestions}
               value={formData.callBy || ""}
               onChange={(event, newValue) => {
-                setFormData((prev) => ({ ...prev, callBy: newValue || "" }));
+                updateFormData((prev) => ({ ...prev, callBy: newValue || "" }));
                 setErrors((prev) => ({ ...prev, callBy: "" }));
               }}
               onInputChange={(event, newInputValue) => {
-                setFormData((prev) => ({ ...prev, callBy: newInputValue }));
+                updateFormData((prev) => ({ ...prev, callBy: newInputValue }));
                 setErrors((prev) => ({ ...prev, callBy: "" }));
                 // Fetch suggestions from IndexedDB (including empty/top hits)
                 searchCustomerNames(newInputValue).then(setCustomerSuggestions);

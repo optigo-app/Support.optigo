@@ -213,9 +213,11 @@ export default function ChatWorkspace() {
       date: addedCallData.date || new Date().toISOString().split('T')[0],
       time: addedCallData.time || '',
       timestamp: addedCallData.time ? String(addedCallData.time).slice(0, 5) : '00:00',
-      status: 'Solved',
-      estatus: 'Completed',
-      Estatus: 'Completed',
+      // A newly created call has not ended; keep the optimistic stream state
+      // aligned with the server's pending/running state before its refresh lands.
+      status: 'Pending',
+      estatus: 'Running',
+      Estatus: 'Running',
       receivedBy: user?.firstname
         ? `${user.firstname} ${user.lastname || ''}`.trim()
         : user?.name || 'Support Desk',
