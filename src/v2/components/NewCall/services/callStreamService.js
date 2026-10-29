@@ -1,7 +1,6 @@
 import { BehaviorSubject, combineLatest } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import { hasRealTicket } from '../utils/ticketStatusUtils';
-import { isValidDate, formatFriendlyTime, getLocalISOString } from '../utils/dateUtils';
+import { formatFriendlyTime, getLocalISOString } from '../utils/dateUtils';
 import { getCallSource } from '../utils/callSource';
 import {
   getCommentRecordId,
@@ -82,33 +81,10 @@ export function normalizeCallRecord(rec, idx = 0) {
   const receivedBy = String(rec.receivedBy || rec.AssignedEmpName || 'Support Desk').trim();
   const projectId = rec.ProjectID || rec.projectID || rec.projectId || rec.CompanyID || rec.project_id || '';
 
-  const hasTicket = hasRealTicket(rec);
-  const isEnded = Boolean(
-    ((rec.callClosed || rec.CallClosed) && isValidDate(rec.callClosed || rec.CallClosed)) ||
-    (rec.CallDuration && !['00:00:00', '00:00', '0'].includes(String(rec.CallDuration)))
-  );
-
-  // A missing close time/duration means the call has not been completed.
-  // Do not infer "Solved" or "Completed" from an absent status.
-  let rawStatus = rec.status || (isEnded ? 'Solved' : 'Pending');
-  let rawEstatus = rec.Estatus || rec.estatus || (isEnded ? 'Completed' : 'Running');
-  if (!isEnded && !isValidDate(rec.callStart || rec.CallStart) &&
-      String(rawStatus).trim().toLowerCase() === 'solved') {
-    rawStatus = 'Pending';
-  }
-  if (!isEnded && !isValidDate(rec.callStart || rec.CallStart) &&
-      String(rawEstatus).trim().toLowerCase() === 'completed') {
-    rawEstatus = 'Running';
-  }
-
-  if (!hasTicket) {
-    if (String(rawStatus).trim().toLowerCase() === 'ticket generated') {
-      rawStatus = isEnded ? 'Solved' : 'Pending';
-    }
-    if (String(rawEstatus).trim().toLowerCase() === 'ticket generated') {
-      rawEstatus = isEnded ? 'Completed' : 'Running';
-    }
-  }
+  // Status labels come from the API. Duration/close timestamps and ticket
+  // presence must not manufacture or rewrite a call's internal/external status.
+  const rawStatus = rec.status ?? '';
+  const rawEstatus = rec.Estatus ?? rec.estatus ?? '';
 
   return {
     id: `call-${sr}`,

@@ -101,13 +101,16 @@ export default function NewCallEditModal() {
           option?.AppName === (callData?.appname || callData?.AppName) ||
           option?.AppId === (callData?.appname || callData?.AppId)
       );
+      const rawCallType = callData?.CallType ?? callData?.callType ?? callData?.CallTypeId ?? callData?.callTypeId;
+      const callTypeLookupValue = rawCallType && typeof rawCallType === 'object'
+        ? rawCallType.value ?? rawCallType.Id ?? rawCallType.id ?? rawCallType.label ?? rawCallType.Name ?? rawCallType.name
+        : rawCallType;
 
       const callTypeObj =
         CALL_TYPE_MASTER?.find(
           (option) =>
-            normalizeText(option?.label) ===
-              normalizeText(callData?.CallType ?? callData?.callType) ||
-            String(option?.value) === String(callData?.CallType || callData?.callType)
+            normalizeText(option?.label) === normalizeText(callTypeLookupValue) ||
+            String(option?.value) === String(callTypeLookupValue)
         ) || null;
 
       let receivedByValue = null;
@@ -315,6 +318,10 @@ export default function NewCallEditModal() {
         return;
       }
 
+      const callTypeLabel = CALL_TYPE_MASTER.find(
+        (option) => String(option?.value) === String(submitData?.callType),
+      )?.label || String(submitData?.callType ?? '');
+
       // Optimistically update reactive Call Stream in NewCall workspace
       callStreamService.patchPrimaryCall(sr, {
         callBy: submitData?.callBy,
@@ -334,8 +341,10 @@ export default function NewCallEditModal() {
         EStatusId: submitData?.Estatus?.value ?? '',
         appname: submitData?.appname,
         AppId: submitData?.appname ?? '',
-        CallType: submitData?.callType,
-        callType: submitData?.callType,
+        CallType: callTypeLabel,
+        CallTypeId: submitData?.callType ?? '',
+        callType: callTypeLabel,
+        callTypeId: submitData?.callType ?? '',
         EmpId: empId,
         DeptId: deptId,
         AssignedEmpName: formData?.forwardTo?.person ?? '',

@@ -28,12 +28,23 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 		if (open && callData) {
 			const callId = callData?.sr ?? callData?.id;
 			if (formDirtyRef.current && formCallIdRef.current != null) return;
+			const findOption = (options, value) => {
+				if (value == null || value === "") return null;
+				return (
+					options?.find(
+						(option) =>
+							normalizeText(option?.label) === normalizeText(value) ||
+							String(option?.value ?? "") === String(value),
+					) || null
+				);
+			};
 			const companyObj = companyOptions?.find((option) => normalizeText(option?.label).split("/")[0] === normalizeText(callData?.company) || null);
 			const appnameObj = APPNAME_LIST?.find((option) => option?.AppName === callData?.appname || option?.AppId === callData?.appname);
+			const rawCallType = callData?.CallType ?? callData?.callType ?? callData?.CallTypeId ?? callData?.callTypeId;
 			const callTypeObj = CALL_TYPE_MASTER?.find(
 				(option) =>
-					normalizeText(option?.label) === normalizeText(callData?.CallType) ||
-					option?.value === callData?.CallType
+					normalizeText(option?.label) === normalizeText(rawCallType) ||
+					String(option?.value ?? "") === String(rawCallType ?? "")
 			);
 			let receivedByValue = null;
 			if (callData?.receivedBy) {
@@ -83,9 +94,9 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 				appname: appnameValue,
 				receivedBy: receivedByValue,
 				forwardTo: forwardToValue,
-				status: callData?.status,
-				priority: callData?.priority,
-				Estatus: callData?.Estatus,
+				status: findOption(STATUS_LIST, callData?.status ?? callData?.StatusID ?? callData?.statusId),
+				priority: findOption(PRIORITY_LIST, callData?.priority ?? callData?.PriorityID ?? callData?.priorityId),
+				Estatus: findOption(ESTATUS_LIST, callData?.Estatus ?? callData?.EStatusId ?? callData?.estatusId),
 				description: callData?.description || "",
 				callDetails: callData?.callDetails || "",
 				topicRaisedBy: callData?.topicRaisedBy || "Optigo",
@@ -95,7 +106,7 @@ export default function EditCallLogDrawer({ open, onClose, callData, showNotific
 			formDirtyRef.current = false;
 			formCallIdRef.current = callId;
 		}
-	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption]);
+	}, [open, callData, companyOptions, APPNAME_LIST, forwardOption, STATUS_LIST, ESTATUS_LIST, PRIORITY_LIST, CALL_TYPE_MASTER]);
 
 	const handleChange = (field) => {
 		return (event, newValue) => {

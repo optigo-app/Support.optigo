@@ -34,15 +34,19 @@ export default function DescriptionEditPopover({
     }
   }, [open, initialValue]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     setError('');
     if (onSave) {
-      const result = onSave(value.trim());
-      if (result?.error) {
-        setError(result.error);
+      try {
+        const result = await onSave(value.trim());
+        if (result?.error) {
+          setError(result.error);
+        }
+      } catch (saveError) {
+        setError(saveError?.message || `Failed to save ${label.toLowerCase()}.`);
       }
     }
-  }, [onSave, value]);
+  }, [onSave, value, label]);
 
   const handleClose = useCallback(() => {
     if (!loading && onClose) onClose();

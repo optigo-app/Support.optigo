@@ -177,10 +177,15 @@ const MessageComposer = React.memo(function MessageComposer({
   );
 
   // Resolve Call Type label
-  const currentCallTypeVal = rawRecord?.CallType || rawRecord?.callType || '';
+  const rawCallType = rawRecord?.CallType ?? rawRecord?.callType ?? '';
+  const currentCallTypeVal = rawCallType && typeof rawCallType === 'object'
+    ? rawCallType.value ?? rawCallType.Id ?? rawCallType.id ?? rawCallType.label ?? rawCallType.Name ?? rawCallType.name ?? ''
+    : rawCallType;
   const currentCallTypeObj = useMemo(() => {
     return CALL_TYPE_MASTER?.find(
-      (o) => o.value === currentCallTypeVal || o.label === currentCallTypeVal
+      (o) =>
+        String(o.value) === String(currentCallTypeVal) ||
+        String(o.label || '').trim().toLowerCase() === String(currentCallTypeVal).trim().toLowerCase()
     ) || null;
   }, [CALL_TYPE_MASTER, currentCallTypeVal]);
 
@@ -627,7 +632,15 @@ const MessageComposer = React.memo(function MessageComposer({
       setIsUpdatingCallType(true);
       const res = await UpdateCall(callId, { callType: typeVal });
       if (res?.success) {
-        callStreamService.patchPrimaryCall(activeThread?.sr, { CallType: typeVal, callType: typeVal });
+        const typeLabel = CALL_TYPE_MASTER.find(
+          (option) => String(option?.value) === String(typeVal),
+        )?.label || String(typeVal);
+        callStreamService.patchPrimaryCall(activeThread?.sr, {
+          CallType: typeLabel,
+          CallTypeId: typeVal,
+          callType: typeLabel,
+          callTypeId: typeVal,
+        });
         // toast.success(`Call Type updated to ${typeVal}`);
       }
     } catch (err) {

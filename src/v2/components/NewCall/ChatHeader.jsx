@@ -893,7 +893,7 @@ export default function ChatHeader({
                       maxWidth: 90,
                     }}
                   >
-                    {currentPriority}
+                    {currentPriority || 'Select priority'}
                   </Typography>
                   <CaretDown size={12} weight="bold" color="#64748B" />
                 </Box>

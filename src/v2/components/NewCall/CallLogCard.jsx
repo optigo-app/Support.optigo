@@ -106,7 +106,7 @@ export default function CallLogCard({ record = {} }) {
 
   let rawExtStatus = isLivePrimary
     ? 'In Progress'
-    : record.status || (isSolved ? 'Solved' : 'Pending');
+    : record.status || '';
 
   if (!hasTicket && String(rawExtStatus).trim().toLowerCase() === 'ticket generated') {
     rawExtStatus = isSolved ? 'Solved' : 'Pending';

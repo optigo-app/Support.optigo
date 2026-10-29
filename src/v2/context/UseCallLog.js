@@ -150,13 +150,15 @@ const appendCommentToCallRecord = (callRecord, commentPayload) => {
 const CallLogContext = createContext(null);
 
 export function CallLogProvider(props) {
-  const { user } = useAuth();
+  const { user, isInitialized, services } = useAuth();
+  const isCallLogReady = Boolean(isInitialized && user && services?.callLog);
   const [callLog, setCallLog] = useState([]);
   const [callQueue, setCallQueue] = useState([]);
   const [refreshList, setrefreshList] = useState(false);
   const callLogRequestId = useRef(0);
   const callQueueRequestId = useRef(0);
   const callLogRefreshTimer = useRef(null);
+  const wasOnCallLoggerRoute = useRef(false);
   const [CurrentCall, setCurrentCall] = useState(null);
 
   const callLogRef = useRef(callLog);
@@ -421,6 +423,7 @@ export function CallLogProvider(props) {
   }, [triggerRefresh]);
 
   const getCallQueue = useCallback(async () => {
+    if (!isCallLogReady) return;
     const requestId = ++callQueueRequestId.current;
     try {
       const data = await CallLogApi.getCallQueue();
@@ -430,10 +433,10 @@ export function CallLogProvider(props) {
     } catch (error) {
       console.error("Error loading call queue:", error);
     }
-  }, []);
+  }, [isCallLogReady]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return undefined;
+    if (!isCallLogReady || typeof document === "undefined") return undefined;
 
     const isVisible = () => document.visibilityState === "visible";
     const refreshTriggers$ = merge(
@@ -445,9 +448,11 @@ export function CallLogProvider(props) {
       .subscribe();
 
     return () => subscription.unsubscribe();
-  }, [getCallQueue]);
+  }, [getCallQueue, isCallLogReady]);
 
   useEffect(() => {
+    if (!isCallLogReady) return;
+
     const GetMasterData = async () => {
       try {
         const [master, employees] = await Promise.all([
@@ -464,14 +469,18 @@ export function CallLogProvider(props) {
     if (!hasCachedStatusOptions(readMasterDataCache())) {
       GetMasterData();
     }
-  }, []);
+  }, [isCallLogReady]);
 
   useEffect(() => {
-    const currentPath = routeLocation.pathname.toLowerCase().replace(/\/$/, "") || "/";
-    const callLoggerOwnsInitialLoad =
-      !refreshList && (currentPath === "/" || currentPath === "/calllog");
+    if (!isCallLogReady) return;
 
-    if (callLoggerOwnsInitialLoad) {
+    const currentPath = routeLocation.pathname.toLowerCase().replace(/\/$/, "") || "/";
+    const isCallLoggerRoute = currentPath === "/" || currentPath === "/calllog";
+    const enteringCallLoggerRoute =
+      isCallLoggerRoute && !wasOnCallLoggerRoute.current;
+    wasOnCallLoggerRoute.current = isCallLoggerRoute;
+
+    if (enteringCallLoggerRoute) {
       getCallQueue();
       return;
     }
@@ -509,7 +518,7 @@ export function CallLogProvider(props) {
     };
     GetAllCallLogs();
     getCallQueue();
-  }, [refreshList, getCallQueue, routeLocation.pathname]);
+  }, [refreshList, getCallQueue, routeLocation.pathname, isCallLogReady]);
 
   const addCall = useCallback(
     async (call, isConcurrent) => {
@@ -580,7 +589,8 @@ export function CallLogProvider(props) {
         }
 
         const optionLabel = (options, value) =>
-          options.find((option) => String(option?.value) === String(value))?.label || "";
+          options.find((option) => String(option?.value) === String(value))?.label ||
+          (value == null ? "" : String(value));
         const mergeEditedCall = (call) => {
           const next = { ...call, ...updatedFields };
           if (Object.prototype.hasOwnProperty.call(updatedFields, "CustomerName")) {
@@ -611,9 +621,11 @@ export function CallLogProvider(props) {
             next.date = updatedFields.EntryDate;
           }
           if (Object.prototype.hasOwnProperty.call(updatedFields, "CallType")) {
-            next.callType = CALL_TYPE_MASTER.find(
-              (option) => String(option?.value) === String(updatedFields.CallType),
-            )?.label || "";
+            const callType = optionLabel(CALL_TYPE_MASTER, updatedFields.CallType);
+            next.CallType = callType;
+            next.CallTypeId = updatedFields.CallType;
+            next.callType = callType;
+            next.callTypeId = updatedFields.CallType;
           }
           if (Object.prototype.hasOwnProperty.call(updatedFields, "AppId")) {
             next.appname = APPNAME_LIST.find(
@@ -743,26 +755,48 @@ export function CallLogProvider(props) {
           CallLogid: callId,
           ...{ ...updatedFields, createdBy: userid },
         });
-        const rd = response?.rd;
-        const raw = Array.isArray(rd) ? rd[0] : null;
+        const responseData = response?.Data ?? response?.data?.Data ?? response?.data ?? response;
+        const raw = responseData?.rd?.[0] ?? responseData?.rd1?.[0] ?? null;
 
-        if (raw === null || raw?.stat === 0 || raw?.stat_code) {
+        if (
+          !raw ||
+          Number(raw.stat) === 0 ||
+          (raw.stat_code != null && Number(raw.stat_code) !== 1000) ||
+          raw.success === false ||
+          raw.Success === false
+        ) {
           return {
             success: false,
-            message: "Invalid response format from server",
-            code: 500,
+            message: raw?.stat_msg || raw?.message || raw?.Message || "Invalid response format from server",
+            msg: raw,
+            code: raw?.stat_code || 500,
           };
+        }
+        const normalizedFields = { ...updatedFields };
+        if (Object.prototype.hasOwnProperty.call(updatedFields, "callType")) {
+          const callTypeValue = updatedFields.callType;
+          const callTypeLabel = CALL_TYPE_MASTER.find(
+            (option) => String(option?.value) === String(callTypeValue),
+          )?.label || (callTypeValue == null ? "" : String(callTypeValue));
+          Object.assign(normalizedFields, {
+            CallType: callTypeLabel,
+            CallTypeId: callTypeValue,
+            callType: callTypeLabel,
+            callTypeId: callTypeValue,
+          });
         }
         setCurrentCall((prev) => {
           if (!prev) return prev;
-          if (prev.sr !== raw.sr) return prev;
-          return { ...prev, ...updatedFields };
+          if (String(prev.sr) !== String(raw.sr ?? callId)) return prev;
+          return { ...prev, ...normalizedFields };
         });
 
         setCallLog((prev) => {
           if (!Array.isArray(prev)) return prev;
           return prev.map((c) =>
-            c.sr === raw.sr ? { ...c, ...updatedFields } : c,
+            String(c.sr) === String(raw.sr ?? callId)
+              ? { ...c, ...normalizedFields }
+              : c,
           );
         });
         triggerRefresh();
@@ -780,7 +814,7 @@ export function CallLogProvider(props) {
         };
       }
     },
-    [triggerRefresh, callLog, setCallLog],
+    [triggerRefresh, callLog, setCallLog, CALL_TYPE_MASTER],
   );
 
   const startCall = useCallback(

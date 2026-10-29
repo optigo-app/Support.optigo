@@ -34,6 +34,16 @@ const parseDurationString = (timeStr) => {
   return +parts[0] * 3600 + +parts[1] * 60 + +parts[2];
 };
 
+const normalizeText = (value) => {
+  const textValue =
+    value && typeof value === "object"
+      ? value.label ?? value.Name ?? value.name ?? value.value ?? value.Id ?? value.id
+      : value;
+  return typeof textValue === "string" || typeof textValue === "number"
+    ? String(textValue).trim()
+    : "";
+};
+
 const formatDuration = (seconds) => {
   if (!seconds) return "0s";
   const h = Math.floor(seconds / 3600);
@@ -131,9 +141,13 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
       if (start && end) {
         if (!isWithinInterval(rowDateObj, { start, end })) return;
       }
-      const receiverName = row.receivedBy?.trim() ? row.receivedBy.trim() : "Unknown";
-      const clientName = row.client?.trim() || row.company?.trim() || row.callBy?.trim() || "Unknown Client";
-      const callType = row.CallType?.trim() || "Unknown";
+      const receiverName = normalizeText(row.receivedBy) || "Unknown";
+      const clientName =
+        normalizeText(row.client) ||
+        normalizeText(row.company) ||
+        normalizeText(row.callBy) ||
+        "Unknown Client";
+      const callType = normalizeText(row.CallType) || "Unknown";
 
       if (droppedFilter) {
         if (droppedFilter.type === "RECEIVER" && receiverName !== droppedFilter.value) return;
@@ -160,7 +174,10 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
             (fu.ForwardedEmp && String(fu.ForwardedEmp).trim() !== "")
           );
           if (isForwarded) return; // Standard follow-ups only
-          const fuName = fu.CreatedBy?.trim() || fu.ReceivedBy?.trim() || receiverName;
+          const fuName =
+            normalizeText(fu.CreatedBy) ||
+            normalizeText(fu.ReceivedBy) ||
+            receiverName;
           const fuSeconds = parseDurationString(fu.CallDuration);
           grandTotalSeconds += fuSeconds;
           grandTotalCalls += 1;
@@ -208,10 +225,10 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
           );
           if (!isForwarded) return; // Forwarded calls only
           const fName =
-            fu.ForwardedEmp?.trim() ||
-            fu.AssignedEmpName?.trim() ||
-            fu.EmpName?.trim() ||
-            fu.CreatedBy?.trim() ||
+            normalizeText(fu.ForwardedEmp) ||
+            normalizeText(fu.AssignedEmpName) ||
+            normalizeText(fu.EmpName) ||
+            normalizeText(fu.CreatedBy) ||
             receiverName;
           const fuSeconds = parseDurationString(fu.CallDuration);
           grandTotalSeconds += fuSeconds;
@@ -277,7 +294,7 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
             });
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       grandTotalSeconds += seconds;
       grandTotalCalls += callCount;
@@ -426,12 +443,12 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
                   viewMode === "client"
                     ? "#4fc3f7"
                     : viewMode === "receiver"
-                    ? "#81c784"
-                    : viewMode === "followup"
-                    ? "#1A73E8"
-                    : viewMode === "forwarded"
-                    ? "#8B5CF6"
-                    : "#ff9800",
+                      ? "#81c784"
+                      : viewMode === "followup"
+                        ? "#1A73E8"
+                        : viewMode === "forwarded"
+                          ? "#8B5CF6"
+                          : "#ff9800",
                 borderRadius: 25,
                 transition: "width 0.5s ease-in-out",
               }}
@@ -457,8 +474,8 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
     );
   };
 
-    const CalHeight = 138 + HeaderHeight ;
-  
+  const CalHeight = 138 + HeaderHeight;
+
 
   return (
     <>
@@ -479,12 +496,12 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
           borderColor: isDraggingOver
             ? "#1976d2"
             : droppedFilter
-            ? droppedFilter.type === "CLIENT"
-              ? "#4fc3f7"
-              : droppedFilter.type === "RECEIVER"
-              ? "#81c784"
-              : "#ff9800"
-            : "#e0e0e0",
+              ? droppedFilter.type === "CLIENT"
+                ? "#4fc3f7"
+                : droppedFilter.type === "RECEIVER"
+                  ? "#81c784"
+                  : "#ff9800"
+              : "#e0e0e0",
           borderStyle: isDraggingOver ? "dashed" : "solid",
           transition: "all 0.2s ease-in-out",
         }}

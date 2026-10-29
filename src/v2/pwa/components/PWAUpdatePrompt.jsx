@@ -2,13 +2,34 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Box, Button, Divider, Fade, IconButton, Typography } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import AutoModeRoundedIcon from "@mui/icons-material/AutoModeRounded";
-import { usePWA } from "../hooks/usePWA";
 import useSWVersionChecker from "../hooks/useSWVersionChecker";
 
 const DISMISSED_VERSION_KEY = "app_update_dismissed_version";
+const DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+const isVersionSnoozed = (version) => {
+	try {
+		const savedValue = localStorage.getItem(DISMISSED_VERSION_KEY);
+		if (!savedValue) return false;
+
+		let dismissal;
+		try {
+			dismissal = JSON.parse(savedValue);
+		} catch {
+			// Older releases stored only the version string and suppressed it forever.
+			if (savedValue === version) localStorage.removeItem(DISMISSED_VERSION_KEY);
+			return false;
+		}
+
+		if (dismissal?.version !== version) return false;
+		const dismissedAt = Number(dismissal.dismissedAt);
+		return Number.isFinite(dismissedAt) && Date.now() - dismissedAt < DISMISS_COOLDOWN_MS;
+	} catch {
+		return false;
+	}
+};
 
 export default function PWAUpdatePrompt() {
-	const { updateAvailable } = usePWA();
 	const [availableVersion, setAvailableVersion] = useState("");
 	const [open, setOpen] = useState(false);
 	const [updating, setUpdating] = useState(false);
@@ -16,9 +37,9 @@ export default function PWAUpdatePrompt() {
 
 	const showUpdate = useCallback((version) => {
 		const normalizedVersion = typeof version === "string" ? version : "";
-		let dismissedVersion = "";
-		try { dismissedVersion = localStorage.getItem(DISMISSED_VERSION_KEY) || ""; } catch {}
-		if (normalizedVersion && dismissedVersion === normalizedVersion) return;
+		const currentVersion = window.__APP_VERSION__;
+		if (!normalizedVersion || !currentVersion || normalizedVersion === currentVersion) return;
+		if (isVersionSnoozed(normalizedVersion)) return;
 		setAvailableVersion(normalizedVersion);
 		setOpen(true);
 	}, []);
@@ -29,13 +50,14 @@ export default function PWAUpdatePrompt() {
 		return () => window.removeEventListener("NEW_VERSION_AVAILABLE", handleNewVersion);
 	}, [showUpdate]);
 
-	useEffect(() => {
-		if (updateAvailable) showUpdate("");
-	}, [showUpdate, updateAvailable]);
-
 	const handleClose = () => {
 		if (availableVersion) {
-			try { localStorage.setItem(DISMISSED_VERSION_KEY, availableVersion); } catch {}
+			try {
+				localStorage.setItem(DISMISSED_VERSION_KEY, JSON.stringify({
+					version: availableVersion,
+					dismissedAt: Date.now(),
+				}));
+			} catch {}
 		}
 		setOpen(false);
 	};

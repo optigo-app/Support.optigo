@@ -1024,11 +1024,11 @@ export default function ChatWorkspace() {
   // 6b. Server API Refetch when TopBar filters change (exact old CallLog behavior)
   // viewMode is NOT sent to API — it is a local-only RxJS filter.
   // NewCall sends multi-select status and company IDs using the plural API fields.
+  const resolvedProjectId = getProjectId(topBarCompany);
+  const resolvedStatusId = getStatusId(statusFilter);
   useEffect(() => {
     const startStr = formatLocalDateToYYYYMMDD(dateRangeObj?.start);
     const endStr = formatLocalDateToYYYYMMDD(dateRangeObj?.end);
-    const resolvedProjectId = getProjectId(topBarCompany);
-    const resolvedStatusId = getStatusId(statusFilter);
     const searchStr = searchQuery || '';
     const targetFilter = filterBy || (startStr && endStr ? 'date' : '');
 
@@ -1058,7 +1058,7 @@ export default function ChatWorkspace() {
     return () => {
       debouncedFilterCallLog.cancel();
     };
-  }, [searchQuery, topBarCompany, statusFilter, filterBy, dateRangeObj, getProjectId, getStatusId, debouncedFilterCallLog]);
+  }, [searchQuery, resolvedProjectId, resolvedStatusId, filterBy, dateRangeObj, debouncedFilterCallLog]);
 
   // 7. VoIP Active Call Session Persistence in localStorage across page refreshes
   useEffect(() => {
@@ -1222,8 +1222,8 @@ export default function ChatWorkspace() {
             (rec.topicRaisedBy
               ? `Client logged support call regarding ${rec.topicRaisedBy}`
               : ''),
-          status: rec.status || (rec.callClosed || rec.CallClosed || (rec.CallDuration && !['00:00', '00:00:00', '0'].includes(String(rec.CallDuration))) ? 'Solved' : 'Pending'),
-          Estatus: rec.Estatus || rec.estatus || (rec.callClosed || rec.CallClosed || (rec.CallDuration && !['00:00', '00:00:00', '0'].includes(String(rec.CallDuration))) ? 'Completed' : 'Running'),
+          status: rec.status ?? '',
+          Estatus: rec.Estatus ?? rec.estatus ?? '',
           priority: rec.priority ?? '',
           rating: rec.rating || 0,
         },
