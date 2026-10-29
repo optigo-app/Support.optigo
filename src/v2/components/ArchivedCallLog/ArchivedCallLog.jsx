@@ -44,6 +44,8 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import { Checkbox } from "@mui/material";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { MainLayoutheight } from "../_ui/HeaderWrapper";
+import { ExcelReportCallog } from "../../utils/ExcelReportDowload";
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 
 
   const contentHeight = MainLayoutheight;
@@ -309,6 +311,8 @@ const CompanyCodeSelect = ({
 const ArchiveHeader = ({
   selectedIds,
   onRestore,
+  onExcel,
+  isAdmin,
   restoring,
   filterCount,
   onClearAll,
@@ -443,6 +447,18 @@ const ArchiveHeader = ({
           CompanyStatus={CompanyStatus}
           SetCompanyStatus={SetCompanyStatus}
         />
+        {isAdmin && (
+          <Button
+            disabled={!filterCount}
+            onClick={onExcel}
+            variant="contained"
+            color="success"
+            startIcon={<PiMicrosoftExcelLogoFill />}
+            sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+          >
+            Export
+          </Button>
+        )}
         <DualDatePicker
           setTempDateRange={setTempDateRange}
           tempDateRange={tempDateRange}
@@ -469,6 +485,10 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const { user } = useAuth();
+  const isAdmin =
+    String(user?.designation || "").trim().toLowerCase() === "admin" ||
+    String(user?.role || "").trim().toLowerCase() === "admin" ||
+    Number(user?.roleid) === 1;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -492,7 +512,7 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
     if (urlSearch !== searchQuery) {
       setSearchQuery(urlSearch);
     }
-  }, [location.search]);
+  }, [location.search, searchQuery]);
 
   // ── Fetch archived list ──────────────────────────────────────────────────
   const fetchArchived = useCallback(
@@ -655,6 +675,15 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
 
   const isFilterData = filteredCallLog?.length > 0;
 
+  const handleExcelExport = useCallback(async () => {
+    try {
+      await ExcelReportCallog(filteredCallLog);
+    } catch (error) {
+      console.error("Failed to download archived call logs:", error);
+      showNotification("Failed to download archived call logs", "error");
+    }
+  }, [filteredCallLog, showNotification]);
+
   if (isLoading && !callLog?.length) return <Spinner />;
 
   return (
@@ -673,6 +702,8 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
         <ArchiveHeader
           selectedIds={selectedIds}
           onRestore={handleRestore}
+          onExcel={handleExcelExport}
+          isAdmin={isAdmin}
           restoring={restoring}
           filterCount={filteredCallLog?.length || 0}
           isFilterData={isFilterData}

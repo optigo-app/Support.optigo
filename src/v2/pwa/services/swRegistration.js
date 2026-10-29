@@ -11,8 +11,7 @@ export function registerServiceWorker(callbacks = {}) {
 		return;
 	}
 
-	// Register on window load
-	window.addEventListener("load", () => {
+	const register = () => {
 		navigator.serviceWorker
 			.register(PWA_CONFIG.swPath)
 			.then((registration) => {
@@ -54,14 +53,20 @@ export function registerServiceWorker(callbacks = {}) {
 				window.location.reload();
 			}
 		});
-	});
+	};
+
+	if (document.readyState === "complete") {
+		register();
+	} else {
+		window.addEventListener("load", register, { once: true });
+	}
 }
 
 /**
  * Trigger immediate activation of waiting Service Worker
  */
 export function applyServiceWorkerUpdate(registration) {
-	if (registration && registration.waiting) {
+	if (registration?.waiting) {
 		registration.waiting.postMessage({ type: "SKIP_WAITING" });
 	}
 }

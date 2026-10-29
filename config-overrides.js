@@ -62,9 +62,18 @@ module.exports = function override(config) {
   // Keep the running bundle's version comparable with public/version.json.
   // The prebuild script updates package.json before production compilation.
   const packageVersion = require('./package.json').version;
+  const bundleVersion = `v${packageVersion}`;
+  if (process.env.NODE_ENV === 'production') {
+    const publishedVersion = require('./public/version.json').version;
+    if (publishedVersion !== bundleVersion) {
+      throw new Error(
+        `Production version mismatch: bundle is ${bundleVersion}, public/version.json is ${publishedVersion || 'missing'}. Run the package build script so both versions are generated together.`,
+      );
+    }
+  }
   config.plugins.push(
     new webpack.DefinePlugin({
-      'window.__APP_VERSION__': JSON.stringify(`v${packageVersion}`),
+      'window.__APP_VERSION__': JSON.stringify(bundleVersion),
     })
   );
 

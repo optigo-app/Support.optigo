@@ -1,7 +1,7 @@
 {
 	"homepage": ".",
 	"name": "call_logger",
-	"version": "4.0.73",
+	"version": "4.0.74",
 	"private": true,
 	"dependencies": {
 		"@babel/core": "^7.16.0",
@@ -126,17 +126,18 @@
 	},
 	"scripts": {
 		"version": "node scripts/create-version.js",
-		"prebuild": "node scripts/prebuild.js",
 		"dev": "react-app-rewired start",
-		"build": "cross-env REACT_APP_VERSION=v2 GENERATE_SOURCEMAP=false react-app-rewired --max_old_space_size=6144 build",
+		"build": "npm run build:v2",
 		"test": "node scripts/test.js",
 		"format": "biome format .",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint . --apply",
 		"version:create": "node scripts/create-version.js",
 		"start:v1": "cross-env REACT_APP_VERSION=v1 react-app-rewired start",
+		"prebuild:v1": "node scripts/prebuild.js v1",
 		"build:v1": "cross-env REACT_APP_VERSION=v1 GENERATE_SOURCEMAP=false react-app-rewired --max_old_space_size=6144 build",
 		"start:v2": "cross-env REACT_APP_VERSION=v2 react-app-rewired start",
+		"prebuild:v2": "node scripts/prebuild.js v2",
 		"build:v2": "cross-env REACT_APP_VERSION=v2 GENERATE_SOURCEMAP=false react-app-rewired --max_old_space_size=6144 build"
 	},
 	"eslintConfig": {

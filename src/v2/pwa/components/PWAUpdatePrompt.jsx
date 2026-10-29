@@ -65,18 +65,25 @@ export default function PWAUpdatePrompt() {
 	const handleUpdate = async () => {
 		if (updating) return;
 		setUpdating(true);
-		try {
-			if ("caches" in window) {
-				const cacheNames = await caches.keys();
-				await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-			}
-		} catch {
-			// A cache cleanup failure should not block the reload.
-		} finally {
+		const reloadWithCacheBust = () => {
 			const url = new URL(window.location.href);
 			url.searchParams.set("_v", String(Date.now()));
 			window.location.replace(url.toString());
+		};
+
+		try {
+			if ("serviceWorker" in navigator) {
+			const registration = await navigator.serviceWorker.getRegistration();
+			if (registration) {
+					registration.update()
+						.then(() => registration.waiting?.postMessage({ type: "SKIP_WAITING" }))
+						.catch(() => {});
+			}
+			}
+		} catch {
+			// Continue with a cache-busted navigation if the worker update fails.
 		}
+		reloadWithCacheBust();
 	};
 
 	if (!open) return null;

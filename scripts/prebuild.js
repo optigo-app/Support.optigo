@@ -2,12 +2,24 @@ const fs = require("fs");
 const path = require("path");
 
 const packageJsonPath = path.join(__dirname, "../package.json");
-const versionJsonPath = path.join(
-  __dirname,
-  "../src/components/AccountCenter/tabs/version.json",
-);
+const requestedVersion = process.argv[2] || process.env.REACT_APP_VERSION;
 
 try {
+  const appVersion = requestedVersion ||
+    JSON.parse(fs.readFileSync(path.join(__dirname, "../src/version.json"), "utf8")).activeVersion;
+  const normalizedAppVersion = String(appVersion || "v2").replace(/^v/i, "");
+  if (!["v1", "v2"].includes(`v${normalizedAppVersion}`)) {
+    throw new Error(`Unsupported app version: ${appVersion}`);
+  }
+
+  const versionJsonPath = path.join(
+    __dirname,
+    `../src/v${normalizedAppVersion}/components/AccountCenter/tabs/version.json`,
+  );
+  if (!fs.existsSync(versionJsonPath)) {
+    throw new Error(`Version file does not exist: ${versionJsonPath}`);
+  }
+
   // 1. Read package.json
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
 
@@ -27,30 +39,30 @@ try {
   }
   const newVersion = parts.join(".");
 
-  // Update package.json
-  packageJson.version = newVersion;
-  fs.writeFileSync(
-    packageJsonPath,
-    JSON.stringify(packageJson, null, "\t") + "\n",
-    "utf8",
-  );
-
-  // 3. Write version.json for SupportTab to import
   const versionData = {
     version: `v${newVersion}`,
   };
+
+  // Keep the active app's support version and public update endpoint aligned.
   fs.writeFileSync(
     versionJsonPath,
     JSON.stringify(versionData, null, 2),
     "utf8",
   );
 
-  // Publish the same version as a no-cache polling endpoint for the update prompt.
   const publicDir = path.join(__dirname, "../public");
   fs.mkdirSync(publicDir, { recursive: true });
   fs.writeFileSync(
     path.join(publicDir, "version.json"),
     JSON.stringify({ ...versionData, buildTime: new Date().toISOString() }, null, 2),
+    "utf8",
+  );
+
+  // Write package.json last so a failed generated-file write cannot advance the bundle version alone.
+  packageJson.version = newVersion;
+  fs.writeFileSync(
+    packageJsonPath,
+    JSON.stringify(packageJson, null, "\t") + "\n",
     "utf8",
   );
 

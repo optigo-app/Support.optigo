@@ -3,6 +3,26 @@ import { getAppBasePath } from "../../utils/AppBasePath";
 
 const CHECK_INTERVAL = 120000;
 
+const isNewerVersion = (candidate, current) => {
+	const parseVersion = (version) => {
+		if (typeof version !== "string") return null;
+		const match = version.trim().match(/^v?(\d+(?:\.\d+)*)$/i);
+		return match ? match[1].split(".").map(Number) : null;
+	};
+
+	const candidateParts = parseVersion(candidate);
+	const currentParts = parseVersion(current);
+	if (!candidateParts || !currentParts) return false;
+
+	const partCount = Math.max(candidateParts.length, currentParts.length);
+	for (let index = 0; index < partCount; index += 1) {
+		const candidatePart = candidateParts[index] || 0;
+		const currentPart = currentParts[index] || 0;
+		if (candidatePart !== currentPart) return candidatePart > currentPart;
+	}
+	return false;
+};
+
 export default function useSWVersionChecker() {
 	const checking = useRef(false);
 
@@ -21,14 +41,14 @@ export default function useSWVersionChecker() {
 				const data = await response.json();
 				const latestVersion = typeof data?.version === "string" ? data.version : "";
 				const currentVersion = window.__APP_VERSION__;
-				if (!disposed && latestVersion && currentVersion && latestVersion !== currentVersion) {
+				if (!disposed && isNewerVersion(latestVersion, currentVersion)) {
 					window.dispatchEvent(new CustomEvent("NEW_VERSION_AVAILABLE", {
 						detail: { version: latestVersion, buildTime: data.buildTime },
 					}));
 					if ("serviceWorker" in navigator) {
-						navigator.serviceWorker.getRegistrations().then((registrations) =>
-							Promise.all(registrations.map((registration) => registration.update()))
-						).catch(() => {});
+						navigator.serviceWorker.getRegistration()
+							.then((registration) => registration?.update())
+							.catch(() => {});
 					}
 				}
 			} catch {
