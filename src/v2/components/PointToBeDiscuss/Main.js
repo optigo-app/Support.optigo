@@ -47,14 +47,14 @@ export const theme = createTheme({
     divider: "rgba(0, 0, 0, 0.05)", // Very light dividers
   },
   typography: {
-    fontFamily: '"Poppins", sans-serif',
+    fontFamily: '"Inter Variable", sans-serif',
     h4: {
       fontWeight: 600,
     },
   },
   components: {
-        MuiAutocomplete :{
-         defaultProps: {
+    MuiAutocomplete: {
+      defaultProps: {
         autoSelect: true,
         autoHighlight: true,
         selectOnFocus: true,
@@ -108,7 +108,7 @@ registerAuthServiceWorker();
 const PoinToBeDiscuss = ({ showNotification }) => {
   return (
     <>
-    <MetaWrapper page="OrderRequest" />
+      <MetaWrapper page="OrderRequest" />
       <AuthProvider>
         <DeliveryProvider showNotification={showNotification}>
           <PointToDiscussProvider showNotification={showNotification}>

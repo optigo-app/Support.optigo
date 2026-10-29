@@ -11,7 +11,8 @@ const HeaderWrapper = ({ children }) => {
   const allowedPaths = ["/test"];
 
   const isLoginPage =
-    location.pathname.toLowerCase().replace(/\/$/, "") === "/login";
+    location.pathname.toLowerCase().replace(/\/$/, "") === "/login" ||
+    location.pathname.toLowerCase().replace(/\/$/, "") === "/doodleloginv3";
 
   const isSingleTicketPage =
     location.pathname.toLowerCase().startsWith("/ticket/");

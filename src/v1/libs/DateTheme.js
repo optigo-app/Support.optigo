@@ -14,15 +14,15 @@ export const Datetheme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Poppins", sans-serif',
+    fontFamily: '"Inter Variable", sans-serif',
     color: "#fff",
     h4: {
       fontWeight: 600,
     },
   },
   components: {
-        MuiAutocomplete :{
-         defaultProps: {
+    MuiAutocomplete: {
+      defaultProps: {
         autoSelect: true,
         autoHighlight: true,
         selectOnFocus: true,
@@ -100,14 +100,14 @@ export const SideBarTheme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Poppins", sans-serif',
+    fontFamily: '"Inter Variable", sans-serif',
     h4: {
       fontWeight: 600,
     },
   },
   components: {
-        MuiAutocomplete :{
-         defaultProps: {
+    MuiAutocomplete: {
+      defaultProps: {
         autoSelect: true,
         autoHighlight: true,
         selectOnFocus: true,
@@ -140,7 +140,7 @@ export const Maintheme = createTheme({
     },
   },
   typography: {
-    fontFamily: "poppins, sans-serif",
+    fontFamily: "Inter Variable, sans-serif",
     h4: {
       fontWeight: 600,
     },

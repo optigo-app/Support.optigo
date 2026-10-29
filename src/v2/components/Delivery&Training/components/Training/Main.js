@@ -45,7 +45,7 @@ export const theme = createTheme({
 		divider: "rgba(0, 0, 0, 0.05)", // Very light dividers
 	},
 	typography: {
-		fontFamily: '"Poppins", sans-serif',
+		fontFamily: '"Inter Variable", sans-serif',
 		h4: {
 			fontWeight: 600,
 		},
@@ -92,13 +92,13 @@ export const theme = createTheme({
 				},
 			},
 		},
-		    MuiAutocomplete :{
-         defaultProps: {
-        autoSelect: true,
-        autoHighlight: true,
-        selectOnFocus: true,
-      },
-    },
+		MuiAutocomplete: {
+			defaultProps: {
+				autoSelect: true,
+				autoHighlight: true,
+				selectOnFocus: true,
+			},
+		},
 	},
 });
 
@@ -107,14 +107,14 @@ registerAuthServiceWorker();
 const TrainingDashboard = () => {
 	return (
 		<>
-		<MetaWrapper page="TrainingDashboard" />
-				<AuthProvider>
-					<TrainingProvider>
-						<ThemeProvider theme={theme}>
-							<Main />
-						</ThemeProvider>
-					</TrainingProvider>
-				</AuthProvider>
+			<MetaWrapper page="TrainingDashboard" />
+			<AuthProvider>
+				<TrainingProvider>
+					<ThemeProvider theme={theme}>
+						<Main />
+					</ThemeProvider>
+				</TrainingProvider>
+			</AuthProvider>
 		</>
 	);
 };

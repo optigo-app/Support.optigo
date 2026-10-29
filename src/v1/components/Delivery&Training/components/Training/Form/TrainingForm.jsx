@@ -137,21 +137,21 @@ const TrainingForm = ({ open, onClose = () => { }, editValue, onReset, onNotific
 
 	const rteTheme = createTheme({
 		typography: {
-			fontFamily: '"Poppins", sans-serif',
+			fontFamily: '"Inter Variable", sans-serif',
 		},
 		components: {
-			    MuiAutocomplete :{
-         defaultProps: {
-        autoSelect: true,
-        autoHighlight: true,
-        selectOnFocus: true,
-      },
-    },
+			MuiAutocomplete: {
+				defaultProps: {
+					autoSelect: true,
+					autoHighlight: true,
+					selectOnFocus: true,
+				},
+			},
 			MUIRichTextEditor: {
 				styleOverrides: {
 					root: {
 						width: "100%",
-						fontFamily: '"Poppins", sans-serif',
+						fontFamily: '"Inter Variable", sans-serif',
 					},
 					editor: {
 						overflowY: "auto",

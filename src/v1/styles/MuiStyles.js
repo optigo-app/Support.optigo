@@ -101,7 +101,7 @@ const TicketTheme = createTheme({
 		},
 	},
 	typography: {
-		fontFamily: '"Poppins", sans-serif',
+		fontFamily: '"Inter Variable", sans-serif',
 		h4: {
 			fontWeight: 600,
 		},
@@ -117,14 +117,14 @@ const TicketTheme = createTheme({
 			color: "#8007AB",
 		},
 	},
-	components :{
-		    MuiAutocomplete :{
-         defaultProps: {
-        autoSelect: true,
-        autoHighlight: true,
-        selectOnFocus: true,
-      },
-    },
+	components: {
+		MuiAutocomplete: {
+			defaultProps: {
+				autoSelect: true,
+				autoHighlight: true,
+				selectOnFocus: true,
+			},
+		},
 	}
 });
 

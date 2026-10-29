@@ -18,8 +18,7 @@ import { TicketProvider } from "./context/useTicket";
 import { CallLogProvider } from "./context/UseCallLog";
 import { NotificationProvider } from "./context/NotificationManager";
 import { PWAProvider } from "./pwa";
-import "@fontsource/poppins";
-import { HelmetProvider } from "react-helmet-async";
+import '@fontsource-variable/inter'; import { HelmetProvider } from "react-helmet-async";
 import { SocketProvider } from "./context/SocketContext";
 import { Toaster } from "sonner";
 import Spinner from "./components/_ui/Spinner";
@@ -88,7 +87,7 @@ function getBaseName() {
     if (_appBase) {
       return new URL(_appBase).pathname; // e.g. "/calllogweb/call"
     }
-  } catch (_) {}
+  } catch (_) { }
   // Fallback for local dev (script src won't have hashed name during npm start)
   const path = window.location.pathname;
   const firstSegment = path.split("/").filter(Boolean)[0]?.toLowerCase();

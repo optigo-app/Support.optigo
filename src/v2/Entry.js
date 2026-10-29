@@ -15,6 +15,7 @@ import { notify } from "./libs/NOTIFICATION_TEMPLATES";
 import AccountCenter from "./components/AccountCenter";
 import { isArchiveDomain } from "./utils/AppBasePath";
 import QuoOnboardingMUI from "./components/login/Login.v2";
+import DoodleLoginV3 from "./components/login/Login.v3";
 const CallLogDashBoard = lazy(() => import("./components/CallLogger"));
 const ArchivedCallLogPage = lazy(() => import("./components/ArchivedCallLog"));
 const NewCallDashBoard = lazy(() => import("./components/NewCall"));
@@ -34,6 +35,8 @@ const Entry = () => {
 					<PWAOfflineBanner />
 					<Routes>
 						<Route path="/login" element={<LoginPage />} />
+						<Route path="/DoodleLoginV3" element={<DoodleLoginV3 />} />
+						<Route path="/doodleloginv3" element={<DoodleLoginV3 />} />
 						{/* <Route path="/QuoOnboardingMUI" element={<QuoOnboardingMUI />} /> */}
 						<Route path="/" element={<CallLogDashBoard />} />
 						<Route path="/callLog" element={<CallLogDashBoard />} />

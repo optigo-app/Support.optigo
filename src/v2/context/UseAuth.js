@@ -35,7 +35,7 @@ const SERVICE_CONFIG = {
   },
 };
 
-const PUBLIC_ROUTES = ["/login"]; // public pages
+const PUBLIC_ROUTES = ["/login", "/doodleloginv3", "/DoodleLoginV3"]; // public pages
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -170,7 +170,7 @@ export function AuthProvider({ children }) {
               (acc) =>
                 !(
                   acc.companyCode.toLowerCase() ===
-                    newAccount.companyCode.toLowerCase() &&
+                  newAccount.companyCode.toLowerCase() &&
                   acc.email.toLowerCase() === newAccount.email.toLowerCase()
                 ),
             );
@@ -314,7 +314,7 @@ export function AuthProvider({ children }) {
               try {
                 const decUser = decodeBase64(parsed.appuserid) || atob(String(parsed.appuserid).trim().replace(/\s+/g, ""));
                 if (decUser) userId = decUser;
-              } catch (_) {}
+              } catch (_) { }
 
               const host = window?.location?.hostname || "";
               const isLocal =
@@ -354,7 +354,7 @@ export function AuthProvider({ children }) {
             if (stored) {
               directCredentials = JSON.parse(stored);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // 2. Check for skey in URL query parameters first
