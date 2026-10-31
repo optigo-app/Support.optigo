@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { getRouteIconConfig } from "../config/routeIcons";
-import { updateFavicon, updateDynamicManifest, updateThemeColor } from "../services/iconSynchronizer";
+import { updateFavicon, updateThemeColor } from "../services/iconSynchronizer";
 
 /**
  * Custom hook to dynamically synchronize App Icons, Favicons, and PWA Manifests
@@ -20,17 +20,13 @@ export function useDynamicAppIcon() {
 		return getRouteIconConfig(location.pathname);
 	}, [location.pathname]);
 
-	const [manifestUrl, setManifestUrl] = useState(null);
-
 	useEffect(() => {
 		// 1. Synchronize browser tab favicon (32x32) & apple-touch-icon (64x64/192x192)
 		updateFavicon(config.favicon32, config.favicon64);
 
-		// 2. Synchronize PWA Manifest with route-specific icon, name & start_url
-		const url = updateDynamicManifest(config);
-		setManifestUrl(url);
-
-		// 3. Synchronize Theme Color
+		// Keep the install manifest static (public/manifest.json). Route-specific
+		// Blob manifests are short-lived and browsers may read them after revocation.
+		// 2. Synchronize Theme Color
 		updateThemeColor(config.themeColor);
 	}, [config]);
 
@@ -43,7 +39,9 @@ export function useDynamicAppIcon() {
 		currentDescription: config.description,
 		currentThemeColor: config.themeColor,
 		routeKey: config.key,
-		manifestUrl,
+		manifestUrl: typeof document !== "undefined"
+			? document.querySelector("link[rel='manifest']")?.href || null
+			: null,
 		config,
 	};
 }

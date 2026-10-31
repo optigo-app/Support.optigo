@@ -4,65 +4,89 @@
   "description": "Enterprise operations, call logging, ticket management, and real-time business intelligence.",
   "icons": [
     {
-      "src": "/appicons/call-512.png",
+      "src": "./appicons/call-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     },
     {
-      "src": "/appicons/call-192.png",
+      "src": "./appicons/call-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/appicons/call-favicon-64.png",
+      "src": "./appicons/call-favicon-64.png",
       "type": "image/png",
       "sizes": "64x64",
       "purpose": "any"
     },
     {
-      "src": "/appicons/call-favicon-32.png",
+      "src": "./appicons/call-favicon-32.png",
       "type": "image/png",
       "sizes": "32x32",
       "purpose": "any"
     }
   ],
-  "start_url": "/",
+  "start_url": "./",
   "background_color": "#FFFFFF",
   "theme_color": "#000000",
   "display": "standalone",
   "orientation": "any",
-  "scope": "/",
-  "categories": ["business", "productivity", "utilities"],
+  "scope": "./",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "shortcuts": [
     {
       "name": "Ticket Management",
       "short_name": "Tickets",
       "description": "View and manage support tickets",
-      "url": "/Ticket",
-      "icons": [{ "src": "/appicons/ticket-192.png", "sizes": "192x192" }]
+      "url": "./Ticket",
+      "icons": [
+        {
+          "src": "./appicons/ticket-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Call Logger",
       "short_name": "Calls",
       "description": "Manage active call logs",
-      "url": "/callLog",
-      "icons": [{ "src": "/appicons/call-192.png", "sizes": "192x192" }]
+      "url": "./callLog",
+      "icons": [
+        {
+          "src": "./appicons/call-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Delivery & Orders",
       "short_name": "Orders",
       "description": "View delivery orders",
-      "url": "/Orders",
-      "icons": [{ "src": "/appicons/order-192.png", "sizes": "192x192" }]
+      "url": "./Orders",
+      "icons": [
+        {
+          "src": "./appicons/order-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Training Dashboard",
       "short_name": "Training",
       "description": "Corporate training and learning",
-      "url": "/Training",
-      "icons": [{ "src": "/appicons/training-192.png", "sizes": "192x192" }]
+      "url": "./Training",
+      "icons": [
+        {
+          "src": "./appicons/training-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

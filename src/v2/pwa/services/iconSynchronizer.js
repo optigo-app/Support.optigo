@@ -80,14 +80,17 @@ export function updateDynamicManifest(routeConfig) {
 		const origin = window.location.origin;
 		const icon192 = `${origin}${routeConfig.publicIcon192}`;
 		const icon512 = `${origin}${routeConfig.publicIcon512}`;
-		const startUrl = routeConfig.startUrl || window.location.pathname || "/";
+		// A blob manifest has a `blob:` base URL, so root-relative manifest URLs
+		// are invalid. Resolve navigation URLs against the app origin explicitly.
+		const toAppUrl = (path) => new URL(path || "/", origin).href;
+		const startUrl = toAppUrl(routeConfig.startUrl || window.location.pathname || "/");
 
 		const dynamicManifest = {
 			short_name: routeConfig.shortName || "Optigo",
 			name: routeConfig.name || "Optigo Central System",
 			description: routeConfig.description || "Enterprise operations, call logging, ticket management, and real-time business intelligence.",
 			start_url: startUrl,
-			scope: "/",
+			scope: toAppUrl("/"),
 			display: "standalone",
 			background_color: "#FFFFFF",
 			theme_color: routeConfig.themeColor || "#000000",
@@ -118,21 +121,21 @@ export function updateDynamicManifest(routeConfig) {
 					name: "Ticket Management",
 					short_name: "Tickets",
 					description: "View and manage support tickets",
-					url: "/Ticket",
+					url: toAppUrl("/Ticket"),
 					icons: [{ src: `${origin}/appicons/ticket-192.png`, sizes: "192x192" }],
 				},
 				{
 					name: "Call Logger",
 					short_name: "Calls",
 					description: "Manage active call logs",
-					url: "/callLog",
+					url: toAppUrl("/callLog"),
 					icons: [{ src: `${origin}/appicons/call-192.png`, sizes: "192x192" }],
 				},
 				{
 					name: "Delivery & Training",
 					short_name: "Orders",
 					description: "View delivery orders",
-					url: "/Orders",
+					url: toAppUrl("/Orders"),
 					icons: [{ src: `${origin}/appicons/order-192.png`, sizes: "192x192" }],
 				},
 			],

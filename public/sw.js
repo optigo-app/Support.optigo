@@ -149,6 +149,24 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Always check the network for app navigations so a deployed index.html can
+  // point clients at the current hashed JS/CSS bundles. Keep the last good shell
+  // available for offline launches.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match(request)) || caches.match("/index.html"))
+    );
+    return;
+  }
+
   // Static assets (images, fonts, scripts, styles)
   const isStatic =
     url.pathname.match(/\.(png|jpg|jpeg|svg|ico|css|js|woff2|woff|ttf)$/) ||
