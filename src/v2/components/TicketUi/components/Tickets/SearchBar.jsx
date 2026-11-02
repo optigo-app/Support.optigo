@@ -15,9 +15,10 @@ const Search = styled("div")(({ theme }) => ({
 	"&:hover": {
 		backgroundColor: alpha(theme.palette.common.white, 0.25),
 	},
-	marginRight: theme.spacing(2),
+	marginRight: theme.spacing(0.5),
 	marginLeft: 0,
 	width: "100%",
+	borderRadius: '25px'
 }));
 
 const SearchIconWrapper = styled("div")(({ theme }) => ({

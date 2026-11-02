@@ -102,8 +102,11 @@ const DATE_KEYS_TO_EXCLUDE = new Set(["CreatedOn", "UpdatedAt", "PromiseDate", "
 
 /**
  * Filter tickets with multi-token, @mention, and !solo-mention keyword search
+ * @param {Array} tickets
+ * @param {Object} filters
+ * @param {boolean} [meFilter] - when true, only show tickets where the current user is mentioned
  */
-export function filterTickets(tickets = [], filters = {}) {
+export function filterTickets(tickets = [], filters = {}, meFilter = false) {
 	const rawQuery = (filters?.searchQuery || "").trim();
 
 	// Parse search query into:
@@ -326,6 +329,20 @@ export function filterTickets(tickets = [], filters = {}) {
 					});
 					if (!matchesAuthor) return false;
 				}
+			}
+
+			// --- Me Filter: only show tickets where current user is in keywords / people ---
+			if (meFilter) {
+				const { allKeywordTexts, peopleTexts } = getFacets();
+				const myNames = getMyNameAliases();
+				const myAliases = Array.from(myNames).filter(Boolean);
+				const inKeywords = allKeywordTexts.some((kw) =>
+					myAliases.some((alias) => kw === alias || kw.includes(alias) || alias.includes(kw))
+				);
+				const inPeople = peopleTexts.some((p) =>
+					myAliases.some((alias) => p === alias || p.includes(alias) || alias.includes(p))
+				);
+				if (!inKeywords && !inPeople) return false;
 			}
 
 			// If no search query provided, ticket passed all filter criteria

@@ -15,11 +15,10 @@ import {
   Divider,
   Chip,
   Stack,
-  InputBase,
   Paper,
   Badge,
 } from "@mui/material";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   PhoneForwarded,
   LogOut,
@@ -43,6 +42,7 @@ import { getAppBasePath } from "../../../utils/AppBasePath";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import ForwardedCallDrawer from "../../CallLogger/ForwardedCallDrawer";
+import getPillButtonStyle from "../pillButtonStyle";
 
 const NewHeader = () => {
   const navigate = useNavigate();
@@ -156,6 +156,7 @@ const NewHeader = () => {
         borderRadius: "0px",
         boxShadow: "none",
         border: "none",
+        bgcolor: "#FFFFFF",
         outline: "none",
       }}
     >
@@ -168,22 +169,19 @@ const NewHeader = () => {
             size="small"
             onClick={() => toggleMainSidebar()}
             sx={{
-              borderRadius: "50px",
-              bgcolor: "#F9FAFB",
+              ...getPillButtonStyle(collapsed),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#475569",
+              color: collapsed ? "#8B07A7" : "#6E5678",
               cursor: "pointer",
-              transition: "all 0.15s ease",
               "&:hover": {
-                bgcolor: "#F1F5F9",
-                color: "#0F172A",
-                borderColor: "#CBD5E1",
+                ...getPillButtonStyle(collapsed)["&:hover"],
+                color: "#8B07A7",
               },
             }}
           >
-            {collapsed ? <PanelRightOpen /> : <PanelLeft />}
+            {collapsed ? <PanelRightOpen size={18} /> : <PanelLeft size={18} />}
           </IconButton>
         </Tooltip>
 
@@ -203,13 +201,13 @@ const NewHeader = () => {
             px: 0.85,
             borderRadius: "20px",
             border: "1px solid",
-            borderColor: Boolean(accountAnchorEl) ? "#94A3B8" : "#E2E8F0",
-            bgcolor: Boolean(accountAnchorEl) ? "#F1F5F9" : "#FAFAFA",
+            borderColor: Boolean(accountAnchorEl) ? "rgba(139,7,167,0.28)" : "#E8E0EB",
+            bgcolor: Boolean(accountAnchorEl) ? "#F7F0FA" : "#FFFFFF",
             transition: "all 0.15s ease",
             userSelect: "none",
             "&:hover": {
-              bgcolor: "#F1F5F9",
-              borderColor: "#CBD5E1",
+              bgcolor: "#F7F0FA",
+              borderColor: "rgba(139,7,167,0.28)",
             },
           }}
         >
@@ -257,15 +255,15 @@ const NewHeader = () => {
             sx={{
               cursor: "pointer",
               px: 0.75,
-              py: 0.4,
-              borderRadius: "3px",
+              py: 0.8,
+              borderRadius: "999px",
               border: "1px solid",
-              borderColor: queueCount > 0 ? "#EF4444" : "#CBD5E1",
-              bgcolor: queueCount > 0 ? "#FEF2F2" : "#F9FAFB",
+              borderColor: queueCount > 0 ? "#FECACA" : "#E8E0EB",
+              bgcolor: queueCount > 0 ? "#FEF2F2" : "#F5F0F7",
               transition: "all 0.15s ease",
               "&:hover": {
-                bgcolor: "#F1F5F9",
-                borderColor: "#94A3B8",
+                bgcolor: queueCount > 0 ? "#FEE2E2" : "#EFE7F2",
+                borderColor: queueCount > 0 ? "#FCA5A5" : "#DCCCE3",
               },
               userSelect: "none",
             }}
@@ -278,21 +276,34 @@ const NewHeader = () => {
                 flexShrink: 0,
               }}
             >
-              <CallIcon width="22px" height="22px" />
+              <CallIcon width="20px" height="20px" />
             </Box>
             <Typography
-              sx={{ fontWeight: 600, fontSize: "0.875rem", color: "#111827" }}
+              sx={{ fontWeight: 650, fontSize: "0.82rem", color: "#2F1737" }}
             >
               Call Queue
             </Typography>
             <UnfoldMoreRoundedIcon sx={{ fontSize: 16, color: "#6B7280" }} />
           </Stack>
         </Badge>
-        <Stack direction="row" alignItems="center" spacing={1.5}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            p: "3px",
+            borderRadius: "999px",
+            bgcolor: "#EFEAF2",
+          }}
+        >
           <Tooltip title="Forwarded Calls" arrow>
             <IconButton
-              size="medium"
-              sx={{ color: "#4B5563", bgcolor: "#F9FAFB" }}
+              size="small"
+              disableRipple
+              sx={{
+                ...getPillButtonStyle(forwardedLength > 0),
+                color: forwardedLength > 0 ? "#8B07A7" : "#6E5678",
+              }}
               onClick={handleFwdOpen}
             >
               <Badge
@@ -316,47 +327,40 @@ const NewHeader = () => {
             </IconButton>
           </Tooltip>
 
-          <IconButton
-            size="medium"
-            sx={{ color: "#4B5563", bgcolor: "#F9FAFB" }}
-          >
-            <NotificationsNoneRoundedIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={0.5}
-            sx={{ cursor: "pointer" }}
-            onClick={handleProfileOpen}
-          >
-            <Avatar
-              sx={{
-                width: 30,
-                height: 30,
-                bgcolor: "#374151",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-              }}
+          <Tooltip title="Notifications" arrow>
+            <IconButton
+              size="small"
+              disableRipple
+              sx={getPillButtonStyle(false)}
             >
-              {initials}
-              <Box
+              <NotificationsNoneRoundedIcon sx={{ fontSize: 19, color: "#6E5678" }} />
+            </IconButton>
+          </Tooltip>
+          <Box sx={{ width: "1px", height: 18, bgcolor: "rgba(139,7,167,0.2)", mx: "2px" }} />
+          <Tooltip title="Profile" arrow>
+            <IconButton
+              size="small"
+              disableRipple
+              onClick={handleProfileOpen}
+              sx={getPillButtonStyle(Boolean(profileAnchorEl))}
+            >
+              <Avatar
                 sx={{
-                  position: "absolute",
-                  bottom: 1,
-                  right: 1,
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  bgcolor: "#10B981",
-                  border: "1.5px solid #FFFFFF",
+                  width: 20,
+                  height: 20,
+                  bgcolor: "#8B07A7",
+                  fontSize: "0.62rem",
+                  fontWeight: 700,
                 }}
+              >
+                {initials}
+              </Avatar>
+              <KeyboardArrowDownRoundedIcon
+                sx={{ fontSize: 14, ml: "-2px", color: "#6E5678" }}
               />
-            </Avatar>
-            <KeyboardArrowDownRoundedIcon
-              sx={{ fontSize: 16, color: "#6B7280" }}
-            />
-          </Stack>
-        </Stack>
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {/* ── Forwarded Calls Drawer ── */}

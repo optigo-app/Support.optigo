@@ -22,6 +22,7 @@ import { PremiumTooltip } from "../../_ui/CustomUI";
 import { truncateByWords, truncateByChars } from "../../../libs/data";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import DesktopWindowsRoundedIcon from "@mui/icons-material/DesktopWindowsRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import ChatRoundedIcon from "@mui/icons-material/ChatRounded";
 import Slide from "@mui/material/Slide";
@@ -48,7 +49,7 @@ const CHIP_COLORS = {
     More: { bg: "#FCE4EC", color: "#C2185B", hoverBg: "#F8BBD0", activeBg: "#E91E63", activeColor: "#fff" },
 };
 
-const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDetailsToggle, onEditCall, onAddConCurrentCall, onStartCall, isRecordingExpanded, recordingTime, onEndCall, CurrentCall, onCloseRecord, onPause, onResume, isPaused, activeFollowUp, onStartFollowUp }) => {
+const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDetailsToggle, onEditCall, onAddConCurrentCall, onStartCall, isRecordingExpanded, recordingTime, onEndCall, CurrentCall, onCloseRecord, onPause, onResume, isPaused, activeFollowUp, onStartFollowUp, isHostedOnDesktop = false }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
     const [FaqModal, setFaqModal] = useState(false);
@@ -61,6 +62,7 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
     const [isManuallyClosed, setIsManuallyClosed] = useState(false);
     const [activeTab, setActiveTab] = useState("Details");
     const [isMinimized, setIsMinimized] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
 
     // FIX: Drive isPanelOpen directly from the prop — no useEffect→setState delay
     // which could miss rapid changes and cause the "stuck" / "not opening" bug.
@@ -105,6 +107,11 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
         // Do NOT close the panel here per your request!
     };
 
+    const requestDesktopHandoff = () => {
+        window.postMessage({ channel: "quickcall-call-bridge", type: "request-handoff" }, window.location.origin);
+        setContextMenu(null);
+    };
+
     const handleFAQ = () => {
         setFaqModal(true);
         setAnchorEl(false);
@@ -146,10 +153,18 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
     // Old: 440px wide column card, 52px avatar, description box, 50px icon buttons with text labels
     // New: ~60px tall pill, inline avatar+info on left, compact 36px icon buttons on right with Tooltips
     // Revert: swap this return block back with the one saved in CHANGELOG.md
+    if (isHostedOnDesktop) return null;
+
     return (
         <>
             {/* TWO-ROW FLAT CARD - fixed bottom center */}
-            <Box sx={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 150, pointerEvents: "none", pt: "16px" /* space above for floating chip */ }}>
+            <Box
+                onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({ mouseX: event.clientX + 2, mouseY: event.clientY - 6 });
+                }}
+                sx={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 150, pointerEvents: "none", pt: "16px" /* space above for floating chip */ }}
+            >
 
                 {/* ── Minimized pill ── */}
                 <Slide direction="up" in={isMinimized && CurrentCall && Object?.keys(CurrentCall).length > 0} mountOnEnter unmountOnExit>
@@ -483,6 +498,19 @@ const CallRecorderScreen = ({ callStatusValue, onEditToggle, setPostReview, onDe
                         <RateReviewIcon fontSize="small" />
                     </ListItemIcon>
                     Post-Call Review
+                </MenuItem>
+            </Menu>
+
+            <Menu
+                open={Boolean(contextMenu)}
+                onClose={() => setContextMenu(null)}
+                anchorReference="anchorPosition"
+                anchorPosition={contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
+                sx={{ zIndex: 1500 }}
+            >
+                <MenuItem onClick={requestDesktopHandoff} disabled={!CurrentCall?.sr}>
+                    <ListItemIcon><DesktopWindowsRoundedIcon fontSize="small" /></ListItemIcon>
+                    Move call controls to Windows
                 </MenuItem>
             </Menu>
 

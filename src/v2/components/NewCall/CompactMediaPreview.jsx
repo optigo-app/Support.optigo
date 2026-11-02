@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Box, Typography, Tooltip, IconButton } from '@mui/material';
 import { DownloadSimple, Play, MagnifyingGlassPlus } from '@phosphor-icons/react';
 import { toast } from 'sonner';
-import DocumentPreviewer from '../../services/DocumentPreviewer';
+import DocumentPreviewer, { downloadFile } from '../../services/DocumentPreviewer';
 
 export default function CompactMediaPreview({ attachment, filename, imgUrl }) {
   const [openLightbox, setOpenLightbox] = useState(false);
@@ -54,8 +54,7 @@ export default function CompactMediaPreview({ attachment, filename, imgUrl }) {
   const handleDownload = (e) => {
     e?.stopPropagation();
     if (initialMediaUrl) {
-      window.open(initialMediaUrl, '_blank');
-      // toast.success(`Opening ${rawName}`);
+      void downloadFile({ url: initialMediaUrl, name: rawName });
     } else {
       // toast.info(`No URL available for ${rawName}`);
     }

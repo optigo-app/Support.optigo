@@ -178,6 +178,11 @@ export function CallLogProvider(props) {
         setCurrentCall((prev) => {
           if (!prev) return prev;
           const merged = { ...prev, ...latestCall };
+          // Refreshes can finish after an optimistic start and return the old
+          // not-started row. Preserve the active marker until the server catches up.
+          if (prev.callStart && !latestCall.callStart) {
+            merged.callStart = prev.callStart;
+          }
           return JSON.stringify(merged) !== JSON.stringify(prev)
             ? merged
             : prev;
@@ -860,8 +865,10 @@ export function CallLogProvider(props) {
         });
         // setCurrentCall(data?.rd1?.[0]);
         triggerRefresh();
+        return { success: true, data };
       } catch (error) {
         console.log(error);
+        return { success: false, error };
       }
     },
     [triggerRefresh, callLog, setCallLog],
@@ -874,8 +881,10 @@ export function CallLogProvider(props) {
           callLogId: callId,
         });
         triggerRefresh();
+        return { success: true, data };
       } catch (error) {
         console.log(error);
+        return { success: false, error };
       }
     },
     [triggerRefresh, callLog, setCallLog],
@@ -920,8 +929,10 @@ export function CallLogProvider(props) {
           callLogId: callId,
         });
         triggerRefresh();
+        return { success: true, data };
       } catch (error) {
         console.log(error);
+        return { success: false, error };
       }
     },
     [triggerRefresh, callLog, setCallLog],

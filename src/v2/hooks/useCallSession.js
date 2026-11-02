@@ -112,17 +112,24 @@ export function useCallSession({
   // Timestamp-based elapsed time, reads ONLY refs → never stale.
   const calculateElapsedTime = useCallback(() => {
     const startTime = callStartTimeRef.current;
-    if (!startTime) return 0;
+    if (!Number.isFinite(startTime) || startTime <= 0) return 0;
 
     const now = Date.now();
-    const totalElapsed = Math.floor((now - startTime) / 1000);
+    const elapsedMs = now - startTime;
+    // A future or day-old timestamp indicates a stale/corrupt restored session.
+    // Never let wall-clock drift or old localStorage values become call time.
+    if (elapsedMs < 0 || elapsedMs > 86400000) return 0;
+    const totalElapsed = Math.floor(elapsedMs / 1000);
 
     let totalPausedTime = pausedDurationRef.current;
     if (isPausedRef.current && pauseStartTimeRef.current) {
-      totalPausedTime += Math.floor((now - pauseStartTimeRef.current) / 1000);
+      const currentPauseMs = now - pauseStartTimeRef.current;
+      if (currentPauseMs > 0) {
+        totalPausedTime += Math.floor(currentPauseMs / 1000);
+      }
     }
 
-    return Math.max(0, totalElapsed - totalPausedTime);
+    return Math.max(0, totalElapsed - Math.max(0, totalPausedTime));
   }, []);
 
   const stopTimer = useCallback(() => {
@@ -308,9 +315,11 @@ export function useCallSession({
       } else {
         await PauseCall(CurrentCall.sr);
       }
+      return { success: true };
     } catch (err) {
       console.error("Failed to pause call:", err);
       showNotification("Failed to pause call", "error");
+      return { success: false, error: err?.message || "Failed to pause call." };
     }
   }, [
     CurrentCall?.sr,
@@ -375,9 +384,11 @@ export function useCallSession({
       } else {
         await ResumeCall(CurrentCall.sr);
       }
+      return { success: true };
     } catch (err) {
       console.error("Failed to resume call:", err);
       showNotification("Failed to resume call", "error");
+      return { success: false, error: err?.message || "Failed to resume call." };
     }
   }, [
     CurrentCall?.sr,
@@ -392,15 +403,17 @@ export function useCallSession({
   ]);
 
   const handleStartRecording = useCallback(() => {
+    // Reset refs synchronously: the interval starts before React effects mirror
+    // state into refs, so relying on those effects leaks pause time across calls.
+    isPausedRef.current = false;
+    pausedDurationRef.current = 0;
+    pauseStartTimeRef.current = null;
     setRecordingTime(0);
     setIsPaused(false);
     setPausedDuration(0);
 
     const startTimestamp = Date.now();
     callStartTimeRef.current = startTimestamp;
-    pauseStartTimeRef.current = null;
-    isPausedRef.current = false;
-    pausedDurationRef.current = 0;
 
     updateLocalStorage({
       [STORAGE_KEYS.CALL_START_TIME]: startTimestamp.toString(),
@@ -416,6 +429,7 @@ export function useCallSession({
     const currentCallSr = CurrentCall?.sr;
     const duration = pausedDurationRef.current;
     const isEndingFollowUp = !!activeFollowUp;
+    let apiActionFailed = false;
 
     if (!options?.skipApi) {
       if (isEndingFollowUp) {
@@ -425,6 +439,7 @@ export function useCallSession({
             activeFollowUp.callLogId,
           );
           if (result && !result.success) {
+            apiActionFailed = true;
             showNotification(
               result.error?.message ||
                 "Failed to end follow-up call properly — ended locally",
@@ -443,8 +458,13 @@ export function useCallSession({
         }
       } else if (currentCallSr) {
         try {
-          await endCall(currentCallSr, duration);
+          const result = await endCall(currentCallSr, duration);
+          if (result?.success === false) {
+            apiActionFailed = true;
+            showNotification(result.error?.message || "Failed to end call", "warning");
+          }
         } catch (error) {
+          apiActionFailed = true;
           console.error("End call API failed (UI cleared safely)", error);
           showNotification("Failed to end call properly", "error");
         }
@@ -487,6 +507,7 @@ export function useCallSession({
         [STORAGE_KEYS.CONCURRENT_CALL]: null,
       });
     }
+    return { success: !apiActionFailed };
   }, [
     CurrentCall?.sr,
     endCall,

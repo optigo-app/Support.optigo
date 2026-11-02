@@ -21,6 +21,7 @@ import NoAccess from "./OrderGrid/NoAccess";
 import { useFullscreenToggle } from "../../../../hooks/useFullscreenToggle";
 import { useLocation } from "react-router-dom";
 import { HeaderHeight } from "../../../_ui/HeaderWrapper";
+import { matchesCurrentUser } from "../../../../utils/recordUserMatch";
 
 const DeliveryDashboard = ({ showNotification }) => {
 	const { deliveryData, editData, deleteTraining } = useDelivery();
@@ -47,6 +48,7 @@ const DeliveryDashboard = ({ showNotification }) => {
 		deliveryStatus: "",
 		currentStatus: "",
 	});
+	const [meOnly, setMeOnly] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [OpenCompass, SetOpenCompass] = useState(false);
 	const [TempEditMode, setTempEditMode] = useState(null);
@@ -65,8 +67,11 @@ const DeliveryDashboard = ({ showNotification }) => {
 	const { role, isClient, isAdminDashboard } = useRoleAccess(user);
 
 	const FiltererdData = useMemo(() => {
-		return filterDeliveryData(deliveryData, filters);
-	}, [deliveryData, filters]);
+		const filtered = filterDeliveryData(deliveryData, filters);
+		return meOnly
+			? filtered.filter((record) => matchesCurrentUser(record, user, ["CreatedBy", "createdBy"]))
+			: filtered;
+	}, [deliveryData, filters, meOnly, user]);
 
 	const dashboardData = new DynamicAnalytics(FiltererdData)?.generateAnalytics();
 
@@ -130,7 +135,7 @@ const DeliveryDashboard = ({ showNotification }) => {
 			<DetailPanel isClient={isAdminDashboard} setOpen={setShowDetails} open={ShowDetails} />
 			<BottomDrawer key={IsFormOpen} ClearEdit={ClearEdit} setTempEditMode={setTempEditMode} editValue={TempEditMode} isOpen={IsFormOpen} setIsOpen={setIsFormOpen} />
 			{/* <TrainingForm open={ShowTrainingForm} setOpen={setShowTrainingForm} onSave={HandleFormSave} /> */}
-			<Dashboard isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} role={role} isAdmin={isAdminDashboard} dashboardData={dashboardData} filters={filters} setFilters={setFilters} onformToggle={() => setIsFormOpen(!IsFormOpen)} greeting={greeting} LoggedUser={LoggedUser} />
+			<Dashboard isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} role={role} isAdmin={isAdminDashboard} dashboardData={dashboardData} filters={filters} setFilters={setFilters} onformToggle={() => setIsFormOpen(!IsFormOpen)} greeting={greeting} LoggedUser={LoggedUser} meOnly={meOnly} onMeToggle={() => setMeOnly((previous) => !previous)} onMeClear={() => setMeOnly(false)} />
 			<ReusableConfirmModal
 				deleteMsg={{
 					title: "Delete Order",

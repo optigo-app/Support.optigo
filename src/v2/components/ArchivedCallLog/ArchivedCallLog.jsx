@@ -48,7 +48,7 @@ import { ExcelReportCallog } from "../../utils/ExcelReportDowload";
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 
 
-  const contentHeight = MainLayoutheight;
+const contentHeight = MainLayoutheight;
 
 
 const CustomCheckbox = React.forwardRef((props, ref) => {
@@ -476,7 +476,7 @@ const ArchiveHeader = ({
 };
 
 // ─── Main Archived Call Log App ───────────────────────────────────────────────
-const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
+const ArchivedCallLogApp = ({ showNotification = () => { } }) => {
   const [callLog, setCallLog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -509,10 +509,8 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlSearch = params.get("search") || params.get("searchQuery") || "";
-    if (urlSearch !== searchQuery) {
-      setSearchQuery(urlSearch);
-    }
-  }, [location.search, searchQuery]);
+    setSearchQuery(urlSearch);
+  }, [location.search]);
 
   // ── Fetch archived list ──────────────────────────────────────────────────
   const fetchArchived = useCallback(
@@ -534,6 +532,7 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
       } finally {
         setIsLoading(false);
       }
+
     }, 500),
     [],
   );
@@ -726,7 +725,7 @@ const ArchivedCallLogApp = ({ showNotification = () => {} }) => {
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         callLogData={detailData}
-        onEditToggle={() => {}} // No edit in archive view
+        onEditToggle={() => { }} // No edit in archive view
       />
     </Box>
   );

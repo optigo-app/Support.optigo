@@ -206,7 +206,7 @@ const CreateComment = ({ user, data, setOpen, Message, setMessage, OfficeUse, se
           mb: 2,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+        <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0, }}>
           <Typography variant="body2" sx={{ mr: 1, fontWeight: 500, color: "#5E6C84" }}>
             To:
           </Typography>
@@ -224,7 +224,7 @@ const CreateComment = ({ user, data, setOpen, Message, setMessage, OfficeUse, se
             label={user?.firstname + " " + user?.lastname}
             onDelete={() => { }}
             sx={{
-              borderRadius: "4px",
+              borderRadius: '25px',
               backgroundColor: "#F4F5F7",
               "& .MuiChip-label": {
                 color: "#172B4D",

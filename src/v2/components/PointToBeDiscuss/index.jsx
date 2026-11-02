@@ -18,6 +18,8 @@ import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CircularProgress from '@mui/material/CircularProgress';
 import { HeaderHeight } from "../_ui/HeaderWrapper";
+import { matchesCurrentUser } from "../../utils/recordUserMatch";
+import { useAuth } from "../Delivery&Training/context/AuthProvider";
 
 const Index = ({ showNotification }) => {
   const { PointTBData, editData, deleteTopic, MoveToDeliveryBulk } = usePointToDiscuss();
@@ -42,6 +44,9 @@ const Index = ({ showNotification }) => {
     deliveryStatus: "",
     currentStatus: "",
   });
+  const [meOnly, setMeOnly] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { user: currentUser } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [OpenCompass, SetOpenCompass] = useState(false);
   const [TempEditMode, setTempEditMode] = useState(null);
@@ -70,7 +75,7 @@ const Index = ({ showNotification }) => {
     if (id && idx === "req") {
       setIsFormOpen(true);
     }
-  }, [id]);
+  }, [id, idx, setIsFormOpen]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -84,17 +89,19 @@ const Index = ({ showNotification }) => {
   const { role, isClient } = useRoleAccess(fakeAdminUser);
 
   const FiltererdData = useMemo(() => {
-    return filterDeliveryData(PointTBData, filters);
-  }, [PointTBData, filters]);
+		const filtered = filterDeliveryData(PointTBData, filters);
+		return meOnly
+			? filtered.filter((record) => matchesCurrentUser(record, currentUser, ["CreatedBy", "createdBy"]))
+			: filtered;
+	}, [PointTBData, filters, meOnly, currentUser]);
 
   const transformFields = (fields) => {
-    const result = { ...fields };
+    const { Mode, ...result } = fields;
     if ("OnDemand" in result) {
       result.OnDemand = result.OnDemand === "Client" ? "yes" : "no";
     }
-    if ("Mode" in result) {
-      result.DeliveryMode = result.Mode;
-      delete result.Mode;
+    if ("Mode" in fields) {
+      result.DeliveryMode = Mode;
     }
     return result;
   };
@@ -144,10 +151,12 @@ const Index = ({ showNotification }) => {
     <>
       <Box
         sx={{
-          width: "100%",
           bgcolor: "#fff !important",
           overflow: "hidden",
-          position: "relative",
+          position: isFullscreen ? "fixed" : "relative",
+          inset: isFullscreen ? 0 : "auto",
+          zIndex: isFullscreen ? 1400 : "auto",
+          height: isFullscreen ? "100vh" : "auto",
           py: 2,
           px: 2,
           display: "flex",
@@ -192,7 +201,6 @@ const Index = ({ showNotification }) => {
         <Paper
           elevation={0}
           sx={{
-            width: "100%",
             borderRadius: "0 !important",
             transition: "all ease-in-out 50ms",
             width: "100%",
@@ -202,13 +210,12 @@ const Index = ({ showNotification }) => {
             outline: "none",
           }}
         >
-          <FilterOptions showAdvanceFilter={true} role={"admin"} isAdmin={true} onformToggle={() => setIsFormOpen(!IsFormOpen)} filters={filters} setFilters={setFilters} />
+          <FilterOptions showAdvanceFilter={true} onformToggle={() => setIsFormOpen(!IsFormOpen)} filters={filters} setFilters={setFilters} meOnly={meOnly} onMeToggle={() => setMeOnly((previous) => !previous)} onMeClear={() => setMeOnly(false)} isFullscreen={isFullscreen} onToggleFullscreen={() => setIsFullscreen((previous) => !previous)} />
         </Paper>
         <Paper
           elevation={3}
           sx={{
-            height: `calc(100vh - ${100 + HeaderHeight}px)`,
-            width: "100%",
+            height: `calc(100vh - ${isFullscreen ? 120 : 100 + HeaderHeight}px)`,
             borderRadius: 2,
             transition: "all ease-in-out 50ms",
             width: "100%",

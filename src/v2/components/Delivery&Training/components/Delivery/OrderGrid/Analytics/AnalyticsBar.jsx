@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Box, Typography, Button, Grid, Paper, Select, MenuItem, IconButton, Stack, FormControl, InputLabel } from "@mui/material";
+import { Box, Typography, Button, Grid, Paper, Select, MenuItem, IconButton, Stack, FormControl, InputLabel, Tooltip } from "@mui/material";
 import { Add, FilterList } from "@mui/icons-material";
 import CustomDualDatePicker from "../../../shared/ui/CustomDatePicker";
 import { FilterMenu } from "../FilterMenu";
@@ -12,8 +12,10 @@ import { useDelivery } from "../../../../context/DeliveryProvider";
 import SearchBar from "./SearchBar";
 import FullscreenExitRoundedIcon from "@mui/icons-material/FullscreenExitRounded";
 import FullscreenRoundedIcon from "@mui/icons-material/FullscreenRounded";
+import MeFilterButton from "../../../../../_ui/MeFilterButton";
+import { getPillButtonStyle } from "../../../../../_ui/pillButtonStyle";
 
-const Dashboard = memo(({ isFullscreen = false, toggleFullscreen = () => { }, role, dashboardData, onformToggle, greeting, LoggedUser, filters = null, setFilters = () => { }, isAdmin }) => {
+const Dashboard = memo(({ isFullscreen = false, toggleFullscreen = () => { }, role, dashboardData, onformToggle, greeting, LoggedUser, filters = null, setFilters = () => { }, isAdmin, meOnly = false, onMeToggle = () => {}, onMeClear = () => {} }) => {
   return (
     <>
       <Box
@@ -24,7 +26,7 @@ const Dashboard = memo(({ isFullscreen = false, toggleFullscreen = () => { }, ro
           left: "-70px",
         }}
         id="wavy-circle"
-      ></Box>
+      />
       <Box sx={{ mb: 1, zIndex: 10 }}>
         {!isFullscreen && (
           <AnalyticsDashboardCards
@@ -34,7 +36,7 @@ const Dashboard = memo(({ isFullscreen = false, toggleFullscreen = () => { }, ro
             setFilters={setFilters}
           />
         )}
-        <FilterOptions isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} role={role} isAdmin={isAdmin} onformToggle={onformToggle} filters={filters} setFilters={setFilters} />
+        <FilterOptions isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} role={role} isAdmin={isAdmin} onformToggle={onformToggle} filters={filters} setFilters={setFilters} meOnly={meOnly} onMeToggle={onMeToggle} onMeClear={onMeClear} />
       </Box>
     </>
   );
@@ -42,9 +44,9 @@ const Dashboard = memo(({ isFullscreen = false, toggleFullscreen = () => { }, ro
 
 export default Dashboard;
 
-function FilterOptions({ isFullscreen = false, toggleFullscreen = () => { }, role, onformToggle, filters, setFilters, isAdmin }) {
+function FilterOptions({ isFullscreen = false, toggleFullscreen = () => { }, role, onformToggle, filters, setFilters, isAdmin, meOnly = false, onMeToggle = () => {}, onMeClear = () => {} }) {
   const [open, setOpen] = useState(false);
-  const IsHasFilters = isAnyFilterActive(filters);
+  const IsHasFilters = isAnyFilterActive(filters) || meOnly;
   const { COMPANY_MASTER_LIST } = useDelivery();
 
   const handleFilterChange = (key, value) => {
@@ -59,6 +61,7 @@ function FilterOptions({ isFullscreen = false, toggleFullscreen = () => { }, rol
   };
 
   const clearFilters = () => {
+    onMeClear();
     setFilters({
       search: "",
       approval: "",
@@ -143,6 +146,41 @@ function FilterOptions({ isFullscreen = false, toggleFullscreen = () => { }, rol
             flex: { xs: "1 1 100%", lg: "1 1 auto" },
           }}
         >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: "2px",
+              p: "4px",
+              borderRadius: "25px",
+              backgroundColor: "#EFEAF2",
+              flexShrink: 0,
+            }}
+          >
+            <Tooltip title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} arrow>
+              <IconButton
+                size="small"
+                disableRipple
+                onClick={toggleFullscreen}
+                sx={{ ...getPillButtonStyle(isFullscreen), color: isFullscreen ? "#8B07A7" : "#6E5678" }}
+              >
+                {isFullscreen ? <FullscreenExitRoundedIcon sx={{ fontSize: 20 }} /> : <FullscreenRoundedIcon sx={{ fontSize: 20 }} />}
+              </IconButton>
+            </Tooltip>
+            {isAdmin && (
+              <Tooltip title="More filters" arrow>
+                <IconButton
+                  size="small"
+                  disableRipple
+                  onClick={() => setOpen(true)}
+                  sx={{ ...getPillButtonStyle(open), color: open ? "#8B07A7" : "#6E5678" }}
+                >
+                  <FilterList sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            <MeFilterButton active={meOnly} onToggle={onMeToggle} />
+          </Box>
           {IsHasFilters && (
             <IconButton
               sx={{
@@ -206,14 +244,6 @@ function FilterOptions({ isFullscreen = false, toggleFullscreen = () => { }, rol
               </Select>
             </FormControl>
           </Box>
-          {isAdmin && (
-            <IconButton onClick={() => setOpen(true)}>
-              <FilterList />
-            </IconButton>
-          )}
-          <IconButton sx={{ bgcolor: "rgba(92, 92, 92, 0.1)" }} onClick={toggleFullscreen}>
-            {isFullscreen ? <FullscreenExitRoundedIcon /> : <FullscreenRoundedIcon />}
-          </IconButton>
         </Box>
       </Box>
 

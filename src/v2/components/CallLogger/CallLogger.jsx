@@ -5,7 +5,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import { Box } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 // import CallRecorderScreen from "./CallRecorderScreen";
 import GridHeader from "./GridHeader";
 import CallTable from "./CallTable";
@@ -45,6 +45,7 @@ import { acceptCallModal$, feedbackPopover$ } from "../../rxjs/tableUiStore";
 import { MainLayoutheight } from "../_ui/HeaderWrapper";
 import { recordingTime$ } from "../../rxjs/callTimerStore";
 import { useCallSession } from "../../hooks/useCallSession";
+import { useQuickCallDesktopBridge } from "../../hooks/useQuickCallDesktopBridge";
 import {
   CALL_STORAGE_KEYS as STORAGE_KEYS,
   callStorage,
@@ -246,6 +247,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     concurrentCallRef,
     timerRef,
     callStartTimeRef,
+    calculateElapsedTime,
     setConCurrentCall,
     handlePauseRecording,
     handleResumeRecording,
@@ -754,14 +756,16 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
           console.error("Failed to start call:", result.error?.message);
           showNotification(`${result.error?.message}`, "error");
           handleEndCall({ skipApi: true });
-          return;
+          return { success: false, error: result.error?.message || "Failed to start call." };
         }
 
         showNotification("Call started", "success");
+        return { success: true };
       } catch (e) {
         console.error("Error in onStartCall:", e);
         showNotification("Error starting call", "error");
         handleEndCall({ skipApi: true });
+        return { success: false, error: e?.message || "Error starting call." };
       }
     },
     [
@@ -852,11 +856,11 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
 
       if (!targetFuId) {
         showNotification("No follow-up call selected", "error");
-        return;
+        return { success: false, error: "No follow-up call selected." };
       }
       if (!callLogId) {
         showNotification("No call log ID found", "error");
-        return;
+        return { success: false, error: "No call log ID found." };
       }
       try {
         const result = await startFollowUpCall(targetFuId, callLogId);
@@ -865,7 +869,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
             result.error?.message || "Failed to start follow-up",
             "error",
           );
-          return;
+          return { success: false, error: result.error?.message || "Failed to start follow-up." };
         }
 
         // Auto toggle record mode if closed
@@ -877,9 +881,11 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
         setActiveFollowUp({ followUpCallId: targetFuId, callLogId: callLogId });
 
         handleStartRecording();
+        return { success: true };
       } catch (err) {
         console.error("Failed to start follow-up call:", err);
         showNotification("Failed to start follow-up", "error");
+        return { success: false, error: err?.message || "Failed to start follow-up." };
       }
     },
     [
@@ -893,6 +899,21 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
       setActiveFollowUp,
     ],
   );
+
+  const { isHostedOnDesktop } = useQuickCallDesktopBridge({
+    CurrentCall,
+    recordingTimeRef,
+    callStartTimeRef,
+    calculateElapsedTime,
+    isPaused,
+    activeFollowUp,
+    onStartCall,
+    onStartFollowUp: handleStartFollowUp,
+    onPause: handlePauseRecording,
+    onResume: handleResumeRecording,
+    onEndCall: handleEndCall,
+    showNotification,
+  });
 
   // Handle queue parameter in URL
   useEffect(() => {
@@ -1083,7 +1104,14 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
 
       </Box>
       <IncomingCallDialog />
+      {isHostedOnDesktop && (
+        <Box sx={{ position: "fixed", bottom: 18, right: 18, zIndex: 140, display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 0.8, bgcolor: "#10221a", color: "#fff", borderRadius: 3, boxShadow: "0 8px 24px rgba(0,0,0,.2)" }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Call controls are in QuickCall</Typography>
+          <Button size="small" onClick={() => window.postMessage({ channel: "quickcall-call-bridge", type: "owner-change-request", owner: "browser" }, window.location.origin)} sx={{ color: "#9ee7bd", fontWeight: 700 }}>Return here</Button>
+        </Box>
+      )}
       <LiveActiveCallOverlay
+        isHostedOnDesktop={isHostedOnDesktop}
         isPaused={isPaused}
         onPause={handlePauseRecording}
         onResume={handleResumeRecording}

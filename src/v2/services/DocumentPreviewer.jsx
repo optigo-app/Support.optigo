@@ -3,6 +3,42 @@ import { FilePreviewModal } from "@eternalheart/react-file-preview";
 import "@eternalheart/react-file-preview/style.css";
 import * as XLSX from "xlsx";
 
+export const downloadFile = async (file) => {
+  // alert("hiii")
+  // console.log(file, "file")
+  // return
+  if (!file?.url) return;
+
+  const triggerDownload = (url, filename) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename || "download";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  try {
+    let response;
+    try {
+      response = await fetch(file.url, { credentials: "include" });
+    } catch {
+      // Some file hosts use Access-Control-Allow-Origin: *, which rejects
+      // credentialed requests. Retry without credentials as the preview
+      // request handler does.
+      response = await fetch(file.url);
+    }
+    if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+    const blobUrl = URL.createObjectURL(await response.blob());
+    triggerDownload(blobUrl, file.name);
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch (error) {
+    // The direct link still requests a download without opening a new tab.
+    console.warn("Could not fetch attachment for download:", error);
+    triggerDownload(file.url, file.name);
+  }
+};
+
 /**
  * Checks if a byte buffer starts with standard ZIP magic bytes:
  * PK\x03\x04, PK\x05\x06, or PK\x07\x08
@@ -143,20 +179,7 @@ const DocumentPreviewer = ({
     }
   };
 
-  const handleDownload = useCallback((file) => {
-    if (!file?.url) return;
-    try {
-      const a = document.createElement("a");
-      a.href = file.url;
-      a.download = file.name || "download";
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      window.open(file.url, "_blank");
-    }
-  }, []);
+  const handleDownload = useCallback((file) => downloadFile(file), []);
 
   return (
     <FilePreviewModal
@@ -166,9 +189,12 @@ const DocumentPreviewer = ({
       onClose={onClose}
       onNavigate={handleNavigate}
       requestHandler={requestHandler || defaultRequestHandler}
-      onDownload={onDownload || handleDownload}
+      onDownload={handleDownload}
       locale="en-US"
+      showDownload={true}
+      theme={"light"}
       {...rest}
+
     />
   );
 };

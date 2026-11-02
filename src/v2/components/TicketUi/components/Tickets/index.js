@@ -3,6 +3,7 @@ import { Box, Typography, IconButton, Badge, Tooltip, Skeleton, Stack } from "@m
 import TicketItem from "./TicketItem";
 import FilterAltRoundedIcon from "@mui/icons-material/FilterAltRounded";
 import FilterAltOffRoundedIcon from "@mui/icons-material/FilterAltOffRounded";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import { useUrlFilters } from "../../../../hooks/useFilters";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExcelReportDowload from "../../../../utils/ExcelReportDowload";
@@ -14,6 +15,12 @@ import { useTicket } from "../../../../context/useTicket";
 import { ticketFilterAnchorEl$, openTicketFilter, closeTicketFilter, useSubject } from "../../../../rxjs/layoutStore";
 import { VariableSizeList } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
+import { ticketMeFilter$, setTicketMeFilter, useSubjectValue } from "../../../../rxjs/ticketStore";
+import getPillButtonStyle from "../../../_ui/pillButtonStyle";
+
+
+// ─── Shared Pill Action Button Style ──────────────────────────────────────────
+export { getPillButtonStyle } from "../../../_ui/pillButtonStyle";
 
 // ─── VirtualRow — self-measuring ──────────────────────────────────────────────
 /**
@@ -74,10 +81,28 @@ const VirtualRow = React.memo(({ index, style, data }) => {
   );
 });
 
+// ─── MeToggleButton ───────────────────────────────────────────────────────────
+const MeToggleButton = React.memo(() => {
+  const meOn = useSubjectValue(ticketMeFilter$);
+  return (
+    <Tooltip title={meOn ? "My tickets — click to see all" : "All tickets — click to filter by me"} placement="top">
+      <IconButton
+        size="small"
+        disableRipple
+        onClick={() => setTicketMeFilter(!meOn)}
+        sx={getPillButtonStyle(meOn)}
+      >
+        <PersonRoundedIcon sx={{ fontSize: 20, color: meOn ? "#8B07A7" : "#6E5678" }} />
+      </IconButton>
+    </Tooltip>
+  );
+});
+
 // ─── FilterIconButton ──────────────────────────────────────────────────────────
 const FilterIconButton = React.memo(({ filterCount }) => {
   const anchorEl = useSubject(ticketFilterAnchorEl$);
   const isOpen = Boolean(anchorEl);
+  const isActive = isOpen || filterCount > 0;
 
   const handleClick = (event) => {
     if (isOpen) closeTicketFilter();
@@ -85,12 +110,28 @@ const FilterIconButton = React.memo(({ filterCount }) => {
   };
 
   return (
-    <IconButton onClick={handleClick} size="small" sx={{ ml: 1 }}>
-      <Badge badgeContent={filterCount} color="primary">
+    <IconButton
+      onClick={handleClick}
+      size="small"
+      disableRipple
+      sx={getPillButtonStyle(isActive)}
+    >
+      <Badge
+        badgeContent={filterCount}
+        sx={{
+          "& .MuiBadge-badge": {
+            backgroundColor: "#8B07A7",
+            color: "#fff",
+            fontSize: "10px",
+            height: "16px",
+            minWidth: "16px",
+          },
+        }}
+      >
         {isOpen ? (
-          <FilterAltOffRoundedIcon fontSize="medium" sx={{ color: "#8B07A7" }} />
+          <FilterAltOffRoundedIcon sx={{ fontSize: 20, color: "#8B07A7" }} />
         ) : (
-          <FilterAltRoundedIcon fontSize="medium" sx={{ color: "#8B07A7" }} />
+          <FilterAltRoundedIcon sx={{ fontSize: 20, color: isActive ? "#8B07A7" : "#6E5678" }} />
         )}
       </Badge>
     </IconButton>
@@ -114,31 +155,69 @@ const TicketListHeader = React.memo(({ filterTicketCount, onDownloadExcel }) => 
       sx={{
         display: "flex",
         height: 60,
-        px: 2,
+        px: 1,
         alignItems: "center",
         borderBottom: "1px solid #DFE1E6",
         justifyContent: "space-between",
-        gap: 0.1,
+        gap: 1,
         flexShrink: 0,
       }}
     >
       <SearchBar filterTicketCount={filterTicketCount} />
-      <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+
+      {/* Segmented Purple-Gray Pill Container matching the reference UI */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: "#EFEAF2",
+          p: "4px",
+          borderRadius: "25px",
+          gap: "2px",
+          flexShrink: 0,
+        }}
+      >
+        <MeToggleButton />
         <FilterIconButton filterCount={filterCount} />
+
         {hasFilters && (
-          <IconButton size="small" onClick={clearFilters} sx={{ ml: 0.5 }}>
-            <Tooltip title="Clear Filters" placement="top">
-              <FilterAltOffRoundedIcon fontSize="medium" sx={{ color: "#d32f2f" }} />
-            </Tooltip>
-          </IconButton>
-        )}
-        <IconButton size="small" onClick={handleClickRotate} sx={{ ml: 0.5 }}>
-          <Tooltip title="Refresh" placement="top">
-            <motion.div animate={controls} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <RefreshRoundedIcon fontSize="medium" sx={{ color: "#8B07A7" }} />
-            </motion.div>
+          <Tooltip title="Clear Filters" placement="top">
+            <IconButton
+              size="small"
+              disableRipple
+              onClick={clearFilters}
+              sx={getPillButtonStyle(false)}
+            >
+              <FilterAltOffRoundedIcon sx={{ fontSize: 20, color: "#d32f2f" }} />
+            </IconButton>
           </Tooltip>
-        </IconButton>
+        )}
+
+        {/* Subtle Vertical Divider inside the pill */}
+        <Box
+          sx={{
+            width: "1px",
+            height: "18px",
+            backgroundColor: "rgba(139, 7, 167, 0.2)",
+            mx: "2px",
+          }}
+        />
+
+        <Tooltip title="Refresh" placement="top">
+          <IconButton
+            size="small"
+            disableRipple
+            onClick={handleClickRotate}
+            sx={getPillButtonStyle(false)}
+          >
+            <motion.div
+              animate={controls}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <RefreshRoundedIcon sx={{ fontSize: 20, color: "#8B07A7" }} />
+            </motion.div>
+          </IconButton>
+        </Tooltip>
       </Box>
     </Box>
   );
@@ -196,10 +275,10 @@ const TicketList = ({ tickets, onTicketSelect, scrollKey }) => {
     <Box
       sx={{
         width: "31%",
-        borderRight: "1px solid #DFE1E6",
+        borderRight: "1px solid rgba(139,7,167,0.12)",
         display: "flex",
         flexDirection: "column",
-        bgcolor: "#fff",
+        // background: "linear-gradient(180deg, rgba(248,242,252,0.6) 0%, #ffffff 120px)",
         flexGrow: 1,
         minWidth: "480px",
       }}

@@ -52,6 +52,28 @@ ticketAgesFilter$.subscribe((val) => {
 	} catch {}
 });
 
+/**
+ * "Me" quick-filter toggle — when true, only show tickets where the logged-in
+ * user is mentioned (Keywords / people fields). Default ON.
+ * @type {BehaviorSubject<boolean>}
+ */
+export const ticketMeFilter$ = new BehaviorSubject(
+	(() => {
+		try {
+			const stored = localStorage.getItem("ticket_me_filter");
+			return stored === null ? true : JSON.parse(stored);
+		} catch {
+			return true;
+		}
+	})()
+);
+
+ticketMeFilter$.subscribe((val) => {
+	try {
+		localStorage.setItem("ticket_me_filter", JSON.stringify(val));
+	} catch {}
+});
+
 // ─── URL Filters State ────────────────────────────────────────────────────────
 
 /** @type {import('../hooks/useFilters').Filters} */
@@ -88,11 +110,14 @@ const ZERO_COUNTS = {
 
 export const ticketSidebarCounts$ = new BehaviorSubject({ ...ZERO_COUNTS });
 
-// Subscribe to ticket list + ages filter to compute all counts in one pass
-combineLatest([ticketRawList$, ticketAgesFilter$])
+// Subscribe to ticket list + ages filter + me filter to compute all counts in one pass
+combineLatest([ticketRawList$, ticketAgesFilter$, ticketMeFilter$])
 	.pipe(
 		debounceTime(0), // batch microtask flush — prevents cascades on same tick
-		map(([tickets, filterType]) => {
+		map(([rawTickets, filterType, meFilter]) => {
+			// Apply Me filter first so sidebar counts stay in sync with the list
+			const tickets = meFilter ? filterTickets(rawTickets || [], {}, true) : (rawTickets || []);
+
 			if (!tickets?.length) {
 				return { ...ZERO_COUNTS };
 			}
@@ -161,13 +186,13 @@ combineLatest([ticketRawList$, ticketAgesFilter$])
  */
 export const ticketDisplayList$ = new BehaviorSubject([]);
 
-combineLatest([ticketRawList$, ticketActiveTab$, ticketAgesFilter$, ticketFilters$])
+combineLatest([ticketRawList$, ticketActiveTab$, ticketAgesFilter$, ticketFilters$, ticketMeFilter$])
 	.pipe(
-		map(([tickets, activeTab, agesFilter, filters]) => {
+		map(([tickets, activeTab, agesFilter, filters, meFilter]) => {
 			// Always filter by active tab / category first — changing tabs always filters the tickets accordingly
 			const baseList = getFilteredTickets(activeTab || "all", tickets || [], agesFilter);
 
-			return filterTickets(baseList, filters);
+			return filterTickets(baseList, filters, meFilter);
 		})
 	)
 	.subscribe((list) => ticketDisplayList$.next(list));
@@ -289,6 +314,7 @@ export const setTicketRawList = (tickets) => {
 };
 export const setTicketActiveTab = (tab) => ticketActiveTab$.next(tab);
 export const setTicketAgesFilter = (filter) => ticketAgesFilter$.next(filter);
+export const setTicketMeFilter = (val) => ticketMeFilter$.next(Boolean(val));
 // setTicketFilters replaces the entire filter object (callers from useUrlFilters pass the complete object)
 export const setTicketFilters = (newFilters) => {
 	ticketFilters$.next({ ...DEFAULT_FILTERS, ...newFilters });

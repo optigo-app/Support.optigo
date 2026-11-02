@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Box, Button, Grid, Paper, Select, MenuItem, IconButton, Stack, FormControl, InputLabel } from "@mui/material";
+import { Box, Button, Grid, Paper, Select, MenuItem, IconButton, Stack, FormControl, InputLabel, Tooltip } from "@mui/material";
 import { Add, FilterList } from "@mui/icons-material";
 import CustomDualDatePicker from "../../../Delivery&Training/components/shared/ui/CustomDatePicker";
 import AutocompleteComponent from "../../../Delivery&Training/components/shared/ui/Autocomplete";
@@ -8,10 +8,14 @@ import SearchBar from "../../../Delivery&Training/components/Delivery/OrderGrid/
 import { useDelivery } from "./../../../Delivery&Training/context/DeliveryProvider";
 import { isAnyFilterActive } from "./../../../Delivery&Training/utils/deliveryUtils";
 import { FilterMenu } from "./../../../Delivery&Training/components/Delivery/OrderGrid/FilterMenu";
+import MeFilterButton from "../../../_ui/MeFilterButton";
+import { getPillButtonStyle } from "../../../_ui/pillButtonStyle";
+import FullscreenRoundedIcon from "@mui/icons-material/FullscreenRounded";
+import FullscreenExitRoundedIcon from "@mui/icons-material/FullscreenExitRounded";
 
-function FilterOptions({showAdvanceFilter = false , role, onformToggle, filters, setFilters }) {
+function FilterOptions({showAdvanceFilter = false , onformToggle, filters, setFilters, meOnly = false, onMeToggle = () => {}, onMeClear = () => {}, isFullscreen = false, onToggleFullscreen = () => {} }) {
   const [open, setOpen] = useState(false);
-  const IsHasFilters = isAnyFilterActive(filters);
+  const IsHasFilters = isAnyFilterActive(filters) || meOnly;
   const { COMPANY_MASTER_LIST } = useDelivery();
 
   const handleFilterChange = (key, value) => {
@@ -26,6 +30,7 @@ function FilterOptions({showAdvanceFilter = false , role, onformToggle, filters,
   };
 
   const clearFilters = () => {
+    onMeClear();
     setFilters({
       search: "",
       approval: "",
@@ -76,6 +81,39 @@ function FilterOptions({showAdvanceFilter = false , role, onformToggle, filters,
         </Grid>
         <Grid item xs={12} md={6}>
           <Box display="flex" justifyContent="flex-end" gap={2}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: "2px",
+                p: "4px",
+                borderRadius: "25px",
+                backgroundColor: "#EFEAF2",
+                flexShrink: 0,
+              }}
+            >
+              <Tooltip title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} arrow>
+                <IconButton
+                  size="small"
+                  disableRipple
+                  onClick={onToggleFullscreen}
+                  sx={{ ...getPillButtonStyle(isFullscreen), color: isFullscreen ? "#8B07A7" : "#6E5678" }}
+                >
+                  {isFullscreen ? <FullscreenExitRoundedIcon sx={{ fontSize: 20 }} /> : <FullscreenRoundedIcon sx={{ fontSize: 20 }} />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="More filters" arrow>
+                <IconButton
+                  size="small"
+                  disableRipple
+                  onClick={() => setOpen(true)}
+                  sx={{ ...getPillButtonStyle(open), color: open ? "#8B07A7" : "#6E5678" }}
+                >
+                  <FilterList sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <MeFilterButton active={meOnly} onToggle={onMeToggle} />
+            </Box>
             {IsHasFilters && (
               <IconButton
                 sx={{
@@ -113,9 +151,6 @@ function FilterOptions({showAdvanceFilter = false , role, onformToggle, filters,
               </FormControl> */}
             </Box>
 
-            <IconButton onClick={() => setOpen(true)}>
-              <FilterList />
-            </IconButton>
           </Box>
         </Grid>
       </Grid>

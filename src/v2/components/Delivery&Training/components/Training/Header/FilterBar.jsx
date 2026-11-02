@@ -6,9 +6,10 @@ import SearchBar from "./SearchBar";
 import ControlPointRoundedIcon from "@mui/icons-material/ControlPointRounded";
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { useTraining } from "../../../context/TrainingProvider";
+import MeFilterButton from "../../../../_ui/MeFilterButton";
 
 
-const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin = false, onToggle = () => { } }) => {
+const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin = false, onToggle = () => { }, meOnly = false, onMeToggle = () => {}, onMeClear = () => {} }) => {
 	const { COMPANY_MASTER_LIST } = useTraining();
 	const isAllOrEmpty = (value) => value === "" || value === "All";
 
@@ -19,6 +20,7 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 		if (!isAllOrEmpty(filters.trainingMode)) return true;
 		if (!isAllOrEmpty(filters.status)) return true;
 		if (filters.company && filters.company.length > 0) return true;
+		if (meOnly) return true;
 
 		return false;
 	};
@@ -26,6 +28,7 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 	// Reset all filters
 	const handleResetFilters = () => {
 		setFilters(initialFilters);
+		onMeClear();
 	};
 
 	// Handlers
@@ -92,18 +95,21 @@ const FilterBar = ({ filtercount, filters, setFilters, initialFilters, isAdmin =
 						sx={{
 							width: 38,
 							height: 38,
-							border: (theme) => `2px solid ${theme.palette.primary.main}`,
-							borderRadius: 2,
-							color: "primary.main",
+							border: "1px solid #E7DCEB",
+							borderRadius: "10px",
+							backgroundColor: "#F7F0FA",
+							color: "#8B07A7",
 							transition: "all 0.2s ease-in-out",
+							"&:hover": { backgroundColor: "#EFE7F2" },
 						}}
 					>
-						<AddRoundedIcon fontSize="medium" />
+						<AddRoundedIcon sx={{ fontSize: 22 }} />
 					</IconButton>
 				)}
 				<Box sx={{ minWidth: 200, maxWidth: 300, flex: { xs: "1 1 200px", sm: "0 0 auto" } }}>
 					<SearchBar filtercount={filtercount} filters={filters} handleSearchChange={handleSearchChange} />
 				</Box>
+				<MeFilterButton active={meOnly} onToggle={onMeToggle} standalone />
 			</Box>
 
 			<Box

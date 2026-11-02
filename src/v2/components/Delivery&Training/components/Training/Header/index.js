@@ -5,7 +5,7 @@ import Dashboard from "./Dashboard";
 import FilterBar from "./FilterBar";
 import { useGreeting } from "./../../../hooks/useGreeting";
 import { useAuth } from "../../../context/AuthProvider";
-const HeroHeader = ({ filtercount, onToggle = () => { }, Traininglist = [], filters = {}, initialFilters = {}, setFilters = () => { }, isAdmin = false }) => {
+const HeroHeader = ({ filtercount, onToggle = () => { }, Traininglist = [], filters = {}, initialFilters = {}, setFilters = () => { }, isAdmin = false, meOnly = false, onMeToggle = () => {}, onMeClear = () => {} }) => {
 	const { user } = useAuth();
 	const { greeting } = useGreeting();
 	const username = user?.firstname && user?.lastname ? `${user.firstname} ${user.lastname}` : "Guest";
@@ -13,7 +13,7 @@ const HeroHeader = ({ filtercount, onToggle = () => { }, Traininglist = [], filt
 	return (
 		<Box>
 			<Dashboard filters={filters} Data={Traininglist} />
-			<FilterBar filtercount={filtercount} isAdmin={isAdmin} onToggle={onToggle} filters={filters} initialFilters={initialFilters} setFilters={setFilters} />
+			<FilterBar filtercount={filtercount} isAdmin={isAdmin} onToggle={onToggle} filters={filters} initialFilters={initialFilters} setFilters={setFilters} meOnly={meOnly} onMeToggle={onMeToggle} onMeClear={onMeClear} />
 		</Box>
 	);
 };

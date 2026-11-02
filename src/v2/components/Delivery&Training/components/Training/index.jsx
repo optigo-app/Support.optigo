@@ -6,7 +6,7 @@ import { getDeliveryColumns } from "./Grid/ColumnList";
 import HeroHeader from "./Header";
 import TrainingDetailPanel from "./DetailPanel";
 import { useTraining } from "../../context/TrainingProvider";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { filterTrainingData } from "./../../utils/TrainingUtils";
 import { useUrlSyncedFilters } from "../../hooks/useUrlSyncedFilters";
 import { useAuth } from "../../context/AuthProvider";
@@ -14,6 +14,7 @@ import WithNotificationDT from "../../../../hoc/withNotificationDT";
 import { useRoleAccess } from "../../utils/useRoleAccess";
 import { useTrainingFormStore, openTrainingForm, closeTrainingForm } from "../../../../rxjs/tableUiStore";
 import { HeaderHeight } from "../../../_ui/HeaderWrapper";
+import { matchesCurrentUser } from "../../../../utils/recordUserMatch";
 
 const initialFilters = {
 	search: "",
@@ -48,13 +49,18 @@ const TrainingDashboard = ({ showNotification }) => {
 	const columns = getDeliveryColumns(setDetailModal, HandleEditMode, showNotification, isAdmin);
 
 	const { filters, setFilters } = useUrlSyncedFilters(initialFilters);
+	const [meOnly, setMeOnly] = useState(false);
 
 	const filteredData = useMemo(() => {
-		return filterTrainingData(filters, Traininglist);
-	}, [filters, Traininglist]);
+		const filtered = filterTrainingData(filters, Traininglist);
+		return meOnly
+			? filtered.filter((record) => matchesCurrentUser(record, user, ["TrainingBy", "CreatedBy", "createdBy"]))
+			: filtered;
+	}, [filters, Traininglist, meOnly, user]);
 
 	const HandleResetFilter = () => {
 		setFilters(initialFilters);
+		setMeOnly(false);
 	};
 
 	return (
@@ -69,7 +75,7 @@ const TrainingDashboard = ({ showNotification }) => {
 					bgcolor: "#fff !important",
 				}}
 			>
-				<HeroHeader filtercount={filteredData.length || 0} isAdmin={isAdmin} filters={filters} initialFilters={initialFilters} setFilters={setFilters} Traininglist={filteredData} onToggle={() => openTrainingForm(null)} />
+				<HeroHeader filtercount={filteredData.length || 0} isAdmin={isAdmin} filters={filters} initialFilters={initialFilters} setFilters={setFilters} Traininglist={filteredData} onToggle={() => openTrainingForm(null)} meOnly={meOnly} onMeToggle={() => setMeOnly((previous) => !previous)} onMeClear={() => setMeOnly(false)} />
 				<Paper
 					elevation={3}
 					sx={{

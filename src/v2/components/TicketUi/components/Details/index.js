@@ -27,7 +27,7 @@ const getFormattedClosedTime = (ticketObj) => {
 				hour12: true,
 			});
 		}
-	} catch (e) {}
+	} catch (e) { }
 	return String(raw);
 };
 
@@ -81,7 +81,7 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 
 		const parsedComments = DataParser(ticket?.comments || "").data || [];
 		setComments([...parsedComments]);
-	}, [ticket, ticket?.TicketNo, refreshComment , ticket?.TicketId]);
+	}, [ticket, ticket?.TicketNo, refreshComment, ticket?.TicketId]);
 
 	return (
 		<Box
@@ -104,7 +104,7 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 				}}
 			>
 				<Box sx={{ flex: 1, overflow: "auto" }}>
-					<Box sx={{ padding: '8px' }}>
+					<Box sx={{ padding: !IsClosed ? '0' : '8px' }}>
 						<ClosedSeeOff IsClosed={IsClosed} TicketNo={ticket?.TicketNo} />
 					</Box>
 					<DetailBar handleClick={handleClick} anchorEl={anchorEl} open={open} handleClose={handleClose} inputValue={inputValue} HandleSave={HandleSave} handleInputChange={handleInputChange} onClose={onClose} ticket={ticket} />
@@ -130,7 +130,7 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 							borderRadius: '40px',
 							transition: 'all 0.15s ease',
 							"&:hover": {
-							py: 1.5,
+								py: 1.5,
 							}
 						}}
 					>
