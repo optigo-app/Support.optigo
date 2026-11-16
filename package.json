@@ -69,6 +69,7 @@
 		"jwt-encode": "^1.0.1",
 		"lodash.debounce": "^4.0.8",
 		"lucide-react": "^0.479.0",
+		"lz-string": "^1.5.0",
 		"mini-css-extract-plugin": "^2.4.5",
 		"moment": "^2.30.1",
 		"mui-daterange-picker": "^1.0.5",

@@ -36,6 +36,10 @@ export const TicketProvider = ({ children }) => {
   // these refs instead of closed-over state, so it never needs to be recreated.
   const selectedTicketRef = useRef(null);
   const lastUpdatedTicketNoRef = useRef(sessionStorage.getItem("LastUpdatedticket") || null);
+  const ticketsRef = useRef([]);
+  const fetchSeqRef = useRef(0);
+  const pendingCountRef = useRef(0);
+  ticketsRef.current = tickets;
 
   // Stable wrapper that drives both React state and the RxJS selectedTicketNo$.
   // Everything in the app that calls setSelectedTicket continues to work unchanged;
@@ -57,9 +61,9 @@ export const TicketProvider = ({ children }) => {
     notificationRef.current = fn;
   }, []);
 
-  const showNotify = useCallback((payload) => {
+  const showNotify = useCallback((payload, ...rest) => {
     if (notificationRef.current) {
-      notificationRef.current(payload);
+      notificationRef.current(payload, ...rest);
     } else {
       console.warn("Notification instance not registered yet");
     }
@@ -121,10 +125,28 @@ export const TicketProvider = ({ children }) => {
       label: val?.user,
     })) || [];
 
+  const beginLoading = useCallback(() => {
+    pendingCountRef.current += 1;
+    setLoading(true);
+  }, []);
+
+  const endLoading = useCallback(() => {
+    pendingCountRef.current = Math.max(0, pendingCountRef.current - 1);
+    if (pendingCountRef.current === 0) setLoading(false);
+  }, []);
+
+  const notifyError = useCallback((message) => {
+    if (notificationRef.current) notificationRef.current(message, "error");
+    else console.warn(message);
+  }, []);
+
   const fetchTicketList = useCallback(async () => {
+    const requestId = ++fetchSeqRef.current;
     try {
-      setLoading(true);
+      beginLoading();
       const response = await TicketApi.getTicketsList({});
+      // A newer fetch started while this one was in flight — drop this stale response
+      if (requestId !== fetchSeqRef.current) return;
       if (!response?.rd) {
         setError(response?.msg);
         return;
@@ -157,11 +179,11 @@ export const TicketProvider = ({ children }) => {
     } catch (error) {
       setError(error);
     } finally {
-      setLoading(false);
+      endLoading();
       setIsInitialLoading(false); // ✅ ONLY after first API resolves
     }
   // No state deps — reads from refs; recreated only if setSelectedTicket changes (stable)
-  }, [setSelectedTicket]);
+  }, [setSelectedTicket, beginLoading, endLoading]);
 
   const fetchSingleTicket = useCallback(async (ticketId) => {
     try {
@@ -174,8 +196,6 @@ export const TicketProvider = ({ children }) => {
       }
     } catch (error) {
       setError(error);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -226,13 +246,21 @@ export const TicketProvider = ({ children }) => {
 
   const updateTicket = useCallback(
     async (TicketId, updatedFields) => {
-      setLoading(true);
+      beginLoading();
+      const current =
+        ticketsRef.current.find((t) => t?.TicketNo === TicketId) ??
+        (selectedTicketRef.current?.TicketNo === TicketId ? selectedTicketRef.current : null);
+      const previousKeywords = current
+        ? { Keywords: current.Keywords, keywords: current.keywords }
+        : null;
+      let patchedKeywords = false;
       try {
         const keywordsPayload =
           updatedFields?.tags !== undefined
             ? updatedFields?.tags
             : updatedFields?.keywords;
         if (keywordsPayload !== undefined) {
+          patchedKeywords = true;
           // Patch only the affected ticket in RxJS map — zero cost for all other rows
           patchTicketInMap(TicketId, { Keywords: keywordsPayload, keywords: keywordsPayload });
           setSelectedTicket((prev) => {
@@ -260,25 +288,42 @@ export const TicketProvider = ({ children }) => {
           priorityId: updatedFields?.Priority,
           followUp1: updatedFields?.FollowUp,
           keywords: keywordsPayload,
-          sendEmail: Number(updatedFields?.sendMail),
+          // Fields not being edited fall back to the ticket's current value so a
+          // partial update can never reset them on the server.
+          sendEmail:
+            updatedFields?.sendMail !== undefined
+              ? Number(updatedFields.sendMail)
+              : current?.sendMail,
           promiseDate: updatedFields?.PromiseDate,
           createdBy: user?.id,
-          suggested: updatedFields?.suggested,
-          star: updatedFields?.Star,
+          suggested: updatedFields?.suggested ?? current?.isSuggested,
+          star: updatedFields?.Star ?? current?.star,
           mainSubject: updatedFields?.MainSubject,
         });
         lastUpdatedTicketNoRef.current = TicketId;
         setLastUpdatedTicketNo(TicketId);
         sessionStorage.setItem("LastUpdatedticket", TicketId);
-        setRefresh((prev) => !prev);
-        console.log("Ticket updated successfully!");
+        fetchTicketList();
+        return { ok: true };
       } catch (error) {
-        console.log("Error updating ticket:", error);
+        if (patchedKeywords && previousKeywords) {
+          patchTicketInMap(TicketId, previousKeywords);
+          setSelectedTicket((prev) =>
+            prev?.TicketNo === TicketId ? { ...prev, ...previousKeywords } : prev,
+          );
+          setTickets((prev) =>
+            prev.map((t) => (t?.TicketNo === TicketId ? { ...t, ...previousKeywords } : t)),
+          );
+        }
+        const message = error?.message || "Failed to update ticket";
+        console.error("Error updating ticket:", error);
+        notifyError(message);
+        return { ok: false, message };
       } finally {
-        setLoading(false);
+        endLoading();
       }
     },
-    [user?.id, setSelectedTicket],
+    [user?.id, setSelectedTicket, beginLoading, endLoading, notifyError, fetchTicketList],
   );
 
   // Api Done ✅

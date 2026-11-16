@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { InputBase, IconButton, Badge, Box } from "@mui/material";
+import { InputBase, IconButton, Badge, Box, Chip } from "@mui/material";
+import { ticketMeFilter$, setTicketMeFilter, useSubjectValue } from "../../../../rxjs/ticketStore";
 import { styled, alpha } from "@mui/material/styles";
 import { Search as SearchIcon, X as CloseIcon } from "lucide-react";
 import { useUrlFilters } from "../../../../hooks/useFilters";
@@ -58,6 +59,7 @@ const SearchActions = styled(Box)(({ theme }) => ({
 const SearchBar = ({ filterTicketCount }) => {
 	const { filters, updateFilters, hasFilters } = useUrlFilters();
 	const inputRef = useRef(null);
+	const meOn = useSubjectValue(ticketMeFilter$);
 	const [value, setValue] = useState(filters.searchQuery || filters.search || "");
 
 	// RxJS Subject for smooth, reactive keystroke handling
@@ -102,7 +104,12 @@ const SearchBar = ({ filterTicketCount }) => {
 		setValue("");
 		searchSubject$.current.next("");
 		updateFiltersRef.current({ searchQuery: "" });
+		setTicketMeFilter(false);
 		if (inputRef.current) inputRef.current.focus();
+	};
+
+	const handleKeyDown = (e) => {
+		if (e.key === "Backspace" && !value && meOn) setTicketMeFilter(false);
 	};
 
 	const handleApplyExample = useCallback((exampleQuery) => {
@@ -112,7 +119,7 @@ const SearchBar = ({ filterTicketCount }) => {
 		if (inputRef.current) inputRef.current.focus();
 	}, []);
 
-	const showResultBadge = Boolean(value || hasFilters);
+	const showResultBadge = Boolean(value || hasFilters || meOn);
 
 	return (
 		<Search>
@@ -151,13 +158,34 @@ const SearchBar = ({ filterTicketCount }) => {
 					inputRef={inputRef}
 					value={value}
 					onChange={handleChange}
+					onKeyDown={handleKeyDown}
 					disableUnderline
+					startAdornment={
+						meOn ? (
+							<Chip
+								label="@me"
+								size="small"
+								onDelete={() => setTicketMeFilter(false)}
+								sx={{
+									ml: "44px",
+									mr: 0.5,
+									height: 22,
+									fontWeight: 600,
+									fontSize: "0.75rem",
+									color: "#8B07A7",
+									backgroundColor: "rgba(139, 7, 167, 0.1)",
+									"& .MuiChip-deleteIcon": { color: "#8B07A7", fontSize: 15 },
+								}}
+							/>
+						) : null
+					}
+					sx={meOn ? { "& .MuiInputBase-input": { paddingLeft: "4px" } } : undefined}
 					placeholder="Search tickets ... (@me, !name, #tag)"
 					inputProps={{ "aria-label": "search tickets" }}
 				/>
 			</Badge>
 			<SearchActions>
-				{value && (
+				{(value || meOn) && (
 					<IconButton
 						size="small"
 						onClick={handleClear}

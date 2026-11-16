@@ -87,10 +87,11 @@ const TicketItem = ({ ticketNo, onTicketSelect }) => {
     [ticket?.Status],
   );
 
-  const handleStarChange = useCallback((data, id) => {
+  const handleStarChange = useCallback(async (data, id) => {
     const isStarred = data === true || data === "true";
     setStar(isStarred);
-    updateTicket(id, { Star: isStarred });
+    const res = await updateTicket(id, { Star: isStarred });
+    if (!res?.ok) setStar(!isStarred);
   }, [updateTicket]);
 
   // Only update Star local state when the server value actually changes

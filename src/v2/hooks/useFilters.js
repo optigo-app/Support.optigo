@@ -24,7 +24,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import qs from "qs";
+import { decodeFilterQuery, encodeFilterQuery, normalizeFilters } from "../utils/urlFilterCodec";
 
 /** @type {Filters} */
 const defaultFilters = {
@@ -58,21 +58,8 @@ export const useUrlFilters = () => {
 
 	// Load filters from URL on initial mount or URL change
 	useEffect(() => {
-		const query = qs.parse(location?.search, { ignoreQueryPrefix: true });
-
 		/** @type {Filters} */
-		const parsedFilters = {
-			projectCode: query?.projectCode || "",
-			status: typeof query?.status === "string" ? query?.status?.split(",") : [],
-			isStarred: query?.isStarred === "true",
-			priority: query?.priority || "",
-			followup: query?.followup || "",
-			searchQuery: query?.searchQuery || query?.search || "",
-			category: query?.category || "",
-			appname: query?.appname || "",
-			mentions: typeof query?.mentions === "string" ? query?.mentions?.split(",").filter(Boolean) : Array.isArray(query?.mentions) ? query?.mentions.filter(Boolean) : [],
-			mentionedBy: typeof query?.mentionedBy === "string" ? query?.mentionedBy?.split(",").filter(Boolean) : Array.isArray(query?.mentionedBy) ? query?.mentionedBy.filter(Boolean) : [],
-		};
+		const parsedFilters = normalizeFilters(decodeFilterQuery(location?.search).data);
 
 		setFilters(parsedFilters);
 	}, [location.search]);
@@ -87,19 +74,7 @@ export const useUrlFilters = () => {
 
 		clearTimeout(debounceTimer.current);
 		debounceTimer.current = setTimeout(() => {
-			const query = {};
-
-			Object?.entries(newFilters)?.forEach(([key, value]) => {
-				if (isNotEmpty(value)) {
-					query[key] = Array?.isArray(value) ? value?.join(",") : value;
-				}
-			});
-
-			const search = qs?.stringify(query, {
-				addQueryPrefix: true,
-				skipNulls: true,
-			});
-			navigate({ search }, { replace: true });
+			navigate({ search: encodeFilterQuery(newFilters) }, { replace: true });
 		}, 100);
 	};
 

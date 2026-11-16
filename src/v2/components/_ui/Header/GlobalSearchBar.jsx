@@ -14,6 +14,7 @@ import {
   IconButton,
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import { getSearchTextFromUrl, removeSearchTextFromUrl } from "../../../utils/urlFilterCodec";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
 import CallRoundedIcon from "@mui/icons-material/CallRounded";
@@ -73,8 +74,7 @@ const GlobalSearchBar = () => {
 
   // Sync search value from URL if available
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const urlSearch = params.get("search") || params.get("searchQuery") || "";
+    const urlSearch = getSearchTextFromUrl(location.search);
     const currentMod = getModuleByPath(location.pathname);
 
     if (currentMod) {
@@ -284,17 +284,9 @@ const GlobalSearchBar = () => {
               onClick={() => {
                 setInputValue("");
                 setGlobalSearchQuery("");
-                const params = new URLSearchParams(location.search);
-                if (params.has("search") || params.has("searchQuery")) {
-                  params.delete("search");
-                  params.delete("searchQuery");
-                  navigate(
-                    {
-                      pathname: location.pathname,
-                      search: params.toString() ? `?${params.toString()}` : "",
-                    },
-                    { replace: true }
-                  );
+                const nextSearch = removeSearchTextFromUrl(location.search);
+                if (nextSearch !== location.search) {
+                  navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
                 }
                 inputRef.current?.focus();
               }}

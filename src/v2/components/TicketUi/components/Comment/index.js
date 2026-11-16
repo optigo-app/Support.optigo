@@ -123,10 +123,10 @@ const TicketComment = ({ setComments, data, showNotification }) => {
     setOpen(null);
   };
 
-  const HandleMoveToSuggestion = () => {
-    updateTicket(data?.TicketNo, { suggested: 1 });
+  const HandleMoveToSuggestion = async () => {
     setOpen(null);
-    showNotification(" Ticket moved to suggestion successfully", "info");
+    const res = await updateTicket(data?.TicketNo, { suggested: 1 });
+    if (res?.ok) showNotification(" Ticket moved to suggestion successfully", "info");
   };
 
   const HandleMoveToOrder = async () => {

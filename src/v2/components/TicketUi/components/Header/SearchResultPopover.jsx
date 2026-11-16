@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { getSearchTextFromUrl } from "../../../../utils/urlFilterCodec";
 import { Box, InputBase, IconButton, Paper, Typography, Popper, ClickAwayListener, Divider, Chip, Stack, Grid, Badge, Avatar, Tooltip } from "@mui/material";
 import { styled, alpha } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
@@ -138,8 +139,7 @@ const ClearButton = styled(IconButton)(({ theme }) => ({
 const SearchPopover = ({ onSelect = () => {} }) => {
 	const location = useLocation();
 	const [searchText, setSearchText] = useState(() => {
-		const params = new URLSearchParams(location.search);
-		return params.get("search") || params.get("searchQuery") || "";
+		return getSearchTextFromUrl(location.search);
 	});
 	const [showPopover, setShowPopover] = useState(false);
 	const searchRef = useRef(null);
@@ -148,11 +148,8 @@ const SearchPopover = ({ onSelect = () => {} }) => {
 	const [highlightedIndex, setHighlightedIndex] = useState(0);
 
 	useEffect(() => {
-		const params = new URLSearchParams(location.search);
-		const searchVal = params.get("search") || params.get("searchQuery");
-		if (searchVal !== null && searchVal !== undefined) {
-			setSearchText(searchVal);
-		}
+		const searchVal = getSearchTextFromUrl(location.search);
+		if (searchVal) setSearchText(searchVal);
 	}, [location.search]);
 
 	const ticketsData = tickets || [];

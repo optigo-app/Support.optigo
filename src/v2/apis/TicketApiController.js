@@ -84,20 +84,28 @@ class TicketAPI extends BaseAPI {
         ? JSON.stringify(keywords)
         : (keywords || "");
 
+      const isBlank = (v) => v === undefined || v === null || v === "" || (typeof v === "number" && Number.isNaN(v));
+      const toId = (name, v) => {
+        if (isBlank(v)) return "";
+        if (!/^\d+$/.test(String(v).trim())) throw new Error(`Invalid ${name}: "${v}" is not a valid id`);
+        return Number(v);
+      };
+      const toBit = (v) => (isBlank(v) ? "" : v === true || v === 1 || v === "1" || v === "true" || v === "YES" ? 1 : 0);
+
       const params = {
         TicketNo: ticketNo || "",
-        StatusId: statusId || "",
-        AppId: appId || "",
-        CateId: cateId || "",
-        PriorityId: priorityId || "",
+        StatusId: toId("StatusId", statusId),
+        AppId: toId("AppId", appId),
+        CateId: toId("CateId", cateId),
+        PriorityId: toId("PriorityId", priorityId),
         FollowUp: followUp1 || "",
         Keywords: formattedKeywords,
-        SendEmail: sendEmail || "",
+        SendEmail: toBit(sendEmail),
         PromiseDate: promiseDate || "",
-        CreatedBy: createdBy || "",
-        IsSuggested: suggested || "",
+        CreatedBy: toId("CreatedBy", createdBy),
+        IsSuggested: toBit(suggested),
         MainSubject: mainSubject || "",
-        Star: star || "",
+        Star: toBit(star),
       };
       // {
       //     const params = {
@@ -122,6 +130,11 @@ class TicketAPI extends BaseAPI {
         functionName: "UPDATETICKET",
         socketEvent: 'UpdateTicket'
       });
+
+      const result = response?.rd?.[0];
+      if (!result || Number(result.stat) === 0) {
+        throw new Error(result?.stat_msg || "Failed to update ticket");
+      }
 
       return response;
     } catch (error) {

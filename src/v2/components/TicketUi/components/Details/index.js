@@ -66,6 +66,7 @@ const TicketDetail = ({ ticket, onClose, showNotification }) => {
 			const res = await updateTicket(ticket?.TicketNo, {
 				MainSubject: inputValue,
 			});
+			if (!res?.ok) return;
 			setInputValue("");
 			handleClose();
 		} catch (error) {

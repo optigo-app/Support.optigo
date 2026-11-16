@@ -11,7 +11,8 @@ import { DataParser } from "../../../../utils/ticketUtils";
 import { getDisplayNamesFromKeywords, formatKeywordsPayload } from "../../../../utils/keywordUtils";
 
 const DetailSideBar = ({ ticket, IsClosed }) => {
-	const { updateTicket, APPNAME_LIST, CATEGORY_LIST, STATUS_LIST, PRIORITY_LIST, loading, setIsTicketDirty } = useTicket();
+	const { updateTicket, APPNAME_LIST, CATEGORY_LIST, STATUS_LIST, PRIORITY_LIST, loading, setIsTicketDirty, showNotify } = useTicket();
+	const [saving, setSaving] = useState(false);
 
 	const getInitialState = (t) => {
 		const rawKeywords = t?.Keywords || t?.keywords;
@@ -173,20 +174,45 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 		setIsTicketDirty(false);
 	};
 
-	const handleSaveChanges = () => {
+	const handleSaveChanges = async () => {
+		if (saving) return;
+		const unresolved = [];
+		// Only send an id when the user changed the field, and never send a label as an id.
+		const idIfChanged = (field, title) => {
+			const label = ticketState[field];
+			if (!label || label === initialState[field]) return undefined;
+			const opt = (RenderOptions.find((o) => o.field === field)?.options || []).find((o) => o.label === label);
+			if (!opt || !/^\d+$/.test(String(opt.value))) {
+				unresolved.push(title);
+				return undefined;
+			}
+			return opt.value;
+		};
+		const tagsChanged = [...(ticketState.tags || [])].sort().join("/") !== [...(initialState.tags || [])].sort().join("/");
 		const payload = {
-			Status: findValueByLabel(RenderOptions.find((o) => o.field === "Status")?.options || [], ticketState.Status),
-			appname: findValueByLabel(RenderOptions.find((o) => o.field === "appname")?.options || [], ticketState.appname),
-			category: findValueByLabel(RenderOptions.find((o) => o.field === "category")?.options || [], ticketState.category),
-			Priority: findValueByLabel(RenderOptions.find((o) => o.field === "Priority")?.options || [], ticketState.Priority),
+			Status: idIfChanged("Status", "Status"),
+			appname: idIfChanged("appname", "App name"),
+			category: idIfChanged("category", "Category"),
+			Priority: idIfChanged("Priority", "Priority"),
 			PromiseDate: ticketState.PromiseDate || "",
 			sendMail: ticketState.sendMail === "YES" || ticketState.sendMail === 1 || ticketState.sendMail === "1" || ticketState.sendMail === true ? 1 : 0,
 			FollowUp: ticketState.FollowUp || "",
-			tags: formatKeywordsPayload(ticketState.tags, undefined, ticket?.Keywords || ticket?.keywords),
+			tags: tagsChanged ? formatKeywordsPayload(ticketState.tags, undefined, ticket?.Keywords || ticket?.keywords) : undefined,
 		};
-		updateTicket(ticket?.TicketNo, payload);
-		setIsDirty(false);
-		setIsTicketDirty(false);
+		if (unresolved.length) {
+			showNotify(`Cannot save: ${unresolved.join(", ")} could not be matched. Please reselect and try again.`, "error");
+			return;
+		}
+		setSaving(true);
+		try {
+			const res = await updateTicket(ticket?.TicketNo, payload);
+			if (res?.ok) {
+				setIsDirty(false);
+				setIsTicketDirty(false);
+			}
+		} finally {
+			setSaving(false);
+		}
 	};
 
 	// TAG modal handlers
@@ -216,9 +242,10 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 		setTagError("");
 	};
 
-	const handleSaveTags = () => {
+	const handleSaveTags = async () => {
 		const keywordPayload = formatKeywordsPayload(tempTags, undefined, ticket?.Keywords || ticket?.keywords);
-		updateTicket(ticket?.TicketNo, { tags: keywordPayload });
+		const res = await updateTicket(ticket?.TicketNo, { tags: keywordPayload });
+		if (!res?.ok) return;
 		setTicketState((prev) => ({ ...prev, tags: tempTags }));
 		setTagModalOpen(false);
 	};
@@ -438,7 +465,7 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 					<Button onClick={resetChanges} variant="contained" size="small" color="error" fullWidth>
 						Reset
 					</Button>
-					<Button disabled={loading} onClick={handleSaveChanges} endIcon={loading && <CircularProgress size={14} color="inherit" />} variant="contained" size="small" color="primary" fullWidth>
+					<Button disabled={loading || saving} onClick={handleSaveChanges} endIcon={(loading || saving) && <CircularProgress size={14} color="inherit" />} variant="contained" size="small" color="primary" fullWidth>
 						Save
 					</Button>
 				</Box>
