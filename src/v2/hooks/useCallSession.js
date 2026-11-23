@@ -8,6 +8,12 @@ import {
   CALL_STORAGE_KEYS as STORAGE_KEYS,
   callStorage,
 } from "../utils/callSessionStorage";
+import {
+  activeCallSession$,
+  clearActiveCallSession,
+  getActiveCallSession,
+  publishActiveCallSession,
+} from "../rxjs/activeCallSessionStore";
 
 /**
  * useCallSession
@@ -36,6 +42,7 @@ export function useCallSession({
   endFollowUpCall,
   sliders,
   showNotification,
+  resolveCallBySr,
 }) {
   // ---------------------------------------------------------------------------
   // 1. STATE + REFS (restored synchronously from storage — explicit restore order)
@@ -507,6 +514,8 @@ export function useCallSession({
         [STORAGE_KEYS.CONCURRENT_CALL]: null,
       });
     }
+    // Tell the Call Chat page this call is over. The call log keys were just cleared above.
+    clearActiveCallSession({ resetCallLogKeys: false });
     return { success: !apiActionFailed };
   }, [
     CurrentCall?.sr,
@@ -519,6 +528,122 @@ export function useCallSession({
     endFollowUpCall,
     setRecordingTime,
     stopTimer,
+  ]);
+
+  // ---------------------------------------------------------------------------
+  // 5b. CROSS-PAGE SYNC (Call Log <-> Call Chat share ONE live call)
+  // ---------------------------------------------------------------------------
+  const handleEndCallRef = useRef(handleEndCall);
+  handleEndCallRef.current = handleEndCall;
+  const resolveCallBySrRef = useRef(resolveCallBySr);
+  resolveCallBySrRef.current = resolveCallBySr;
+  const currentCallSrRef = useRef(CurrentCall?.sr);
+  currentCallSrRef.current = CurrentCall?.sr;
+  const activeFollowUpRef = useRef(activeFollowUp);
+  activeFollowUpRef.current = activeFollowUp;
+
+  // Apply start / pause / resume / end done on the other page (or tab). The other page
+  // already called the API, so this only mirrors state locally.
+  useEffect(() => {
+    const applySession = (session) => {
+      const pausedSec = Math.floor((session.pausedDurationMs || 0) / 1000);
+      const paused = Boolean(session.isPaused);
+      const pauseStart = paused ? session.pausedAt || Date.now() : null;
+
+      callStartTimeRef.current = session.startTime;
+      pausedDurationRef.current = pausedSec;
+      pauseStartTimeRef.current = pauseStart;
+      isPausedRef.current = paused;
+      setPausedDuration(pausedSec);
+      setIsPaused(paused);
+
+      updateLocalStorage({
+        [STORAGE_KEYS.CALL_START_TIME]: String(session.startTime),
+        [STORAGE_KEYS.IS_PAUSED]: JSON.stringify(paused),
+        [STORAGE_KEYS.PAUSED_DURATION]: String(pausedSec),
+        [STORAGE_KEYS.PAUSE_START_TIME]: pauseStart ? String(pauseStart) : null,
+      });
+
+      setRecordingTime(calculateElapsedTime());
+      if (paused) {
+        stopTimer();
+        setIsTimerRunningState(false);
+      } else {
+        if (!timerRef.current) startTimer();
+        setIsTimerRunningState(true);
+      }
+
+      if (session.isFollowUp && session.followUpId) {
+        setActiveFollowUp({
+          followUpCallId: session.followUpId,
+          callLogId: session.sr,
+        });
+      } else if (activeFollowUpRef.current) {
+        setActiveFollowUp(null);
+      }
+
+      if (String(currentCallSrRef.current ?? "") !== String(session.sr)) {
+        const resolved = resolveCallBySrRef.current?.(session.sr);
+        if (resolved) setCurrentCall(resolved);
+      }
+    };
+
+    const initial = getActiveCallSession();
+    if (initial && initial.source !== "calllog") applySession(initial);
+
+    // skip(1) behaviour: ignore the replayed current value, react to later changes only.
+    let first = true;
+    const sub = activeCallSession$.subscribe((session) => {
+      if (first) {
+        first = false;
+        return;
+      }
+      if (session) {
+        if (session.source !== "calllog") applySession(session);
+      } else if (callStartTimeRef.current) {
+        handleEndCallRef.current({ skipApi: true });
+      }
+    });
+    return () => sub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A call started elsewhere can arrive before the call list has loaded, so resolve the
+  // CurrentCall again once it is available.
+  useEffect(() => {
+    const session = getActiveCallSession();
+    if (!session || CurrentCall?.sr) return;
+    const resolved = resolveCallBySrRef.current?.(session.sr);
+    if (resolved) setCurrentCall(resolved);
+  }, [CurrentCall?.sr, resolveCallBySr, setCurrentCall]);
+
+  // Publish this page's live call so the other page shows / controls the same one.
+  // Reads refs for timing so it never publishes stale state right after an external apply.
+  useEffect(() => {
+    const sr = activeFollowUp?.callLogId ?? CurrentCall?.sr;
+    if (!callStartTimeRef.current || !sr) return;
+    publishActiveCallSession(
+      {
+        sr,
+        followUpId: activeFollowUp?.followUpCallId ?? null,
+        isFollowUp: Boolean(activeFollowUp),
+        startTime: callStartTimeRef.current,
+        pausedDurationMs: (pausedDurationRef.current || 0) * 1000,
+        pausedAt: isPausedRef.current ? pauseStartTimeRef.current : null,
+        isPaused: isPausedRef.current,
+        callerName: CurrentCall?.callBy,
+        company: CurrentCall?.company,
+      },
+      "calllog",
+    );
+  }, [
+    CurrentCall?.sr,
+    CurrentCall?.callBy,
+    CurrentCall?.company,
+    activeFollowUp,
+    isPaused,
+    pausedDuration,
+    isTimerRunningState,
   ]);
 
   // ---------------------------------------------------------------------------

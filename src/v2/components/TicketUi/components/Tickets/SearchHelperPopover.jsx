@@ -427,7 +427,29 @@ const SearchHelperPopover = ({ onApplySearch, currentQuery = "" }) => {
 						</Box>
 					</Box>
 
-					{/* 5. Combinations */}
+					{/* 5. Field Search */}
+					<Box>
+						<Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 0.5 }}>
+							<Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#7E22CE" }}>
+								field: — Search one field
+							</Typography>
+							<Typography sx={{ fontSize: "0.68rem", color: "#6B778C" }}>
+								Use any ticket field name before the colon
+							</Typography>
+						</Box>
+						<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.6 }}>
+							<Pill
+								active={currentQuery.toLowerCase() === "description: babel"}
+								applied={appliedQuery === "description: babel"}
+								onClick={() => handleApply("description: Babel")}
+								mono
+							>
+								description: Babel
+							</Pill>
+						</Box>
+					</Box>
+
+					{/* 6. Combinations */}
 					<Box>
 						<Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 0.5 }}>
 							<Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#7E22CE" }}>

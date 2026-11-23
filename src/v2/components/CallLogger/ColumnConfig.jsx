@@ -1343,7 +1343,7 @@ export const getCallColumns = ({
     },
     {
       field: "TaskId",
-      headerName: "Move to iTask",
+      headerName: "Move to Tecopms",
       width: 170,
       sortable: false,
       align: "center",

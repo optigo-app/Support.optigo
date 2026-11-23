@@ -1,5 +1,7 @@
 import { BehaviorSubject } from 'rxjs';
 import { useSyncExternalStore } from 'react';
+import { toast } from 'sonner';
+import { getActiveCallSession } from '../../../rxjs/activeCallSessionStore';
 
 /**
  * RxJS Event Bus & Global State for NewCall Workspace
@@ -54,8 +56,33 @@ export const closeForwardCallModal = () => {
   forwardCallModal$.next({ open: false, call: null });
 };
 
+const hasRealDate = (d) => Boolean(d) && !String(d).startsWith('1900-01-01');
+
+/**
+ * A call is live while it has started but not ended, or it is the call in the shared live session.
+ * Its duration is still counting, so it must not be edited yet.
+ */
+export const isLiveCall = (call) => {
+  if (!call) return false;
+  const raw = call.rawRecord || call;
+  if (hasRealDate(raw.callClosed || raw.CallClosed)) return false;
+  const session = getActiveCallSession();
+  const isSessionCall =
+    Boolean(session) &&
+    !session.isFollowUp &&
+    String(session.sr) === String(raw.sr ?? raw.id ?? raw.CallLogid);
+  return hasRealDate(raw.callStart || raw.CallStart) || isSessionCall;
+};
+
+export const LIVE_CALL_EDIT_MESSAGE = 'This call is still running. End the call before editing its duration.';
+
 export const openDurationModal = (call) => {
+  if (isLiveCall(call)) {
+    toast.info(LIVE_CALL_EDIT_MESSAGE);
+    return false;
+  }
   durationModal$.next({ open: true, call });
+  return true;
 };
 
 export const closeDurationModal = () => {

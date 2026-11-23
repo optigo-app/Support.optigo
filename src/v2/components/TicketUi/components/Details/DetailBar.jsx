@@ -37,7 +37,6 @@ const DetailSection = styled(Box)(({ theme }) => ({
 
 const DetailBar = ({ ticket, onClose, handleClick, anchorEl, open, handleClose, inputValue, handleInputChange, HandleSave }) => {
 	const id = open ? "simple-popover" : undefined;
-
 	return (
 		<DetailSection
 			sx={{

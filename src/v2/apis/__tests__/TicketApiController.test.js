@@ -16,6 +16,7 @@ describe("TicketAPI.updateTicket", () => {
     expect(sentParams()).toMatchObject({ TicketNo: "J39001", StatusId: 7, AppId: 1, CateId: 1, CreatedBy: 23, Star: 0, IsSuggested: 1, SendEmail: 0 });
   });
 
+
   it("leaves unprovided fields blank and turns NaN into blank", async () => {
     await TicketAPI.updateTicket({ ticketNo: "J39001", createdBy: 23, sendEmail: NaN });
     expect(sentParams()).toMatchObject({ StatusId: "", AppId: "", PriorityId: "", SendEmail: "", Star: "", IsSuggested: "" });

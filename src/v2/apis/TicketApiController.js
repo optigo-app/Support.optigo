@@ -1,5 +1,13 @@
 import { BaseAPI } from "./BaseAPI";
 
+const normalizeTicketDescription = (description) => {
+  const value = String(description ?? "");
+  if (value.length > 500) {
+    throw new Error("Description cannot exceed 500 characters.");
+  }
+  return value;
+};
+
 class TicketAPI extends BaseAPI {
   static serviceName = "Ticket";
 
@@ -47,7 +55,7 @@ class TicketAPI extends BaseAPI {
   }
 
   // Create a new ticket ✅
-  static async createTicket({ callLogId, custId, projectId, cateId, appId, subject, description, createdBy, filePath }) {
+  static async createTicket({ callLogId, custId, projectId, cateId, appId, subject, instruction, createdBy, filePath }) {
     try {
       const params = {
         CallLogid: callLogId ?? "",
@@ -56,7 +64,7 @@ class TicketAPI extends BaseAPI {
         CateId: cateId ?? "",
         AppId: appId ?? "",
         Subject: subject ?? "",
-        Descr: description ?? "",
+        Descr: instruction ?? "",
         CreatedBy: createdBy ?? "",
         FilePath: filePath ?? "",
         IsClient: 0,
@@ -78,7 +86,7 @@ class TicketAPI extends BaseAPI {
   }
 
   // Update an existing ticket
-  static async updateTicket({ ticketNo, statusId, appId, cateId, priorityId, followUp1, keywords, sendEmail, promiseDate, createdBy, suggested, star, mainSubject }) {
+  static async updateTicket({ ticketNo, statusId, appId, cateId, priorityId, followUp1, keywords, sendEmail, promiseDate, createdBy, suggested, star, mainSubject, description }) {
     try {
       const formattedKeywords = Array.isArray(keywords)
         ? JSON.stringify(keywords)
@@ -106,6 +114,9 @@ class TicketAPI extends BaseAPI {
         IsSuggested: toBit(suggested),
         MainSubject: mainSubject || "",
         Star: toBit(star),
+        ...(description !== undefined && description !== null
+          ? { Description: normalizeTicketDescription(description) }
+          : {}),
       };
       // {
       //     const params = {

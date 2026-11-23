@@ -44,6 +44,7 @@ import {
 import { acceptCallModal$, feedbackPopover$ } from "../../rxjs/tableUiStore";
 import { MainLayoutheight } from "../_ui/HeaderWrapper";
 import { recordingTime$ } from "../../rxjs/callTimerStore";
+import { getActiveCallSession } from "../../rxjs/activeCallSessionStore";
 import { useCallSession } from "../../hooks/useCallSession";
 import { useQuickCallDesktopBridge } from "../../hooks/useQuickCallDesktopBridge";
 import {
@@ -220,6 +221,14 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     editFollowUpCall,
   } = useCallLog();
 
+  const callLogRef = useRef(callLog);
+  callLogRef.current = callLog;
+  const resolveCallBySr = useCallback(
+    (sr) =>
+      (callLogRef.current || []).find((c) => String(c?.sr) === String(sr)) || null,
+    [],
+  );
+
   const sidebarKey = useRef(Date.now()).current;
   const editDrawerKey = useRef(Date.now()).current;
   const [isLoading, setIsLoading] = useState(true);
@@ -266,7 +275,19 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     endFollowUpCall,
     sliders,
     showNotification,
+    resolveCallBySr,
   });
+
+  // Only one call can be live at a time across Call Log and Call Chat.
+  const isAnotherCallInProgress = useCallback(() => {
+    const active = getActiveCallSession();
+    if (!active) return false;
+    showNotification(
+      `Call #${active.sr} is already in progress. End it before starting another call.`,
+      "warning",
+    );
+    return true;
+  }, [showNotification]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingCallId, setPendingCallId] = useState(null);
@@ -697,6 +718,10 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
   }, []);
 
   const handleConfirmStartCall = useCallback(async () => {
+    if (isAnotherCallInProgress()) {
+      setIsDialogOpen(false);
+      return;
+    }
     // ⚡ Optimistic update: start timer & mark call active immediately (0ms delay)
     if (!sliders.recordMode) {
       handleToggleRecording();
@@ -734,6 +759,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
     startCall,
     showNotification,
     setCurrentCall,
+    isAnotherCallInProgress,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -742,6 +768,9 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
 
   const onStartCall = useCallback(
     async (callId) => {
+      if (isAnotherCallInProgress()) {
+        return { success: false, error: "Another call is already in progress." };
+      }
       // ⚡ Optimistic update: start timer & mark call active immediately (0ms delay)
       handleStartRecording();
       if (!sliders.recordMode) {
@@ -776,6 +805,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
       sliders.recordMode,
       handleToggleRecording,
       setCurrentCall,
+      isAnotherCallInProgress,
     ],
   );
 
@@ -862,6 +892,9 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
         showNotification("No call log ID found", "error");
         return { success: false, error: "No call log ID found." };
       }
+      if (isAnotherCallInProgress()) {
+        return { success: false, error: "Another call is already in progress." };
+      }
       try {
         const result = await startFollowUpCall(targetFuId, callLogId);
         if (!result.success) {
@@ -897,6 +930,7 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
       sliders.recordMode,
       handleToggleRecording,
       setActiveFollowUp,
+      isAnotherCallInProgress,
     ],
   );
 
@@ -1091,6 +1125,12 @@ const CallLogManagementApp = ({ showNotification = () => { } }) => {
           handleCancel={handleCancel}
           handleConfirmStartCall={handleConfirmStartCall}
           isDialogOpen={isDialogOpen}
+          isUnassigned={Boolean(
+            isDialogOpen &&
+              (callLog || []).some(
+                (c) => String(c?.sr) === String(pendingCallId) && !String(c?.receivedBy || "").trim(),
+              ),
+          )}
         />
 
         <PostCallReviewForm

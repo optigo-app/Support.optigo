@@ -24,6 +24,7 @@ import TimelineChartModal from "./TimelineChartModal";
 import CalendarMiniMapModal from "./CallGroupModal";
 import { isAnalysis$, toggleAnalysis, useSubject } from "../../../rxjs/layoutStore";
 import { HeaderHeight } from "../../_ui/HeaderWrapper";
+import { getMainDurationSeconds } from "../durationModal";
 
 // --- 1. HELPERS ---
 
@@ -259,7 +260,7 @@ const CallDurationList = ({ data = [], dateRange, RecordMode }) => {
 
       const entityName = viewMode === "receiver" ? receiverName : viewMode === "client" ? clientName : callType;
 
-      let seconds = parseDurationString(row.CallDuration);
+      let seconds = getMainDurationSeconds(row, row.CallDuration);
       let callCount = 1;
       let followUpSeconds = 0;
       let followUpCount = 0;

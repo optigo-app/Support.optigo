@@ -7,7 +7,7 @@ const topicTypes = ["Print", "Tag", "Excel", "Report"];
 const serviceTypes = ["Free", "Complementary", "Chargeable"];
 const onDemandOptions = ["yes", "No"];
 const paymentMethods = ["UPI", "Credit Card", "Debit Card", "Netbanking", "Wallet", "Cash", "EMI", "QR Code"];
-const paymentStatus = ["Unpaid", "Paid"];
+const paymentStatus = ["Unpaid", "Paid", "Payment Received", "Sent", "Partially Received", "Cancelled", "On Hold", "Pending"];
 
 export function FilterMenu({ showAdvanceFilter = false, open = false, setOpen, filters, setFilters, clearFilters }) {
   const { statusList } = usePointToDiscuss();

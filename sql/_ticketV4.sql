@@ -1,6 +1,6 @@
 USE [404146_CentralUser]
 GO
-/****** Object:  StoredProcedure [dbo].[CallLog_Ticketv4]    Script Date: 16-11-2026 09:50:54 ******/
+/****** Object:  StoredProcedure [dbo].[CallLog_Ticketv4]    Script Date: 21-11-2026 15:55:16 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -92,6 +92,7 @@ DECLARE
       ,@PromiseDate DATE = NULL 
       ,@Subject NVARCHAR(MAX) = ''
 	  ,@Descr NVARCHAR(MAX) = ''
+      ,@Description NVARCHAR(500) = NULL
       ,@CreatedBy INT = 0
       ,@TicketId INT = 0
       ,@StatusId INT = 0
@@ -155,6 +156,7 @@ BEGIN TRY
 				,CateId TINYINT 
 				,Subject NVARCHAR(MAX) 
 				,Descr NVARCHAR(MAX)
+				,Description NVARCHAR(500)
 				,CreatedBy INT 
 				,TicketId INT 
 				,StatusId INT 
@@ -223,6 +225,7 @@ BEGIN TRY
 						,CateId 
 						,Subject
 						,Descr 
+						,Description
 						,CreatedBy 
 						,TicketId  
     					,StatusId  
@@ -288,6 +291,7 @@ BEGIN TRY
 						,isnull(CateId ,0) as CateId
 						,isnull(Subject,'') as Subject
 						,isnull(Descr ,'') as Descr
+						,Description
 						,isnull(CreatedBy ,0) as CreatedBy
 						,isnull(TicketId  ,0) as TicketId
 						,isnull(StatusId  ,0) as StatusId
@@ -355,6 +359,7 @@ BEGIN TRY
 						,CateId TINYINT  '$.CateId'
 						,Subject NVARCHAR(MAX) '$.Subject'
 						,Descr NVARCHAR(MAX) '$.Descr'
+						,Description NVARCHAR(500) '$.Description'
 						,CreatedBy INT '$.CreatedBy'
 						,TicketId INT '$.TicketId'
     					,StatusId INT '$.StatusId'
@@ -423,6 +428,7 @@ BEGIN TRY
 						,@CateId 			= CateId 			
 						,@Subject 			= REPLACE(Subject, '''', '''''')
 						,@Descr				= REPLACE(Descr, '''', '''''')
+						,@Description		= REPLACE(Description, '''', '''''')
 						,@CreatedBy			= CreatedBy			
 						,@TicketId			= TicketId			
 						,@StatusId			= StatusId			
@@ -496,6 +502,7 @@ BEGIN TRY
 	PRINT CONCAT('@CateId : ',@CateId)
 	PRINT CONCAT('@Subject : ',@Subject)
 	PRINT CONCAT('@Descr : ',@Descr)
+	PRINT CONCAT('@Description : ',@Description)
 	---
 	PRINT CONCAT('@FilePath	: ', @FilePath)
 	PRINT CONCAT('@categoryname	: ',@categoryname)
@@ -793,7 +800,8 @@ BEGIN TRY
 								,ISNULL(ct.CallLogId,0) AS CallId
 								,ct.TicketNo
 								,ct.MainSubject
-								,ct.Subject AS subject 
+								,ct.Subject AS subject
+								,ISNULL(ct.Description, '''') AS Description
 								,ct.Descr AS instruction
 								,ct.Filepath AS attachment
 								,ct.FollowUp AS FollowUp
@@ -1105,8 +1113,9 @@ BEGIN TRY
 					,ISNULL(ct.CallLogId,0) AS CallId
 					,ct.TicketNo
 					,ct.MainSubject
-					,ct.Subject AS subject 
-					,ct.Descr AS instruction
+					,ct.Subject AS subject
+								,ISNULL(ct.Description, '''') AS Description
+								,ct.Descr AS instruction
 					,ct.Filepath AS attachment
 					,ct.FollowUp AS FollowUp
 					,ISNULL(CONVERT(VARCHAR, ct.PromiseDate, 120), '''') AS PromiseDate
@@ -1208,6 +1217,7 @@ BEGIN TRY
 							 ,AppId
 							 ,Subject
 							 ,Descr
+								 ,Description
 							 ,FilePath
 							 ,CreatedBy
 							 ,CreatedDate
@@ -1226,6 +1236,7 @@ BEGIN TRY
 							 ,  '+convert(nvarchar(255),isnull(@AppId,0)) +'
 							 ,	'''+convert(nvarchar(max), @Subject)+'''
 							 , '''+convert(nvarchar(max), @Descr)+'''
+							 , '''+convert(nvarchar(max), ISNULL(@Description, ''))+'''
 							 , '''+convert(nvarchar(max), @FilePath)+'''
 							 ,  '+convert(nvarchar(255),isnull(@CreatedBy,0)) +'
 							 ,	ISNULL([dbo].[UTC_CSERVERLOCAL](GETDATE()),GETDATE())
@@ -1310,7 +1321,8 @@ BEGIN TRY
 						,ISNULL(ct.CallLogId,0) AS CallId
 						,ct.TicketNo
 						,ct.MainSubject
-						,ct.Subject AS subject 
+						,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
 						,ct.Descr AS instruction
 						,ct.Filepath AS attachment
 						,ct.FollowUp AS FollowUp
@@ -1434,7 +1446,8 @@ BEGIN TRY
                             		SET
                             			 ct.StatusId     = CASE WHEN @StatusId <> 0 THEN @StatusId ELSE ct.StatusId END
                             			,ct.MainSubject  = CASE WHEN ISNULL(@MainSubject, '''') <> '''' THEN @MainSubject ELSE ct.MainSubject END
-                            			,ct.IsSuggested  = CASE WHEN @IsSuggested IS NOT NULL THEN @IsSuggested ELSE ct.IsSuggested END
+						,ct.Description = CASE WHEN @Description IS NOT NULL THEN @Description ELSE ct.Description END
+						,ct.IsSuggested  = CASE WHEN @IsSuggested IS NOT NULL THEN @IsSuggested ELSE ct.IsSuggested END
                             			,ct.Star         = CASE WHEN ISNULL(@Star, '''') <> '''' THEN @Star ELSE ct.Star END
                             			,ct.AppId        = CASE WHEN @AppId <> 0 THEN @AppId ELSE ct.AppId END
                             			,ct.CateId       = CASE WHEN @CateId <> 0 THEN @CateId ELSE ct.CateId END
@@ -1457,7 +1470,8 @@ BEGIN TRY
                             		SET
                             			 ct.StatusId     = CASE WHEN @StatusId <> 0 THEN @StatusId ELSE ct.StatusId END
                             			,ct.MainSubject  = CASE WHEN ISNULL(@MainSubject, '''') <> '''' THEN @MainSubject ELSE ct.MainSubject END
-                            			,ct.IsSuggested  = CASE WHEN @IsSuggested IS NOT NULL THEN @IsSuggested ELSE ct.IsSuggested END
+						,ct.Description = CASE WHEN @Description IS NOT NULL THEN @Description ELSE ct.Description END
+						,ct.IsSuggested  = CASE WHEN @IsSuggested IS NOT NULL THEN @IsSuggested ELSE ct.IsSuggested END
                             			,ct.Star         = CASE WHEN @Star IS NOT NULL THEN @Star ELSE ct.Star END
                             			,ct.AppId        = CASE WHEN @AppId <> 0 THEN @AppId ELSE ct.AppId END
                             			,ct.CateId       = CASE WHEN @CateId <> 0 THEN @CateId ELSE ct.CateId END
@@ -1569,7 +1583,8 @@ BEGIN TRY
 						,ISNULL(ct.CallLogId,0) AS CallId
 						,ct.TicketNo
 						,ct.MainSubject
-						,ct.Subject AS subject 
+						,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
 						,ct.Descr AS instruction
 						,ct.Filepath AS attachment
 						,ct.FollowUp AS FollowUp
@@ -1627,7 +1642,7 @@ BEGIN TRY
 				 N'@StatusId INT, @AppId INT, @CateId INT, @IsSuggested BIT, @PriorityId INT,
 				   @FollowUp NVARCHAR(MAX), @Keywords NVARCHAR(MAX), @CreatedBy INT,
 				   @SendEmail BIT, @TicketNo NVARCHAR(255), @MainSubject NVARCHAR(MAX), 
-				   @Star BIT, @PromiseDate NVARCHAR(50)'
+				   @Star BIT, @PromiseDate NVARCHAR(50), @Description NVARCHAR(500)'
 				 ,@StatusId     = @StatusId
 				 ,@AppId        = @AppId
 				 ,@CateId       = @CateId
@@ -1640,7 +1655,8 @@ BEGIN TRY
 				 ,@TicketNo     = @TicketNo
 				 ,@MainSubject  = @MainSubject
 				 ,@Star         = @Star
-				 ,@PromiseDate  = @PromiseDate;
+				 ,@PromiseDate  = @PromiseDate
+                 ,@Description = @Description;
 
 	END
 	ELSE IF(ISNULL(@mode,'')='ADDComment')
@@ -1756,7 +1772,8 @@ BEGIN TRY
 						,ISNULL(ct.CallLogId,0) AS CallId
 						,ct.TicketNo
 						,ct.MainSubject
-						,ct.Subject AS subject 
+						,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
 						,ct.Descr AS instruction
 						,ct.Filepath AS attachment
 						,ct.FollowUp AS FollowUp
@@ -1871,7 +1888,8 @@ BEGIN TRY
 						,ISNULL(ct.CallLogId,0) AS CallId
 						,ct.TicketNo
 						,ct.MainSubject
-						,ct.Subject AS subject 
+						,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
 						,ct.Descr AS instruction
 						,ct.Filepath AS attachment
 						,ct.FollowUp AS FollowUp
@@ -1939,8 +1957,9 @@ BEGIN TRY
 					,ISNULL(ct.CallLogId,0) AS CallId
 					,ct.TicketNo
 					,ct.MainSubject
-					,ct.Subject AS subject 
-					,ct.Descr AS instruction
+					,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
+						,ct.Descr AS instruction
 					,ct.Filepath AS attachment
 					,ct.FollowUp AS FollowUp
 					,ISNULL(CONVERT(VARCHAR, ct.PromiseDate, 120), '''') AS PromiseDate
@@ -2140,8 +2159,9 @@ BEGIN TRY
 					,ISNULL(ct.CallLogId,0) AS CallId
 					,ct.TicketNo
 					,ct.MainSubject
-					,ct.Subject AS subject 
-					,ct.Descr AS instruction
+					,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
+						,ct.Descr AS instruction
 					,ct.Filepath AS attachment
 					,ct.FollowUp AS FollowUp
 					,ISNULL(CONVERT(VARCHAR, ct.PromiseDate, 120), '''') AS PromiseDate
@@ -2236,8 +2256,9 @@ BEGIN TRY
 					,ISNULL(ct.CallLogId,0) AS CallId
 					,ct.TicketNo
 					,ct.MainSubject
-					,ct.Subject AS subject 
-					,ct.Descr AS instruction
+					,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
+						,ct.Descr AS instruction
 					,ct.Filepath AS attachment
 					,ct.FollowUp AS FollowUp
 					,ISNULL(CONVERT(VARCHAR, ct.PromiseDate, 120), '''') AS PromiseDate
@@ -2369,8 +2390,9 @@ BEGIN TRY
 					,ISNULL(ct.CallLogId,0) AS CallId
 					,ct.TicketNo
 					,ct.MainSubject
-					,ct.Subject AS subject 
-					,ct.Descr AS instruction
+					,ct.Subject AS subject
+						,ISNULL(ct.Description, '''') AS Description
+						,ct.Descr AS instruction
 					,ct.Filepath AS attachment
 					,ct.FollowUp AS FollowUp
 					,ISNULL(CONVERT(VARCHAR, ct.PromiseDate, 120), '''') AS PromiseDate
@@ -2521,6 +2543,7 @@ BEGIN TRY
 					OR ct.Subject LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
 					OR ct.MainSubject LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
 					OR ct.Descr LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
+					OR ct.Description LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
 					OR ct.FollowUp LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
 					OR ct.Keywords LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
 					OR ct.CustName LIKE ''%' + convert(nvarchar(MAX), @SearchTerm) + '%''
@@ -3219,4 +3242,3 @@ BEGIN CATCH
 	EXECUTE [GetErrlog] @appuserid,@FROMDate,@DBNAME,@spname,@IPAddress,@FormName,'CallLog_Ticketv4',@mode;
 END CATCH;
 END
-       

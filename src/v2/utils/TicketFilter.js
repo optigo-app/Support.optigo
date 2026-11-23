@@ -107,7 +107,12 @@ const DATE_KEYS_TO_EXCLUDE = new Set(["CreatedOn", "UpdatedAt", "PromiseDate", "
  * @param {boolean} [meFilter] - when true, only show tickets where the current user is mentioned
  */
 export function filterTickets(tickets = [], filters = {}, meFilter = false) {
-	const rawQuery = (filters?.searchQuery || "").trim();
+	const enteredQuery = (filters?.searchQuery || "").trim();
+	const fieldSearchMatch = enteredQuery.match(/^([\w.-]+):\s*(.+)$/);
+	const fieldSearch = fieldSearchMatch
+		? { key: fieldSearchMatch[1].toLowerCase(), value: fieldSearchMatch[2].trim().toLowerCase() }
+		: null;
+	const rawQuery = fieldSearch ? "" : enteredQuery;
 
 	// Parse search query into:
 	// - soloMentionQueries (!name): matches tickets where ONLY that person is mentioned (strictly 1 person)
@@ -162,6 +167,11 @@ export function filterTickets(tickets = [], filters = {}, meFilter = false) {
 	return (tickets || [])
 		.filter((ticket) => {
 			if (!ticket) return false;
+			if (fieldSearch) {
+				const matchingEntry = Object.entries(ticket).find(([key]) => key.toLowerCase() === fieldSearch.key);
+				const fieldValue = matchingEntry?.[1];
+				if (fieldValue == null || !String(fieldValue).toLowerCase().includes(fieldSearch.value)) return false;
+			}
 
 			// 1. Project Code / Company Name filter
 			if (filters?.projectCode) {

@@ -27,6 +27,12 @@ export const getPaymentStatus = (status) => {
   const statusMap = {
     Unpaid: { label: "Unpaid", bgColor: "#d1ecf1", textColor: "#0c5460" }, // light blue
     Paid: { label: "Paid", bgColor: "#d4edda", textColor: "#155724" }, // light green
+    "Payment Received": { label: "Payment Received", bgColor: "#d4edda", textColor: "#155724" },
+    Sent: { label: "Sent", bgColor: "#d6e0f5", textColor: "#1a237e" },
+    "Partially Received": { label: "Partially Received", bgColor: "#fff3cd", textColor: "#856404" },
+    Cancelled: { label: "Cancelled", bgColor: "#f8d7da", textColor: "#721c24" },
+    "On Hold": { label: "On Hold", bgColor: "#e2e3e5", textColor: "#383d41" },
+    Pending: { label: "Pending", bgColor: "#fff3cd", textColor: "#856404" },
     Free: { label: "Free", bgColor: "#e2f0cb", textColor: "#33691e" }, // soft lime
     Invoiced: { label: "Invoiced", bgColor: "#d6e0f5", textColor: "#1a237e" }, // soft indigo
   };

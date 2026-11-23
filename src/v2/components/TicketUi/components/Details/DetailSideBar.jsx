@@ -18,6 +18,7 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 		const rawKeywords = t?.Keywords || t?.keywords;
 		return {
 			Status: t?.Status || "",
+			Description: t?.Description || "",
 			category: t?.category || "",
 			Priority: t?.Priority || "",
 			PromiseDate: t?.PromiseDate || "",
@@ -28,7 +29,7 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 		};
 	};
 
-	const initialState = useMemo(() => getInitialState(ticket), [ticket?.TicketNo, ticket?.Keywords, ticket?.keywords, ticket?.UpdatedAt]);
+	const initialState = useMemo(() => getInitialState(ticket), [ticket?.TicketNo, ticket?.Keywords, ticket?.keywords, ticket?.UpdatedAt, ticket?.Description]);
 	const [ticketState, setTicketState] = useState(initialState);
 	const [isDirty, setIsDirty] = useState(false);
 
@@ -45,6 +46,7 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 
 		return (
 			normalize(current.Status) !== normalize(baseline.Status) ||
+			normalize(current.Description) !== normalize(baseline.Description) ||
 			normalize(current.category) !== normalize(baseline.category) ||
 			normalize(current.Priority) !== normalize(baseline.Priority) ||
 			normalize(current.PromiseDate) !== normalize(baseline.PromiseDate) ||
@@ -191,6 +193,7 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 		const tagsChanged = [...(ticketState.tags || [])].sort().join("/") !== [...(initialState.tags || [])].sort().join("/");
 		const payload = {
 			Status: idIfChanged("Status", "Status"),
+			Description: ticketState.Description !== initialState.Description ? ticketState.Description : undefined,
 			appname: idIfChanged("appname", "App name"),
 			category: idIfChanged("category", "Category"),
 			Priority: idIfChanged("Priority", "Priority"),
@@ -373,6 +376,30 @@ const DetailSideBar = ({ ticket, IsClosed }) => {
 						</Select>
 					</Box>
 				))}
+				<Box sx={{ mb: 1 }}>
+					<Typography variant="caption" sx={{ color: "#5e6c84" }}>
+						DESCRIPTION
+					</Typography>
+					<TextField
+						size="small"
+						fullWidth
+						multiline
+						rows={3}
+						variant="standard"
+						value={ticketState.Description}
+						inputProps={{ maxLength: 500 }}
+						helperText={`${ticketState.Description.length}/500 characters`}
+						onChange={handleChange("Description", [])}
+						sx={{
+							background: "#fff",
+							borderRadius: 1,
+							fontSize: 14,
+							px: 1,
+							py: 0.5,
+							boxShadow: "inset 0 0 0 1px #dfe1e6",
+						}}
+					/>
+				</Box>
 				{/* PROMISE DATE */}
 				<Box sx={{ mb: 1 }}>
 					<Typography variant="caption" sx={{ color: "#5e6c84" }}>

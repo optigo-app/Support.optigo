@@ -1,5 +1,12 @@
 import { BehaviorSubject, combineLatest } from 'rxjs';
-import { map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { map, debounceTime, distinctUntilChanged, skip } from 'rxjs/operators';
+import {
+  activeCallSession$,
+  getActiveCallSession,
+  isSameSession,
+  publishActiveCallSession,
+  clearActiveCallSession,
+} from '../../../rxjs/activeCallSessionStore';
 import { formatFriendlyTime, getLocalISOString } from '../utils/dateUtils';
 import { getCallSource } from '../utils/callSource';
 import {
@@ -134,6 +141,65 @@ export function normalizeCallRecord(rec, idx = 0) {
   };
 }
 
+const LEGACY_VOIP_SESSION_KEY = 'newcall_active_voip_session';
+
+// Chat's live call -> shared session (the part both pages must agree on).
+const activeCallToSession = (active) => ({
+  sr: active.sr,
+  followUpId: active.followUpId || null,
+  isFollowUp: Boolean(active.isFollowUp),
+  startTime: active.startTime,
+  pausedDurationMs: active.pausedDurationMs || 0,
+  pausedAt: active.pausedAt || null,
+  isPaused: Boolean(active.isPaused),
+  callerName: active.callerName,
+  company: active.company,
+  isForwarded: Boolean(active.isForwarded),
+  ownerId: active.ownerId || null,
+  ownerName: active.ownerName || '',
+  callTitle: active.callTitle,
+});
+
+// Shared session -> chat's live call. Keeps local-only fields (mute/speaker/title) for the same call.
+const sessionToActiveCall = (session, previous) => {
+  const same =
+    previous &&
+    String(previous.sr) === String(session.sr) &&
+    String(previous.followUpId || '') === String(session.followUpId || '');
+  const pausedDurationMs = session.pausedDurationMs || 0;
+  const elapsedAt = session.isPaused && session.pausedAt ? session.pausedAt : Date.now();
+  return {
+    ...(same ? previous : {}),
+    callId: same ? previous.callId : `live-${session.startTime}`,
+    sr: session.sr,
+    followUpId: session.followUpId || null,
+    isFollowUp: Boolean(session.isFollowUp),
+    isForwarded: Boolean(session.isForwarded),
+    ownerId: session.ownerId || null,
+    ownerName: session.ownerName || '',
+    callTitle:
+      session.callTitle ||
+      (session.isFollowUp ? `Follow-Up Call #${session.followUpId || ''}` : `Primary Call #${session.sr || ''}`),
+    callerName: session.callerName || (same ? previous.callerName : '') || 'Client',
+    company: session.company || (same ? previous.company : '') || 'Unknown',
+    startTime: session.startTime,
+    durationSeconds: Math.max(0, Math.floor((elapsedAt - session.startTime - pausedDurationMs) / 1000)),
+    pausedDurationMs,
+    pausedAt: session.pausedAt || null,
+    isMuted: same ? Boolean(previous.isMuted) : false,
+    isSpeaker: same ? previous.isSpeaker !== false : true,
+    isPaused: Boolean(session.isPaused),
+  };
+};
+
+const writeLegacyVoipSession = (active) => {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    if (active) localStorage.setItem(LEGACY_VOIP_SESSION_KEY, JSON.stringify(active));
+    else localStorage.removeItem(LEGACY_VOIP_SESSION_KEY);
+  } catch (_) {}
+};
+
 /**
  * High-Performance RxJS Reactive Call Stream Service
  */
@@ -155,15 +221,26 @@ class CallStreamService {
     this.deletedCommentIds = new Map();
     this.newCallThreadIds = new Set();
     let savedCall = null;
-    if (typeof window !== 'undefined' && window.localStorage) {
+    const sharedSession = getActiveCallSession();
+    if (sharedSession) {
+      // A call started on the Call Log page (or in another tab) is the live call here too.
+      savedCall = sessionToActiveCall(sharedSession, null);
+      writeLegacyVoipSession(savedCall);
+    } else if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        const raw = localStorage.getItem('newcall_active_voip_session');
+        const raw = localStorage.getItem(LEGACY_VOIP_SESSION_KEY);
         if (raw) {
           savedCall = JSON.parse(raw);
         }
       } catch (_) {}
     }
     this.activeCall$ = new BehaviorSubject(savedCall);
+    if (savedCall && !sharedSession && savedCall.sr != null && savedCall.startTime) {
+      publishActiveCallSession(activeCallToSession(savedCall), 'callchat');
+    }
+
+    // Mirror changes made on the other page (start / pause / resume / end).
+    activeCallSession$.pipe(skip(1)).subscribe((session) => this.applySharedSession(session));
 
     // Debounced search observable (120ms)
     this.debouncedSearch$ = this.searchQuery$.pipe(
@@ -921,6 +998,21 @@ class CallStreamService {
     this.customMessages$.next(updated);
   }
 
+  // Apply a live-call change that came from the other page / tab.
+  applySharedSession(session) {
+    const current = this.activeCall$.getValue();
+    if (session) {
+      if (session.source === 'callchat') return;
+      if (current && isSameSession(activeCallToSession(current), session)) return;
+      const mapped = sessionToActiveCall(session, current);
+      writeLegacyVoipSession(mapped);
+      this.activeCall$.next(mapped);
+    } else if (current) {
+      writeLegacyVoipSession(null);
+      this.activeCall$.next(null);
+    }
+  }
+
   // VoIP call start / update / end
   startCall(thread, options = {}) {
     // Keep one authoritative timer/session at a time. Starting another call
@@ -965,6 +1057,7 @@ class CallStreamService {
       } catch (_) {}
     }
     this.activeCall$.next(active);
+    publishActiveCallSession(activeCallToSession(active), 'callchat');
     return active;
   }
 
@@ -981,6 +1074,28 @@ class CallStreamService {
       } catch (_) {}
     }
     this.activeCall$.next(merged);
+    // durationSeconds ticks every second but is not shared, so this is a no-op unless pause state changed.
+    publishActiveCallSession(activeCallToSession(merged), 'callchat');
+  }
+
+  // Pause / resume the live timer (shared by the floating widget, call cards and the Call Log page).
+  pauseCall() {
+    const current = this.activeCall$.getValue();
+    if (!current || current.isPaused) return false;
+    this.updateActiveCall({ isPaused: true, pausedAt: Date.now() });
+    return true;
+  }
+
+  resumeCall() {
+    const current = this.activeCall$.getValue();
+    if (!current || !current.isPaused) return false;
+    const pauseMs = current.pausedAt ? Math.max(0, Date.now() - current.pausedAt) : 0;
+    this.updateActiveCall({
+      isPaused: false,
+      pausedAt: null,
+      pausedDurationMs: (current.pausedDurationMs || 0) + pauseMs,
+    });
+    return true;
   }
 
   endCall() {
@@ -992,6 +1107,7 @@ class CallStreamService {
       } catch (_) {}
     }
     this.activeCall$.next(null);
+    clearActiveCallSession();
     return duration;
   }
 

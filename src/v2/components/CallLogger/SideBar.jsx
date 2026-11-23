@@ -51,6 +51,8 @@ export default function CallLogDrawer({
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [formKey, setFormKey] = useState(0);
   const formDirtyRef = useRef(false);
+  const customerHighlightedRef = useRef(false);
+  const descriptionInputRef = useRef(null);
   const {
     addCall,
     APPNAME_LIST,
@@ -564,12 +566,30 @@ export default function CallLogDrawer({
               freeSolo
               openOnFocus
               options={customerSuggestions}
+              // The typed text is the source of truth: the user may keep what they typed
+              // (e.g. "rajan1") even when a saved suggestion ("rajan") exists.
+              inputValue={formData.callBy || ""}
               value={formData.callBy || ""}
+              filterOptions={(options) => options}
+              autoHighlight={false}
+              autoSelect={false}
+              clearOnBlur={false}
+              onHighlightChange={(event, option) => {
+                customerHighlightedRef.current = Boolean(option);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                // Enter accepts the text (or the arrow-selected suggestion) and moves on to the next field.
+                setTimeout(() => descriptionInputRef.current?.focus(), 0);
+              }}
               onChange={(event, newValue) => {
-                updateFormData((prev) => ({ ...prev, callBy: newValue || "" }));
+                const next = typeof newValue === "string" ? newValue : newValue?.label || "";
+                updateFormData((prev) => ({ ...prev, callBy: next }));
                 setErrors((prev) => ({ ...prev, callBy: "" }));
               }}
-              onInputChange={(event, newInputValue) => {
+              onInputChange={(event, newInputValue, reason) => {
+                // "reset" is MUI re-syncing text from a selected option; never let it overwrite typing.
+                if (reason === "reset") return;
                 updateFormData((prev) => ({ ...prev, callBy: newInputValue }));
                 setErrors((prev) => ({ ...prev, callBy: "" }));
                 // Fetch suggestions from IndexedDB (including empty/top hits)
@@ -598,6 +618,7 @@ export default function CallLogDrawer({
             <TextField
               fullWidth
               label="Description"
+              inputRef={descriptionInputRef}
               value={formData?.description || ""}
               onChange={handleTextFieldChange("description")}
               margin="normal"

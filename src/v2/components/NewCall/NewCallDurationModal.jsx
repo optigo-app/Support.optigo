@@ -25,6 +25,8 @@ import {
   durationModal$,
   closeDurationModal,
   useNewCallSubject,
+  isLiveCall,
+  LIVE_CALL_EDIT_MESSAGE,
 } from "./rxjs/newCallEvents";
 import { callStreamService } from "./services/callStreamService";
 
@@ -252,6 +254,10 @@ export default function NewCallDurationModal() {
   };
 
   const handleSave = async () => {
+    if (isLiveCall(targetCall)) {
+      toast.info(LIVE_CALL_EDIT_MESSAGE);
+      return;
+    }
     try {
       if (!callStart || !callEnd || !callStart.isValid() || !callEnd.isValid()) {
         // toast.error("Please enter valid start and end dates");

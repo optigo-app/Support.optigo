@@ -180,7 +180,7 @@ const SearchBar = ({ filterTicketCount }) => {
 						) : null
 					}
 					sx={meOn ? { "& .MuiInputBase-input": { paddingLeft: "4px" } } : undefined}
-					placeholder="Search tickets ... (@me, !name, #tag)"
+					placeholder="Search tickets ... (field:value, @me, !name, #tag)"
 					inputProps={{ "aria-label": "search tickets" }}
 				/>
 			</Badge>

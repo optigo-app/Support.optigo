@@ -412,12 +412,13 @@ export default function FollowUpCallCard({ followup = {}, callerName = 'Client' 
   const handleTogglePause = async (e) => {
     e?.stopPropagation();
     try {
+      // Update the live timer first so the button reacts instantly, then tell the server.
       if (isPaused) {
-        if (resumeFollowUpCall) await resumeFollowUpCall(fuId, callLogId);
         callStreamService.resumeCall();
+        if (resumeFollowUpCall) await resumeFollowUpCall(fuId, callLogId);
       } else {
-        if (pauseFollowUpCall) await pauseFollowUpCall(fuId, callLogId);
         callStreamService.pauseCall();
+        if (pauseFollowUpCall) await pauseFollowUpCall(fuId, callLogId);
       }
     } catch (err) {
       console.error('Error toggling pause:', err);

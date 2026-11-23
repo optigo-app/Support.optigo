@@ -9,7 +9,7 @@ import {
   Avatar,
   Badge,
   Chip,
-  Button,
+
   Select,
   MenuItem,
   FormControl,
@@ -192,12 +192,6 @@ export default function ForwardedCallDrawer({ open, onClose, forwardedCalls = []
             <Tab label="Direct" />
             <Tab label="Overall" />
           </Tabs>
-          <Button
-            size="small"
-            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#0052CC' }}
-          >
-            Mark all as read
-          </Button>
         </Box>
       </Box>
 

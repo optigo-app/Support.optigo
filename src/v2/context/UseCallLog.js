@@ -825,6 +825,27 @@ export function CallLogProvider(props) {
   const startCall = useCallback(
     async (callId) => {
       try {
+        // A call nobody has taken yet (no "Received By") is assigned to the user who
+        // starts it, exactly like accepting it from the queue, and then started.
+        const row = (callLogRef.current || []).find((c) => String(c?.sr) === String(callId));
+        if (row && !String(row.receivedBy || "").trim()) {
+          const accepted = await CallLogApi.AcceptCall({
+            callLogId: callId,
+            createdBy: user?.id,
+          });
+          const acceptStatus = accepted?.rd?.[0];
+          if (acceptStatus?.stat === 0 || acceptStatus?.stat_code === 1001) {
+            return {
+              success: false,
+              error: new Error(
+                acceptStatus?.stat_msg ||
+                  "This call could not be assigned to you. It may already be taken.",
+              ),
+              errorCode: acceptStatus?.stat_code,
+            };
+          }
+        }
+
         const data = await CallLogApi.startCall({
           callLogId: callId,
           createdBy: user?.id,

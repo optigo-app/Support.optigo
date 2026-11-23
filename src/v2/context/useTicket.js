@@ -229,7 +229,7 @@ export const TicketProvider = ({ children }) => {
           appId: ticketData?.appname,
           cateId: ticketData?.category,
           custId: ticketData?.userName,
-          description: ticketData?.instruction,
+          instruction: ticketData?.instruction,
           projectId: ticketData?.projectCode,
           subject: ticketData?.subject,
           filePath:
@@ -299,6 +299,7 @@ export const TicketProvider = ({ children }) => {
           suggested: updatedFields?.suggested ?? current?.isSuggested,
           star: updatedFields?.Star ?? current?.star,
           mainSubject: updatedFields?.MainSubject,
+          description: updatedFields?.Description ?? current?.Description,
         });
         lastUpdatedTicketNoRef.current = TicketId;
         setLastUpdatedTicketNo(TicketId);

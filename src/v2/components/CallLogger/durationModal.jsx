@@ -13,6 +13,8 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import RunningStatusDots from "../_ui/RunningCall";
 import { isForwardedCall, parseFollowUpList } from "../../utils/callLogUtils";
+import { toast } from "sonner";
+import { isLiveCall, LIVE_CALL_EDIT_MESSAGE } from "../NewCall/rxjs/newCallEvents";
 
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
@@ -77,6 +79,18 @@ const formatSecondsToHHMMSS = (totalSeconds) => {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+};
+
+const isRealDate = (d) => Boolean(d) && !(typeof d === "string" && d.startsWith("1900-01-01")) && dayjs(d).isValid();
+
+// The cell label is computed from callStart/callClosed, so the tooltip and totals must use the
+// same source. The server CallDuration string is only a fallback when timestamps are unusable.
+export const getMainDurationSeconds = (row, serverValue) => {
+  if (isRealDate(row?.callStart) && isRealDate(row?.callClosed)) {
+    const diff = dayjs(row.callClosed).diff(dayjs(row.callStart), "second");
+    if (diff >= 0) return diff;
+  }
+  return parseDurationHHMMSS(serverValue || "00:00:00");
 };
 
 const parseDuration = (text) => {
@@ -221,6 +235,10 @@ const CallDurationPopover = ({ value, onEditCall }) => {
 
   const handleClick = (e) => {
     e.stopPropagation();
+    if (isLiveCall(value?.row)) {
+      toast.info(LIVE_CALL_EDIT_MESSAGE);
+      return;
+    }
     setAnchorEl(buttonRef.current);
     setManualEdit(false);
   };
@@ -379,10 +397,10 @@ const CallDurationPopover = ({ value, onEditCall }) => {
               >
                 <PremiumTooltip
                   title={(() => {
-                    const mainDuration = value?.value || "00:00:00";
+                    const mainSec = getMainDurationSeconds(value?.row, value?.value);
+                    const mainDuration = formatSecondsToHHMMSS(mainSec);
                     const followUps = parseFollowUpList(value?.row?.FollowUpList);
 
-                    const mainSec = parseDurationHHMMSS(mainDuration);
                     let totalSeconds = mainSec;
 
                     const completedCalls = followUps.filter((fu) => {
@@ -498,7 +516,8 @@ const CallDurationPopover = ({ value, onEditCall }) => {
                   const followUps = parseFollowUpList(value?.row?.FollowUpList);
                   let followUpCount = 0;
                   let forwardedCount = 0;
-                  let totalSeconds = parseDurationHHMMSS(value?.value || "00:00:00");
+                  const mainSeconds = getMainDurationSeconds(value?.row, value?.value);
+                  let totalSeconds = mainSeconds;
 
                   followUps.forEach((fu) => {
                     const fuDur = fu.CallDuration || "00:00:00";
@@ -518,7 +537,7 @@ const CallDurationPopover = ({ value, onEditCall }) => {
                   if (forwardedCount > 0) parts.push(`${forwardedCount} Forwarded`);
                   const tooltipLabel = totalSubCalls > 0
                     ? `Total: ${formatSecondsToHHMMSS(totalSeconds)} (Main + ${parts.join(" + ")})`
-                    : `Call Duration: ${value?.value}`;
+                    : `Call Duration: ${formatSecondsToHHMMSS(mainSeconds)}`;
 
                   return (
                     <PremiumTooltip title={tooltipLabel}>

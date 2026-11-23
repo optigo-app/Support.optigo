@@ -13,6 +13,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { Virtuoso } from "react-virtuoso";
 import { format, parseISO, isValid } from "date-fns";
+import { getMainDurationSeconds } from "../durationModal";
 
 // --- HELPERS ---
 const parseDurationString = (timeStr) => {
@@ -82,7 +83,7 @@ const CallItem = ({ call, isLast }) => {
 
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Typography variant="body2" sx={{ color: "#475569", fontWeight: 500 }}>
-            {call.time} • {formatDuration(parseDurationString(call.CallDuration))}
+            {call.time} • {formatDuration(getMainDurationSeconds(call, call.CallDuration))}
           </Typography>
           {call.ticket && (
              <Box sx={{ bgcolor: '#eff6ff', px: 1, borderRadius: 0.5, border: '1px solid #dbeafe' }}>
@@ -201,7 +202,7 @@ const CallDetailModal = ({ open, onClose, calls, title }) => {
   let totalFollowUps = 0;
   let totalForwarded = 0;
   const totalSeconds = calls.reduce((acc, call) => {
-    let callSecs = parseDurationString(call.CallDuration);
+    let callSecs = getMainDurationSeconds(call, call.CallDuration);
     try {
       if (call.FollowUpList) {
         const followUps = JSON.parse(call.FollowUpList);

@@ -324,7 +324,7 @@ export default function FloatingCallWidget() {
             {durationStr}
           </Typography>
 
-          <Tooltip title="Click & Drag Anywhere">
+          <Tooltip title="Click & Drag Anywhere" PopperProps={{ sx: { zIndex: 10000 } }}>
             <Box sx={{ cursor: 'grab', display: 'flex', opacity: 0.6, '&:hover': { opacity: 1 } }}>
               <DotsSixVertical size={16} color="#FFFFFF" weight="bold" />
             </Box>
@@ -416,7 +416,7 @@ export default function FloatingCallWidget() {
         </Button>
 
         {/* Pause / Resume Button */}
-        <Tooltip title={activeCall.isPaused ? 'Resume Timer' : 'Pause Timer'}>
+        <Tooltip title={activeCall.isPaused ? 'Resume Timer' : 'Pause Timer'} PopperProps={{ sx: { zIndex: 10000 } }}>
           <IconButton
             size="small"
             onClick={handleTogglePause}
@@ -436,7 +436,7 @@ export default function FloatingCallWidget() {
         </Tooltip>
 
         {/* Microphone Mute Toggle */}
-        <Tooltip title={activeCall.isMuted ? 'Unmute' : 'Mute'}>
+        <Tooltip title={activeCall.isMuted ? 'Unmute' : 'Mute'} PopperProps={{ sx: { zIndex: 10000 } }}>
           <IconButton
             size="small"
             onClick={handleToggleMute}
@@ -454,7 +454,7 @@ export default function FloatingCallWidget() {
         </Tooltip>
 
         {/* Add Participant Button */}
-        <Tooltip title="Add Participant">
+        <Tooltip title="Add Participant" PopperProps={{ sx: { zIndex: 10000 } }}>
           <IconButton
             size="small"
             onClick={handleAddParticipant}
