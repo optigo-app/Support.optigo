@@ -523,7 +523,7 @@ export const mockOnDemandTypes = [
 
 export const mockPaymentStatuses = [
   { label: "Unpaid", value: "Unpaid" },
-  { label: "Paid", value: "Paid" },
+  // { label: "Paid", value: "Paid" },
   { label: "Payment Received", value: "Payment Received" },
   { label: "Sent", value: "Sent" },
   { label: "Partially Received", value: "Partially Received" },
